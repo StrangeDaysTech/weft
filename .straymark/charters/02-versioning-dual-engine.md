@@ -1,6 +1,6 @@
 ---
 charter_id: CHARTER-02-versioning-dual-engine
-status: declared
+status: in-progress
 effort_estimate: L
 trigger: "CHARTER-01 cerrado (binding seguro con gates P-I/P-II verdes en main). tasks.md fija T022–T035 (US1 versionado + US5 dual-engine) como el segundo y último corte de M0: cierra el hito activando los gates de determinismo (P-III) y dual-engine (P-IV)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +10,7 @@ design_provenance: new
 
 # Charter: Versionado content-addressed y dual-engine
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Segundo y último corte de M0 (T022–T035): capa de dominio de versionado engine-agnóstica (US1) + adaptador Loro y suite dual-engine (US5). Cierra M0.
 

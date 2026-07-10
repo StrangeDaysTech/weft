@@ -17,11 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Weft.Versioning/Weft.Versioning.csproj" />
-    <ProjectReference Include="../../src/Weft.Loro/Weft.Loro.csproj" />
   </ItemGroup>
 
-  <!-- Copia el cdylib compilado por cargo al layout runtimes/<rid>/native/ para que el resolver
-       de Weft.Core lo encuentre (la suite corre sobre YrsEngine, y en CHARTER-02 también Loro). -->
   <Target Name="CopyWeftNativeForTests" AfterTargets="Build">
     <PropertyGroup>
       <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_WeftRid>

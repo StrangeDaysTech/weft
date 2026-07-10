@@ -26,7 +26,18 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use yrs::updates::decoder::Decode;
 use yrs::updates::encoder::Encode;
-use yrs::{Doc, GetString, ReadTxn, StateVector, Text, Transact, Update};
+use yrs::{Doc, GetString, OffsetKind, Options, ReadTxn, StateVector, Text, Transact, Update};
+
+/// Crea un `Doc` con índices en **UTF-16 code units** (no el default de yrs, que es bytes UTF-8).
+/// Consistente con `string` de .NET y con Yjs (clientes de editor); crítico para que
+/// insert/delete por índice sean correctos con texto no-ASCII.
+fn new_doc() -> Doc {
+    let opts = Options {
+        offset_kind: OffsetKind::Utf16,
+        ..Options::default()
+    };
+    Doc::with_options(opts)
+}
 
 // ── Códigos de estado (deben coincidir con weft_ffi.h y el mapeo de excepciones en C#) ──
 pub const WEFT_OK: i32 = 0;
@@ -122,7 +133,7 @@ pub unsafe extern "C" fn weft_doc_new(out_doc: *mut *mut Doc) -> i32 {
         if out_doc.is_null() {
             return WEFT_ERR_NULL_ARG;
         }
-        *out_doc = Box::into_raw(Box::new(Doc::new()));
+        *out_doc = Box::into_raw(Box::new(new_doc()));
         WEFT_OK
     })
 }
@@ -148,7 +159,7 @@ pub unsafe extern "C" fn weft_doc_load(
             Ok(u) => u,
             Err(_) => return WEFT_ERR_DECODE,
         };
-        let doc = Doc::new();
+        let doc = new_doc();
         {
             let mut txn = doc.transact_mut();
             if txn.apply_update(update).is_err() {

@@ -1,0 +1,23 @@
+[package]
+name = "weft-loro-ffi"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shim C-ABI de Weft sobre el core CRDT loro (pinned). Adaptador dual-path (P-IV)."
+publish = false
+
+[lib]
+name = "weft_loro_ffi"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# PINNEADO exacto (research R16): el adaptador dual-path fija loro tal como yrs.
+loro = "=1.13.6"
+
+[dev-dependencies]
+loro = "=1.13.6"
+
+[features]
+# Simétrico a weft-yrs-ffi: weft_loro_test_panic para verificar catch_unwind (SC-009).
+test-hooks = []
