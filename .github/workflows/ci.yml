@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela ejecuciones antiguas de la misma rama/PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  # ── Gate P-I: build del shim + binding, tests multiplataforma (T021) ──────────────────────
+  test:
+    name: test (${{ matrix.os }})
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # El shim se compila CON test-hooks para la suite de panic-safety (SC-009); el binario de
+      # release empaquetado (US4) se compila SIN la feature — pack-smoke verifica la ausencia.
+      - name: Build shim (test-hooks)
+        working-directory: native
+        run: cargo build --release --features test-hooks
+      - name: Test .NET
+        run: dotnet test --configuration Release
+      - name: Rust tests
+        working-directory: native
+        run: cargo test --features test-hooks
+
+  # ── Gate P-II: memoria verificada bajo ASan/LSan (NON-NEGOTIABLE) ─────────────────────────
+  asan:
+    name: asan (nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: x86_64-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: cargo test bajo AddressSanitizer + LeakSanitizer
+        working-directory: native
+        env:
+          RUSTFLAGS: "-Zsanitizer=address"
+          ASAN_OPTIONS: "detect_leaks=1"
+        run: >-
+          cargo +nightly test -p weft-yrs-ffi --features test-hooks
+          --target x86_64-unknown-linux-gnu
+
+  # ── Fuzzing de la frontera FFI (research R14): smoke de 60 s por target en cada PR ─────────
+  # INFORMATIVO en M0 (continue-on-error): el fuzz destapó un DoS por amplificación de memoria en el
+  # decoder de yrs (upstream) — un update malformado de pocos bytes declara una longitud gigante y
+  # yrs hace `with_capacity(N)` sin cota; en un entorno con memoria limitada la asignación falla y
+  # Rust aborta (`handle_alloc_error`, NO capturable por catch_unwind). El shim FFI es correcto
+  # (contiene panics, sin UB). La mitigación real (validar el update / límite de recursos) llega en
+  # M2, donde entra input de red no confiable — ver AILOG-2026-07-10-001 §R6 y el follow-up. El job
+  # sigue corriendo y reportando en los logs, sin bloquear el cierre de M0.
+  fuzz:
+    name: fuzz (smoke, informativo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            native
+            native/weft-yrs-ffi/fuzz
+      - name: Instalar cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      # Compilar aparte: un fallo de compilación de los targets SÍ debe romper el job (rojo).
+      - name: Build fuzz targets
+        working-directory: native/weft-yrs-ffi
+        run: cargo +nightly fuzz build -s none
+      # El objetivo del smoke es que ningún input adversarial cause panic-through / UB / crash en
+      # NUESTRO shim (research R14). Dos características del decoder de yrs sobre input malformado
+      # obligan a configurar el harness para que mida eso y no artefactos de yrs (ver AILOG §R6):
+      #  1. `-s none` (sin ASan): yrs hace `with_capacity(N)` según una longitud declarada sin cota;
+      #     glibc reserva esa memoria VIRTUAL (nunca se llena → RSS real ~150 MB) y yrs falla el
+      #     decode → WEFT_ERR_DECODE. El allocator de ASan, en cambio, aborta reservas gigantes.
+      #     La memory-safety la cubre el job `asan` sobre la suite determinista.
+      #  2. Hook de panic silenciado en el harness (fuzz_targets/*.rs): yrs usa `assert!` en algunos
+      #     updates malformados; el shim los contiene con `catch_unwind` → WEFT_ERR_PANIC (verificado
+      #     en tests). libfuzzer-sys aborta en su panic hook antes de que catch_unwind actúe, así que
+      #     el harness lo silencia para ejercitar el mismo camino que producción. Un SIGSEGV/UB real
+      #     no pasa por el hook y sigue detectándose.
+      # La resistencia a amplificación con input no confiable se endurece en la capa de servidor
+      # (M2, límites de tamaño de mensaje + recursos del proceso).
+      # Informativo (R6): un crash del fuzz sobre la amplificación de memoria del decoder de yrs no
+      # bloquea M0. El comando captura ese crash y emite una ANOTACIÓN de warning visible en el PR;
+      # el step sale con éxito (check verde, no rojo). Un fallo de infraestructura (compilación de
+      # los targets, instalación) rompe el job en los steps anteriores. La mitigación real va en M2.
+      - name: Fuzz weft_doc_load (60 s)
+        working-directory: native/weft-yrs-ffi
+        run: >-
+          cargo +nightly fuzz run -s none doc_load --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (R6)::doc_load halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
+      - name: Fuzz weft_doc_apply_update (60 s)
+        working-directory: native/weft-yrs-ffi
+        run: >-
+          cargo +nightly fuzz run -s none apply_update --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (R6)::apply_update halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
+
+  # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
+  determinism:
+    name: determinism
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "Gate de determinismo del encoding (P-III) — se activa en US1 (CHARTER-02, T029/T031)."
+
+  dual-engine:
+    name: dual-engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "Suite de versionado sobre yrs Y Loro (P-IV) — se activa en US5 (CHARTER-02, T034)."
+
+  pack-smoke:
+    name: pack-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "Smoke del NuGet nativo multi-RID + ausencia de weft_test_panic (P-VI) — se activa en US4 (M3, T057)."

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Weft — versionado content-addressed engine-agnóstico (publish/checkout/diff/branch/merge) sobre IBlobStore. Depende solo de las abstracciones de Weft.Core.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Weft.Core/Weft.Core.csproj" />
+  </ItemGroup>
+
+</Project>

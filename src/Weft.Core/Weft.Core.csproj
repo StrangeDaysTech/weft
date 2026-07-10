@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Weft — binding seguro a yrs vía shim C-ABI propio, abstracciones ICrdtEngine/ICrdtDoc y concurrencia serializada por documento.</Description>
+    <!-- Exigido por el source generator [LibraryImport] (emite marshalling unsafe). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- La suite verifica el mapeo interno código→excepción (p. ej. la ruta de panic, SC-009). -->
+    <InternalsVisibleTo Include="Weft.Core.Tests" />
+  </ItemGroup>
+
+</Project>

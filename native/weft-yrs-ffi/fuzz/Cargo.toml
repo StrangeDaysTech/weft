@@ -1,0 +1,39 @@
+[package]
+name = "weft-yrs-ffi-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+yrs = "=0.27.2"
+
+[dependencies.weft-yrs-ffi]
+path = ".."
+
+[[bin]]
+name = "doc_load"
+path = "fuzz_targets/doc_load.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "apply_update"
+path = "fuzz_targets/apply_update.rs"
+test = false
+doc = false
+bench = false
+
+# panic=unwind (no el abort default de cargo-fuzz): el contrato del shim es que `catch_unwind`
+# convierte cualquier panic del motor en WEFT_ERR_PANIC en la frontera (P-I). El fuzz debe
+# ejercitar ese mismo modo que producción; con panic=abort, catch_unwind sería un no-op y un panic
+# de yrs sobre input malformado abortaría el proceso en vez de contenerse.
+[profile.release]
+panic = "unwind"
+
+# Workspace propio: aísla el crate de fuzz del workspace nativo (patrón cargo-fuzz).
+[workspace]
