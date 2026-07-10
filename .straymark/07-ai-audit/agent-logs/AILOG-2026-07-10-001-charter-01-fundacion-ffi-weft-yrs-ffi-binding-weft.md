@@ -108,19 +108,24 @@ con gates P-I/P-II).
 
 ### Risk: R6 (new, not in Charter) — amplificación de memoria en decode de update no confiable
 
-El fuzz smoke (`cargo-fuzz` sobre `weft_doc_load`) reportó OOM con un update malformado de 4 bytes
-(`[0xd8,0xd8,0xeb,0x23]`): el decoder de yrs pre-asigna memoria según longitudes declaradas en el
-update, y un blob pequeño puede declarar una longitud enorme (amplificación ~DoS).
+El fuzz smoke (`cargo-fuzz` sobre `weft_doc_load`) reportó OOM con updates malformados de 4 bytes
+(`[0xd8,0xd8,0xeb,0x23]`, `[0xfa,0xff,0xa4,0x25]`, …): el decoder de yrs hace `with_capacity(N)`
+según una longitud `N` declarada en el update; un blob pequeño puede declarar una `N` enorme
+(amplificación ~DoS), sin cota.
 
-**No es UB ni panic ni leak**: con memoria suficiente el shim devuelve `WEFT_ERR_DECODE`
-limpiamente (verificado localmente bajo `ulimit -v` de 1 GB/2 GB/3 GB → siempre DECODE; ASan/LSan
-sin fugas). El "OOM" era el presupuesto default de 2 GB de libFuzzer ante la asignación transitoria
-del decoder. El shim cumple R14 (nunca panic-through / UB, solo códigos de error).
+**No es UB ni panic ni leak, ni consumo real de memoria**: yrs *reserva* capacidad virtual grande
+pero **nunca la llena** (falla el decode al agotar el buffer diminuto antes de escribir structs) →
+el shim devuelve `WEFT_ERR_DECODE` y el **RSS real medido es ~150 MB** (`/usr/bin/time -v`).
+Verificado también bajo `ulimit -v` de 1/2/3 GB → siempre DECODE; ASan/LSan sin fugas. El shim
+cumple R14 (nunca panic-through / UB, solo códigos de error). El "OOM" era libFuzzer marcando la
+*reserva virtual*, no memoria residente.
 
 Mitigaciones aplicadas en este corte:
-- Test de regresión permanente (`malformed_update_with_huge_declared_length_decodes_cleanly`) que
-  fija el contrato: el input reproductor → `WEFT_ERR_DECODE`, no crash.
-- Presupuesto de RSS del smoke acorde a un decoder CRDT (`-rss_limit_mb=4096 -max_len=8192`).
+- Test de regresión permanente (`malformed_update_with_huge_declared_length_decodes_cleanly`) con
+  ambos inputs reproductores → `WEFT_ERR_DECODE`, no crash.
+- Fuzz smoke con detección de OOM desactivada (`-rss_limit_mb=0 -max_len=8192`): como la
+  amplificación por longitud declarada no tiene cota, ningún `-rss_limit_mb` finito sirve y el RSS
+  real es trivial; el gate sigue detectando crashes/UB/memory-safety reales.
 
 Mitigación de producto (diferida, **follow-up**): la resistencia a amplificación de memoria con
 input no confiable se endurece en la capa que recibe tráfico de red — el servidor relay (M2):

@@ -202,19 +202,21 @@ fn stress_all_functions_2000_iterations() {
 #[test]
 fn malformed_update_with_huge_declared_length_decodes_cleanly() {
     unsafe {
-        // Input reproductor hallado por cargo-fuzz sobre weft_doc_load.
-        let data = [0xd8u8, 0xd8, 0xeb, 0x23];
+        // Inputs reproductores hallados por cargo-fuzz sobre weft_doc_load: declaran una longitud
+        // enorme en 4 bytes → yrs reserva capacidad virtual grande pero falla el decode sin
+        // llenarla (RSS real medido ~150 MB) → WEFT_ERR_DECODE, nunca panic/UB.
+        for data in [[0xd8u8, 0xd8, 0xeb, 0x23], [0xfa, 0xff, 0xa4, 0x25]] {
+            let mut loaded: *mut Doc = ptr::null_mut();
+            assert_eq!(weft_doc_load(data.as_ptr(), data.len(), &mut loaded), WEFT_ERR_DECODE);
+            assert!(loaded.is_null());
 
-        let mut loaded: *mut Doc = ptr::null_mut();
-        assert_eq!(weft_doc_load(data.as_ptr(), data.len(), &mut loaded), WEFT_ERR_DECODE);
-        assert!(loaded.is_null());
-
-        let doc = new_doc();
-        assert_eq!(
-            weft_doc_apply_update(doc, data.as_ptr(), data.len()),
-            WEFT_ERR_DECODE
-        );
-        weft_doc_free(doc);
+            let doc = new_doc();
+            assert_eq!(
+                weft_doc_apply_update(doc, data.as_ptr(), data.len()),
+                WEFT_ERR_DECODE
+            );
+            weft_doc_free(doc);
+        }
     }
 }
 
