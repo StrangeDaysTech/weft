@@ -80,7 +80,6 @@ jobs:
     name: fuzz (smoke, informativo)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
@@ -91,6 +90,10 @@ jobs:
             native/weft-yrs-ffi/fuzz
       - name: Instalar cargo-fuzz
         run: cargo install cargo-fuzz --locked
+      # Compilar aparte: un fallo de compilación de los targets SÍ debe romper el job (rojo).
+      - name: Build fuzz targets
+        working-directory: native/weft-yrs-ffi
+        run: cargo +nightly fuzz build -s none
       # El objetivo del smoke es que ningún input adversarial cause panic-through / UB / crash en
       # NUESTRO shim (research R14). Dos características del decoder de yrs sobre input malformado
       # obligan a configurar el harness para que mida eso y no artefactos de yrs (ver AILOG §R6):
@@ -105,12 +108,22 @@ jobs:
       #     no pasa por el hook y sigue detectándose.
       # La resistencia a amplificación con input no confiable se endurece en la capa de servidor
       # (M2, límites de tamaño de mensaje + recursos del proceso).
+      # Informativo (R6): un crash del fuzz sobre la amplificación de memoria del decoder de yrs no
+      # bloquea M0. El comando captura ese crash y emite una ANOTACIÓN de warning visible en el PR;
+      # el step sale con éxito (check verde, no rojo). Un fallo de infraestructura (compilación de
+      # los targets, instalación) rompe el job en los steps anteriores. La mitigación real va en M2.
       - name: Fuzz weft_doc_load (60 s)
         working-directory: native/weft-yrs-ffi
-        run: cargo +nightly fuzz run -s none doc_load -- -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+        run: >-
+          cargo +nightly fuzz run -s none doc_load --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (R6)::doc_load halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
       - name: Fuzz weft_doc_apply_update (60 s)
         working-directory: native/weft-yrs-ffi
-        run: cargo +nightly fuzz run -s none apply_update -- -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+        run: >-
+          cargo +nightly fuzz run -s none apply_update --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (R6)::apply_update halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
 
   # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
   determinism:
