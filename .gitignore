@@ -1,0 +1,34 @@
+# ---- Rust (native/weft-ffi) ----
+/target/
+**/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock            # (mantener para el binario/cdylib final; quitar esta línea si se decide versionarlo)
+
+# ---- .NET ----
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+project.lock.json
+artifacts/
+*.nupkg
+*.snupkg
+
+# runtimes nativos generados/copied (se producen en CI por RID)
+runtimes/*/native/*.so
+runtimes/*/native/*.dll
+runtimes/*/native/*.dylib
+
+# ---- Herramientas / entorno ----
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db
+
+# ---- Spec Kit (mantener specs; ignorar temporales si los hubiera) ----
+# .specify/  -> se versiona (spec/plan/tasks son fuente de verdad)
