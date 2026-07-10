@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-01-ffi-core-foundation
-status: in-progress
+status: closed
+closed_at: 2026-07-10
 effort_estimate: L
 trigger: "tasks.md fija 21 tareas ordenadas (T001–T021, fases Setup + Foundational) que forman el primer corte shippable de M0: el shim yrs invocable de forma segura desde .NET con los gates de memoria P-I/P-II verdes (Checkpoint tasks.md L54)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Fundación FFI y binding Core
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Primer corte shippable de M0 (T001–T021): scaffolding de solución + shim C-ABI sobre `yrs` con `catch_unwind` en cada entrada, y binding .NET (`ICrdtEngine`/`ICrdtDoc`) con memoria verificada en CI.
 

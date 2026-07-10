@@ -1,0 +1,88 @@
+# StrayMark Charter telemetry — CHARTER-01 (cerrado 2026-07-10).
+# Schema: .straymark/schemas/charter-telemetry.schema.v0.json
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-01"
+  charter_title: "Fundación FFI y binding Core"
+  closed_at: "2026-07-10"
+
+  # ---------- Origin & activation ----------
+  # Charter spec-originated (originating_spec: specs/001-...); el AILOG-001 es el trace de ejecución.
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-10-001"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución (no originante). El Charter nació del spec 001."
+
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "Primer corte shippable de M0 (T001–T021): shim yrs invocable seguro desde .NET con gates P-I/P-II verdes (Checkpoint tasks.md L54)."
+    fired_at: "2026-07-10"
+    fire_clarity: "clear"
+    fire_clarity_notes: "El corte 01↔02 sale de los checkpoints del propio tasks.md."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "high"
+    pre_work_notes: "Sin pre-trabajo formal: diseño ✅ CERRADO en el brief + contratos + código de spikes como referencia."
+
+  # ---------- Planning session ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: "Plan derivado del spec/tasks; sin sesión de planning separada."
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-10"
+    finished_at: "2026-07-10"
+    estimated_effort: "L"
+    actual_effort: "L (~1.6x por imprevistos fuera del core)"
+    estimation_drift_factor: 1.6
+    estimation_drift_reason: "La implementación T001–T021 cupo en L. El sobrecoste vino de imprevistos NO del core: 3 iteraciones del fuzz smoke hasta reproducir localmente (DoS de amplificación del decoder de yrs, R6) y el bootstrap del CLA (bypass admin, rama de firmas, ajuste de ruleset)."
+
+  # ---------- Agent quality ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 2
+    r_n_plus_one_emergent_count: 1
+    skill_prompts_used: ["speckit-implement"]
+
+  # ---------- External audit ----------
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1: FfiStatus.cs nuevo (extracción del mapeo código→excepción para testear la ruta de panic sin exponer el hook). F2 (parser drift): config transversal T003–T005 y rutas de código con llaves declaradas en notación compacta que el drift no expande — 25 files 'no declarados' son en su totalidad scope de T001–T021 (ver AILOG)."
+    new_followups_generated: 1
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M0"
+
+  # ---------- Qualitative ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points:
+      - "Fuzz smoke: 3 iteraciones en CI antes de reproducir localmente (cargo-fuzz no estaba en el toolchain base). El decoder de yrs tiene un DoS por amplificación de memoria con update no confiable (R6, upstream) — el shim FFI es correcto."
+      - "CLA bootstrap: requirió bypass de admin (andamiaje en main), crear la rama huérfana de firmas a mano (la action no la crea), y ajustar el ruleset (context real CLAAssistant, no license/cla)."
+    wins:
+      - "Shim (12 fn C-ABI) + binding Weft.Core verdes en una sesión, con memoria verificada bajo ASan/LSan (0 fugas / 0 double-free) y convergencia property-based (CsCheck, SC-001)."
+      - "Reutilización del código de spikes como referencia técnica (firmas exactas de yrs 0.27.2, patrón HandleLease/SYSLIB1051) — reescrito limpio con nombres weft_*."
+      - "R6 (DoS de amplificación) blindado con tests de regresión permanentes + follow-up de alta prioridad a M2; decisión de scope tomada por el operador."
+    overall_satisfaction: 4
+    would_repeat_format: true
+    proposed_format_changes: "Reproducir los gates de fuzzing localmente (instalar cargo-fuzz en el toolchain base) antes de pushear, para no iterar a ciegas en CI."
