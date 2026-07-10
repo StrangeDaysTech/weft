@@ -210,7 +210,10 @@ pub unsafe extern "C" fn weft_loro_text_read(
 
 // ── Estado y sincronización ──
 
-/// Export determinista del estado completo (snapshot). Base del content-addressing (P-III).
+/// Export determinista del estado completo para content-addressing (P-III). Usa `all_updates`
+/// (no `Snapshot`): el snapshot incluye metadata dependiente de la réplica (peer-ids, orden interno)
+/// y NO es byte-determinista entre réplicas convergidas; `all_updates` serializa el oplog de forma
+/// canónica → réplicas convergidas producen bytes idénticos (mismo VersionId, SC-002).
 ///
 /// # Safety
 /// Ver contrato del módulo.
@@ -225,7 +228,7 @@ pub unsafe extern "C" fn weft_loro_doc_export_state(
             return WEFT_ERR_NULL_ARG;
         };
         doc.commit();
-        match doc.export(ExportMode::Snapshot) {
+        match doc.export(ExportMode::all_updates()) {
             Ok(bytes) => hand_out_buffer(bytes, out_ptr, out_len),
             Err(_) => WEFT_ERR_APPLY,
         }

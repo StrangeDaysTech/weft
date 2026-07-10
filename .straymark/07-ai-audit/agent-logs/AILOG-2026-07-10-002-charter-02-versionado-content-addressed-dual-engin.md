@@ -62,8 +62,7 @@ shim Loro en los spikes 02/03 (reescrito limpio con nombres `weft_loro_*`).
 
 ## Decisions Made
 
-- **Export de Loro para content-addressing**: `ExportMode::Snapshot` resultó determinista y estable
-  (round-trip byte-idéntico, réplicas convergidas → mismo VersionId). Validado por la suite dual-engine.
+- **Export de Loro para content-addressing = `all_updates`, NO `Snapshot`** (ver R7 abajo).
 - **Índices UTF-16 en Loro**: se usan `insert_utf16`/`delete_utf16`/`len_utf16` para consistencia con
   la abstracción (.NET string) y con yrs.
 - **`LoroEngine.NativeVersioning = null`**: los probes de versionado nativo de Loro
@@ -101,6 +100,19 @@ solo ASCII (donde bytes == UTF-16). **Corregido**: el shim crea el doc con `Offs
 justificada). Blindado con `Utf16IndexingTests` (regresión permanente). No se bump la ABI (la firma no
 cambió; el comportamiento pasa a ser el que el contrato siempre declaró). Loro no tenía el bug (usa
 `insert_utf16` explícito).
+
+### Risk: R7 (new, not in Charter) — Snapshot de Loro no es content-addressable determinista
+
+El primer intento usó `ExportMode::Snapshot` para el export de content-addressing de Loro. El
+snapshot incluye metadata dependiente de la réplica (peer-ids aleatorios, orden interno del estado
+materializado) y **NO es byte-determinista entre réplicas convergidas**: dos docs con el mismo estado
+lógico producen snapshots distintos → VersionId distinto (viola SC-002). Los tests eran **flaky**:
+verde en local (Linux) y macOS por casualidad, **rojo en ubuntu-latest y windows-latest** (misma
+arquitectura que local → no es cross-plataforma, es no-determinismo genuino). **El CI multiplataforma
+lo destapó** — un solo runner habría dejado pasar el bug. Corregido a `ExportMode::all_updates()`, que
+serializa el oplog de forma canónica (el spike 03 ya lo señalaba como "el análogo del update v1 de yrs
+para content-addressing"); verificado con **20 corridas consecutivas sin flakiness**. Lección: el gate
+dual-engine + matriz multiplataforma es lo que hace visible el no-determinismo del content-addressing.
 
 ### Nota: Loro no amplifica memoria (R6 de CHARTER-01 no aplica)
 
