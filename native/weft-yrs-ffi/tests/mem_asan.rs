@@ -194,6 +194,30 @@ fn stress_all_functions_2000_iterations() {
     }
 }
 
+/// Regresión (hallazgo del fuzzer, R6): un update malformado que declara una longitud enorme en
+/// pocos bytes debe degradar a `WEFT_ERR_DECODE`, nunca panic/UB. El "OOM" que reportó libFuzzer
+/// era su presupuesto de RSS de 2 GB ante la asignación transitoria del decoder de yrs; con memoria
+/// normal el shim devuelve DECODE limpiamente. Ver AILOG R6 (mitigación de recursos en la capa de
+/// servidor, M2).
+#[test]
+fn malformed_update_with_huge_declared_length_decodes_cleanly() {
+    unsafe {
+        // Input reproductor hallado por cargo-fuzz sobre weft_doc_load.
+        let data = [0xd8u8, 0xd8, 0xeb, 0x23];
+
+        let mut loaded: *mut Doc = ptr::null_mut();
+        assert_eq!(weft_doc_load(data.as_ptr(), data.len(), &mut loaded), WEFT_ERR_DECODE);
+        assert!(loaded.is_null());
+
+        let doc = new_doc();
+        assert_eq!(
+            weft_doc_apply_update(doc, data.as_ptr(), data.len()),
+            WEFT_ERR_DECODE
+        );
+        weft_doc_free(doc);
+    }
+}
+
 /// Panic-safety en la frontera (SC-009): solo con la feature `test-hooks`.
 #[cfg(feature = "test-hooks")]
 #[test]

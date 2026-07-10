@@ -102,8 +102,31 @@ código de referencia validado en los spikes 01/03 (reescrito limpio con nombres
 
 ## Additional Notes
 
-Riesgos R1–R5 del Charter mitigados según lo declarado; no emergieron riesgos nuevos
-(`R<N+1>`). El corte cierra el Checkpoint de `tasks.md` L54 (binding seguro con gates P-I/P-II).
+Riesgos R1–R5 del Charter mitigados según lo declarado. **Emergió R6 (new, not in Charter)**
+durante el fuzz de CI (ver abajo). El corte cierra el Checkpoint de `tasks.md` L54 (binding seguro
+con gates P-I/P-II).
+
+### Risk: R6 (new, not in Charter) — amplificación de memoria en decode de update no confiable
+
+El fuzz smoke (`cargo-fuzz` sobre `weft_doc_load`) reportó OOM con un update malformado de 4 bytes
+(`[0xd8,0xd8,0xeb,0x23]`): el decoder de yrs pre-asigna memoria según longitudes declaradas en el
+update, y un blob pequeño puede declarar una longitud enorme (amplificación ~DoS).
+
+**No es UB ni panic ni leak**: con memoria suficiente el shim devuelve `WEFT_ERR_DECODE`
+limpiamente (verificado localmente bajo `ulimit -v` de 1 GB/2 GB/3 GB → siempre DECODE; ASan/LSan
+sin fugas). El "OOM" era el presupuesto default de 2 GB de libFuzzer ante la asignación transitoria
+del decoder. El shim cumple R14 (nunca panic-through / UB, solo códigos de error).
+
+Mitigaciones aplicadas en este corte:
+- Test de regresión permanente (`malformed_update_with_huge_declared_length_decodes_cleanly`) que
+  fija el contrato: el input reproductor → `WEFT_ERR_DECODE`, no crash.
+- Presupuesto de RSS del smoke acorde a un decoder CRDT (`-rss_limit_mb=4096 -max_len=8192`).
+
+Mitigación de producto (diferida, **follow-up**): la resistencia a amplificación de memoria con
+input no confiable se endurece en la capa que recibe tráfico de red — el servidor relay (M2):
+límite de tamaño de mensaje + límite de recursos del proceso/contenedor. Investigar además si un
+bump de `yrs` (protocolo R16) introduce validación de longitud en `decode_v1`.
+
 CHARTER-02 (US1 + US5) continúa con versionado content-addressed, gate de determinismo y dual-engine
 para cerrar M0.
 

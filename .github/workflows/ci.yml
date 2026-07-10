@@ -69,12 +69,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - name: Instalar cargo-fuzz
         run: cargo install cargo-fuzz --locked
+      # El objetivo del smoke es detectar panic-through / UB (research R14), no perfilar RSS. El
+      # decoder de yrs asigna transitoriamente según longitudes declaradas en el update; el
+      # presupuesto default de 2 GB de libFuzzer es demasiado ajustado para un decoder CRDT y
+      # produce falsos OOM. Damos un presupuesto acorde y acotamos el tamaño de input. La
+      # resistencia a amplificación de memoria con input no confiable se endurece en la capa de
+      # servidor (M2, límites de tamaño/recursos) — ver AILOG-2026-07-10-001 §R6.
       - name: Fuzz weft_doc_load (60 s)
         working-directory: native/weft-yrs-ffi
-        run: cargo +nightly fuzz run doc_load -- -max_total_time=60
+        run: cargo +nightly fuzz run doc_load -- -max_total_time=60 -rss_limit_mb=4096 -max_len=8192
       - name: Fuzz weft_doc_apply_update (60 s)
         working-directory: native/weft-yrs-ffi
-        run: cargo +nightly fuzz run apply_update -- -max_total_time=60
+        run: cargo +nightly fuzz run apply_update -- -max_total_time=60 -rss_limit_mb=4096 -max_len=8192
 
   # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
   determinism:
