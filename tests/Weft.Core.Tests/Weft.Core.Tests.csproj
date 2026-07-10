@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="CsCheck" Version="4.7.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Weft.Core/Weft.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    Helper de desarrollo: copia el cdylib compilado por cargo al output bajo el layout de paquete
+    NuGet (runtimes/<rid>/native/) para que NativeLibraryResolver lo encuentre en los tests. Usa el
+    build CON `test-hooks` (weft_test_panic para PanicSafetyTests). En CI el workflow coloca el
+    binario por plataforma; aquí cubrimos el desarrollo local en Linux.
+  -->
+  <Target Name="CopyWeftNativeForTests" AfterTargets="Build">
+    <PropertyGroup>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_WeftRid>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('Windows'))">weft_yrs_ffi.dll</_WeftNativeName>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libweft_yrs_ffi.dylib</_WeftNativeName>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('Linux'))">libweft_yrs_ffi.so</_WeftNativeName>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WeftNative Include="$(MSBuildProjectDirectory)/../../native/target/release/$(_WeftNativeName)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WeftNative)"
+          DestinationFolder="$(OutDir)runtimes/$(_WeftRid)/native/"
+          Condition="Exists('%(_WeftNative.FullPath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

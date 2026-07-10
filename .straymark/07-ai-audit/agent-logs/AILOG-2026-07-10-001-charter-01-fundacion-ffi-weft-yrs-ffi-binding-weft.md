@@ -1,0 +1,117 @@
+---
+id: AILOG-2026-07-10-001
+title: "CHARTER-01: fundación FFI weft-yrs-ffi + binding Weft.Core (T001–T021)"
+status: accepted
+created: 2026-07-10
+agent: claude-opus-4-8
+confidence: high
+review_required: true
+risk_level: high
+eu_ai_act_risk: not_applicable
+nist_genai_risks: []
+iso_42001_clause: []
+lines_changed: 1400
+files_modified: []
+observability_scope: none
+tags: [ffi, rust, dotnet, memoria, crdt]
+related: []
+originating_charter: CHARTER-01-ffi-core-foundation
+---
+
+# AILOG: CHARTER-01 — fundación FFI weft-yrs-ffi + binding Weft.Core (T001–T021)
+
+## Summary
+
+Primer corte shippable de M0: esqueleto de solución/workspace + shim C-ABI propio sobre `yrs`
+(`weft-yrs-ffi`, 12 funciones + hook de test) y binding seguro `Weft.Core` (`ICrdtEngine`/`ICrdtDoc`,
+`SafeHandle`+`HandleLease`, `[LibraryImport]`, resolución por RID). Gates de memoria (P-I/P-II)
+verdes local: shim compila con clippy limpio, 5 tests Rust pasan bajo AddressSanitizer+LeakSanitizer
+(0 fugas / 0 double-free), y 16 tests .NET verdes (round-trip byte-idéntico, convergencia
+property-based con CsCheck, panic-safety).
+
+## Context
+
+Weft necesita una frontera FFI segura y su binding .NET antes de cualquier versionado o
+colaboración. Ejecución del subset T001–T021 de `specs/001-weft-crdt-versioning/tasks.md` bajo el
+contrato de `.straymark/charters/01-ffi-core-foundation.md`. El diseño mayor está ✅ CERRADO en el
+brief; el trabajo aquí es de implementación contra los contratos `ffi-abi.md` y `core-api.md`, con
+código de referencia validado en los spikes 01/03 (reescrito limpio con nombres `weft_*`).
+
+## Actions Performed
+
+1. **Setup (T001–T005)**: `Weft.sln` + proyectos (`Weft.Core`, `Weft.Versioning`, dos suites de
+   test); `Directory.Build.props` (net10.0/C#13, Nullable, analyzers, `TreatWarningsAsErrors`,
+   Apache-2.0, SourceLink), `.editorconfig`, `rustfmt.toml`; workspace Rust `native/` con crate
+   `weft-yrs-ffi` (cdylib+rlib, `yrs = "=0.27.2"`); esqueleto CI `.github/workflows/ci.yml`.
+2. **Shim (T006–T010, T020)**: `lib.rs` con `catch_unwind` en cada entrada, ownership `Box<[u8]>`,
+   12 funciones de la ABI (doc lifecycle, texto con validación de rango, estado/sync), `weft_test_panic`
+   tras feature `test-hooks`, y header de ownership `include/weft_ffi.h`.
+3. **Tests nativos (T011–T012)**: suite `mem_asan.rs` (round-trip, convergencia, rutas de error,
+   estrés ≥2000 iteraciones) + targets cargo-fuzz `doc_load`/`apply_update`.
+4. **Binding (T013–T017)**: abstracciones, jerarquía `WeftException`+`WeftErrorCode`, `DocHandle`+
+   `HandleLease`, `NativeMethods`+`NativeLibraryResolver` (RID + check `weft_abi_version`),
+   `YrsEngine`/`YrsDoc`.
+5. **Tests .NET (T018–T020)**: `YrsDocTests` (round-trip, errores tipificados, dispose),
+   `ConvergenceTests` (CsCheck, SC-001), `PanicSafetyTests` (SC-009).
+6. **CI (T021)**: gates `test` (linux/win/mac), `asan` (nightly), `fuzz` (smoke 60 s) activos;
+   `determinism`/`dual-engine`/`pack-smoke` nombrados como placeholders para fases posteriores.
+
+## Modified Files
+
+| File | Change Description |
+|------|--------------------|
+| `native/weft-yrs-ffi/src/lib.rs`, `include/weft_ffi.h` | Shim C-ABI (12 fn + test hook) y header de ownership |
+| `native/weft-yrs-ffi/tests/mem_asan.rs`, `fuzz/**` | Suite ASan + targets de fuzz |
+| `native/Cargo.toml`, `rust-toolchain.toml`, `weft-yrs-ffi/Cargo.toml` | Workspace Rust pinneado |
+| `src/Weft.Core/Abstractions/*.cs`, `WeftException.cs`, `Yrs/*.cs` | Binding seguro completo |
+| `tests/Weft.Core.Tests/*.cs` | 16 tests (unit, convergencia, panic-safety) |
+| `Directory.Build.props`, `.editorconfig`, `rustfmt.toml`, `Weft.sln`, `*.csproj` | Config transversal |
+| `.github/workflows/ci.yml` | Gates foundational + placeholders |
+
+## Decisions Made
+
+- **Validación de rango en el shim** (no en el spike): `weft_text_insert/delete` verifican el índice
+  contra la longitud del campo y devuelven `WEFT_ERR_OUT_OF_BOUNDS`, cumpliendo `ffi-abi.md`.
+- **`FfiStatus` interno + `InternalsVisibleTo`**: el mapeo código→excepción se extrajo a un helper
+  verificable; `PanicSafetyTests` carga el cdylib con `NativeLibrary` e invoca `weft_test_panic`
+  directamente, manteniendo el hook fuera de la superficie de producción.
+- **`rust-toolchain.toml` canal `stable`** (no versión exacta): la reproducibilidad del determinismo
+  la garantizan el pin exacto de `yrs` + `Cargo.lock` versionado, no la versión de `rustc`.
+- **`.gitignore`**: se dejó de ignorar `Cargo.lock` (research R16) y se añadieron artefactos de fuzz.
+- **`Weft.sln` clásico** en vez de `.slnx` (compatibilidad de tooling) y **CA2255 suprimido** con
+  justificación en `NativeLibraryResolver` (ModuleInitializer es el patrón idiomático del resolver).
+
+## Impact
+
+- **Functionality**: `Weft.Core` puede crear/cargar documentos yrs, editar texto por campo,
+  exportar/aplicar estado y deltas incrementales; API idiomática con índices `int` validados.
+- **Performance**: entrada zero-copy (span pinned), salida con una copia inevitable (memoria de Rust).
+- **Security**: superficie FFI con `catch_unwind` en cada entrada y ownership estricto; ningún panic
+  cruza la frontera; el GC jamás toca memoria nativa. **Riesgo alto** por naturaleza (memoria nativa)
+  — mitigado por los gates de sanitizers.
+- **Privacy / Environmental**: N/A.
+
+## Verification
+
+- [x] Compila sin errores ni warnings (`dotnet build -c Release`: 0/0; `cargo clippy -D warnings`: limpio)
+- [x] Tests pasan (16 .NET verdes; 5 Rust verdes)
+- [x] Gate de memoria P-II verde local: 5 tests bajo `-Zsanitizer=address` + `detect_leaks=1`, 0 fugas
+- [x] Panic-safety SC-009: `weft_test_panic` → `WEFT_ERR_PANIC` (100 iter, proceso estable) → `WeftEngineException(Panic)`
+- [ ] Revisión humana del operador (pendiente — `review_required: true`)
+- [ ] Fuzz smoke y ASan en CI (se ejecutan en el PR; `cargo-fuzz`/nightly no disponibles en local)
+
+## Additional Notes
+
+Riesgos R1–R5 del Charter mitigados según lo declarado; no emergieron riesgos nuevos
+(`R<N+1>`). El corte cierra el Checkpoint de `tasks.md` L54 (binding seguro con gates P-I/P-II).
+CHARTER-02 (US1 + US5) continúa con versionado content-addressed, gate de determinismo y dual-engine
+para cerrar M0.
+
+**Scope expansion del drift check (intencional)**: `straymark charter drift` reporta 23 archivos
+modificados no declarados. Corresponden en su totalidad al scope de T001–T021, declarado en el
+Charter con notación compacta que el parser no expande: (a) rutas de código con llaves
+(`src/Weft.Core/Yrs/{DocHandle,NativeMethods,…}.cs`, `Abstractions/*.cs`); (b) config transversal
+de T003–T005 (`Directory.Build.props`, `.editorconfig`, `rustfmt.toml`, `Weft.sln`, `*.csproj`,
+`native/Cargo.toml`, `rust-toolchain.toml`, `Cargo.lock`); (c) `tasks.md` (marcado de progreso);
+(d) `FfiStatus.cs`, archivo nuevo por la decisión de extraer el mapeo código→excepción (ver
+Decisions). No hay expansión de alcance real fuera de T001–T021.

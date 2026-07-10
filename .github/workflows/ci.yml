@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela ejecuciones antiguas de la misma rama/PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  # ── Gate P-I: build del shim + binding, tests multiplataforma (T021) ──────────────────────
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # El shim se compila CON test-hooks para la suite de panic-safety (SC-009); el binario de
+      # release empaquetado (US4) se compila SIN la feature — pack-smoke verifica la ausencia.
+      - name: Build shim (test-hooks)
+        working-directory: native
+        run: cargo build --release --features test-hooks
+      - name: Test .NET
+        run: dotnet test --configuration Release
+      - name: Rust tests
+        working-directory: native
+        run: cargo test --features test-hooks
+
+  # ── Gate P-II: memoria verificada bajo ASan/LSan (NON-NEGOTIABLE) ─────────────────────────
+  asan:
+    name: asan (nightly)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: x86_64-unknown-linux-gnu
+      - name: cargo test bajo AddressSanitizer + LeakSanitizer
+        working-directory: native
+        env:
+          RUSTFLAGS: "-Zsanitizer=address"
+          ASAN_OPTIONS: "detect_leaks=1"
+        run: >-
+          cargo +nightly test -p weft-yrs-ffi --features test-hooks
+          --target x86_64-unknown-linux-gnu
+
+  # ── Fuzzing de la frontera FFI (research R14): smoke de 60 s por target en cada PR ─────────
+  fuzz:
+    name: fuzz (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Instalar cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Fuzz weft_doc_load (60 s)
+        working-directory: native/weft-yrs-ffi
+        run: cargo +nightly fuzz run doc_load -- -max_total_time=60
+      - name: Fuzz weft_doc_apply_update (60 s)
+        working-directory: native/weft-yrs-ffi
+        run: cargo +nightly fuzz run apply_update -- -max_total_time=60
+
+  # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
+  determinism:
+    name: determinism
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Gate de determinismo del encoding (P-III) — se activa en US1 (CHARTER-02, T029/T031)."
+
+  dual-engine:
+    name: dual-engine
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Suite de versionado sobre yrs Y Loro (P-IV) — se activa en US5 (CHARTER-02, T034)."
+
+  pack-smoke:
+    name: pack-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Smoke del NuGet nativo multi-RID + ausencia de weft_test_panic (P-VI) — se activa en US4 (M3, T057)."

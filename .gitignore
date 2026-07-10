@@ -3,7 +3,10 @@
 **/target/
 **/*.rs.bk
 *.pdb
-Cargo.lock            # (mantener para el binario/cdylib final; quitar esta línea si se decide versionarlo)
+# Cargo.lock SÍ se versiona (research R16): reproducibilidad del gate de determinismo y del cdylib.
+# Artefactos de cargo-fuzz (el corpus/artifacts no se versionan):
+**/fuzz/corpus/
+**/fuzz/artifacts/
 
 # ---- .NET ----
 bin/

@@ -1,0 +1,5 @@
+# Rust stable fijado (constitución: determinismo reproducible del gate de memoria).
+# El nightly para ASan/LSan lo instala el job de CI aparte; no se fija aquí.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

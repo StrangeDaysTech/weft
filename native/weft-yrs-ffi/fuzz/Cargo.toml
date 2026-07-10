@@ -1,0 +1,32 @@
+[package]
+name = "weft-yrs-ffi-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+yrs = "=0.27.2"
+
+[dependencies.weft-yrs-ffi]
+path = ".."
+
+[[bin]]
+name = "doc_load"
+path = "fuzz_targets/doc_load.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "apply_update"
+path = "fuzz_targets/apply_update.rs"
+test = false
+doc = false
+bench = false
+
+# Workspace propio: aísla el crate de fuzz del workspace nativo (patrón cargo-fuzz).
+[workspace]

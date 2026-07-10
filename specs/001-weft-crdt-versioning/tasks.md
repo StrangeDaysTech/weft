@@ -20,11 +20,11 @@
 
 **Purpose**: esqueleto de repo — solución .NET, workspace Rust, tooling
 
-- [ ] T001 Create solution and directory skeleton per plan.md: `Weft.sln`, `src/`, `tests/`, `native/`, `samples/`, project stubs `src/Weft.Core/Weft.Core.csproj`, `src/Weft.Versioning/Weft.Versioning.csproj`, `tests/Weft.Core.Tests/`, `tests/Weft.Versioning.Tests/`
-- [ ] T002 Create Rust workspace `native/Cargo.toml` + `native/rust-toolchain.toml` (stable pinned) with member crate `native/weft-yrs-ffi/` (cdylib, `yrs = "=0.27.2"`, `Cargo.lock` versionado)
-- [ ] T003 [P] Create `Directory.Build.props` (net10.0, C# 13, `Nullable=enable`, analyzers, license Apache-2.0, SourceLink) and `.editorconfig` + `rustfmt.toml`
-- [ ] T004 [P] Create CI skeleton `.github/workflows/ci.yml` (jobs vacíos nombrados: test-linux/win/mac, asan, determinism, dual-engine, fuzz, pack-smoke — se llenan por fase)
-- [ ] T005 [P] Add `.gitignore` entries for `target/`, `bin/`, `obj/`, `artifacts/` and verify `LICENSE` (Apache-2.0) at root
+- [X] T001 Create solution and directory skeleton per plan.md: `Weft.sln`, `src/`, `tests/`, `native/`, `samples/`, project stubs `src/Weft.Core/Weft.Core.csproj`, `src/Weft.Versioning/Weft.Versioning.csproj`, `tests/Weft.Core.Tests/`, `tests/Weft.Versioning.Tests/` — CHARTER-01
+- [X] T002 Create Rust workspace `native/Cargo.toml` + `native/rust-toolchain.toml` (stable pinned) with member crate `native/weft-yrs-ffi/` (cdylib, `yrs = "=0.27.2"`, `Cargo.lock` versionado) — CHARTER-01
+- [X] T003 [P] Create `Directory.Build.props` (net10.0, C# 13, `Nullable=enable`, analyzers, license Apache-2.0, SourceLink) and `.editorconfig` + `rustfmt.toml` — CHARTER-01
+- [X] T004 [P] Create CI skeleton `.github/workflows/ci.yml` (jobs vacíos nombrados: test-linux/win/mac, asan, determinism, dual-engine, fuzz, pack-smoke — se llenan por fase) — CHARTER-01
+- [X] T005 [P] Add `.gitignore` entries for `target/`, `bin/`, `obj/`, `artifacts/` and verify `LICENSE` (Apache-2.0) at root — CHARTER-01
 
 ---
 
@@ -34,22 +34,22 @@
 
 **⚠️ CRITICAL**: ninguna user story arranca sin esta fase verde (incluidos los gates P-I/P-II en CI)
 
-- [ ] T006 Implement shim scaffolding in `native/weft-yrs-ffi/src/lib.rs`: error codes (`WEFT_OK`..`WEFT_ERR_PANIC` per contracts/ffi-abi.md), `catch_unwind` wrapper helper, `weft_abi_version`
-- [ ] T007 Implement doc lifecycle FFI in `native/weft-yrs-ffi/src/lib.rs`: `weft_doc_new`, `weft_doc_load`, `weft_doc_free`, `weft_buf_free` (Box<[u8]> ownership, GC del motor siempre activo)
-- [ ] T008 Implement text FFI in `native/weft-yrs-ffi/src/lib.rs`: `weft_text_insert`, `weft_text_delete`, `weft_text_read` (UTF-8 ptr+len, `OUT_OF_BOUNDS`/`UTF8` errors)
-- [ ] T009 Implement state/sync FFI in `native/weft-yrs-ffi/src/lib.rs`: `weft_doc_export_state` (determinista), `weft_doc_state_vector`, `weft_doc_export_since`, `weft_doc_apply_update`
-- [ ] T010 Write ownership-contract header `native/weft-yrs-ffi/include/weft_ffi.h` (las 12 funciones + test hook + reglas transversales de contracts/ffi-abi.md)
-- [ ] T011 [P] Rust test suite `native/weft-yrs-ffi/tests/`: unit + `mem_asan.rs` (≥2000 iteraciones por función incl. rutas de error; gate 0 fugas/0 double-free)
-- [ ] T012 [P] cargo-fuzz targets `native/weft-yrs-ffi/fuzz/fuzz_targets/`: `doc_load.rs`, `apply_update.rs` (bytes arbitrarios → solo códigos de error, nunca panic-through)
-- [ ] T013 [P] Define abstractions per contracts/core-api.md in `src/Weft.Core/Abstractions/`: `ICrdtEngine.cs`, `ICrdtDoc.cs`, `INativeVersioning.cs`
-- [ ] T014 [P] Implement exception hierarchy in `src/Weft.Core/WeftException.cs`: `WeftException`, `CorruptUpdateException`, `WeftEngineException` + `WeftErrorCode` enum
-- [ ] T015 Implement `src/Weft.Core/Yrs/DocHandle.cs` (SafeHandleZeroOrMinusOneIsInvalid) + `HandleLease` helper (DangerousAddRef/Release, research R2)
-- [ ] T016 Implement `src/Weft.Core/Yrs/NativeMethods.cs` (`[LibraryImport]` de las 12 funciones) + `src/Weft.Core/Yrs/NativeLibraryResolver.cs` (resolución por RID + check `weft_abi_version`)
-- [ ] T017 Implement `src/Weft.Core/Yrs/YrsEngine.cs` + `YrsDoc.cs`: `ICrdtEngine`/`ICrdtDoc` completos (índices `int` validados, `TakeOwnedBuffer`, códigos→excepciones, `ObjectDisposedException`)
-- [ ] T018 [P] Unit tests `tests/Weft.Core.Tests/YrsDocTests.cs`: round-trip export/load byte-idéntico, errores (blob corrupto→`CorruptUpdateException`, índices fuera de rango), dispose semantics, buffers vacíos
-- [ ] T019 [P] Property tests `tests/Weft.Core.Tests/ConvergenceTests.cs` (CsCheck): secuencias aleatorias de ops en N réplicas + intercambio de updates/deltas → convergencia byte-idéntica (SC-001)
-- [ ] T020 [P] Panic-injection coverage (SC-009): añadir `weft_test_panic` tras feature de Cargo `test-hooks` en `native/weft-yrs-ffi/src/lib.rs` (+ declaración test-only en `include/weft_ffi.h`) y test `tests/Weft.Core.Tests/PanicSafetyTests.cs`: la llamada produce `WeftEngineException(ErrorCode.Panic)`, el proceso sigue estable y la ruta corre bajo ASan sin fugas
-- [ ] T021 Wire CI foundational gates in `.github/workflows/ci.yml`: build shim + `dotnet test` (linux/win/mac), job `asan` (nightly, x86_64-unknown-linux-gnu), job `fuzz` smoke (60 s por target en PR); los jobs asan/fuzz compilan el shim con `--features test-hooks` (pack-smoke en US4 verifica la ausencia del símbolo en release)
+- [X] T006 Implement shim scaffolding in `native/weft-yrs-ffi/src/lib.rs`: error codes (`WEFT_OK`..`WEFT_ERR_PANIC` per contracts/ffi-abi.md), `catch_unwind` wrapper helper, `weft_abi_version` — CHARTER-01
+- [X] T007 Implement doc lifecycle FFI in `native/weft-yrs-ffi/src/lib.rs`: `weft_doc_new`, `weft_doc_load`, `weft_doc_free`, `weft_buf_free` (Box<[u8]> ownership, GC del motor siempre activo) — CHARTER-01
+- [X] T008 Implement text FFI in `native/weft-yrs-ffi/src/lib.rs`: `weft_text_insert`, `weft_text_delete`, `weft_text_read` (UTF-8 ptr+len, `OUT_OF_BOUNDS`/`UTF8` errors) — CHARTER-01
+- [X] T009 Implement state/sync FFI in `native/weft-yrs-ffi/src/lib.rs`: `weft_doc_export_state` (determinista), `weft_doc_state_vector`, `weft_doc_export_since`, `weft_doc_apply_update` — CHARTER-01
+- [X] T010 Write ownership-contract header `native/weft-yrs-ffi/include/weft_ffi.h` (las 12 funciones + test hook + reglas transversales de contracts/ffi-abi.md) — CHARTER-01
+- [X] T011 [P] Rust test suite `native/weft-yrs-ffi/tests/`: unit + `mem_asan.rs` (≥2000 iteraciones por función incl. rutas de error; gate 0 fugas/0 double-free) — CHARTER-01
+- [X] T012 [P] cargo-fuzz targets `native/weft-yrs-ffi/fuzz/fuzz_targets/`: `doc_load.rs`, `apply_update.rs` (bytes arbitrarios → solo códigos de error, nunca panic-through) — CHARTER-01
+- [X] T013 [P] Define abstractions per contracts/core-api.md in `src/Weft.Core/Abstractions/`: `ICrdtEngine.cs`, `ICrdtDoc.cs`, `INativeVersioning.cs` — CHARTER-01
+- [X] T014 [P] Implement exception hierarchy in `src/Weft.Core/WeftException.cs`: `WeftException`, `CorruptUpdateException`, `WeftEngineException` + `WeftErrorCode` enum — CHARTER-01
+- [X] T015 Implement `src/Weft.Core/Yrs/DocHandle.cs` (SafeHandleZeroOrMinusOneIsInvalid) + `HandleLease` helper (DangerousAddRef/Release, research R2) — CHARTER-01
+- [X] T016 Implement `src/Weft.Core/Yrs/NativeMethods.cs` (`[LibraryImport]` de las 12 funciones) + `src/Weft.Core/Yrs/NativeLibraryResolver.cs` (resolución por RID + check `weft_abi_version`) — CHARTER-01
+- [X] T017 Implement `src/Weft.Core/Yrs/YrsEngine.cs` + `YrsDoc.cs`: `ICrdtEngine`/`ICrdtDoc` completos (índices `int` validados, `TakeOwnedBuffer`, códigos→excepciones, `ObjectDisposedException`) — CHARTER-01
+- [X] T018 [P] Unit tests `tests/Weft.Core.Tests/YrsDocTests.cs`: round-trip export/load byte-idéntico, errores (blob corrupto→`CorruptUpdateException`, índices fuera de rango), dispose semantics, buffers vacíos — CHARTER-01
+- [X] T019 [P] Property tests `tests/Weft.Core.Tests/ConvergenceTests.cs` (CsCheck): secuencias aleatorias de ops en N réplicas + intercambio de updates/deltas → convergencia byte-idéntica (SC-001) — CHARTER-01
+- [X] T020 [P] Panic-injection coverage (SC-009): añadir `weft_test_panic` tras feature de Cargo `test-hooks` en `native/weft-yrs-ffi/src/lib.rs` (+ declaración test-only en `include/weft_ffi.h`) y test `tests/Weft.Core.Tests/PanicSafetyTests.cs`: la llamada produce `WeftEngineException(ErrorCode.Panic)`, el proceso sigue estable y la ruta corre bajo ASan sin fugas — CHARTER-01
+- [X] T021 Wire CI foundational gates in `.github/workflows/ci.yml`: build shim + `dotnet test` (linux/win/mac), job `asan` (nightly, x86_64-unknown-linux-gnu), job `fuzz` smoke (60 s por target en PR); los jobs asan/fuzz compilan el shim con `--features test-hooks` (pack-smoke en US4 verifica la ausencia del símbolo en release) — CHARTER-01
 
 **Checkpoint**: binding seguro funcionando con gates P-I/P-II activos — las user stories pueden arrancar
 

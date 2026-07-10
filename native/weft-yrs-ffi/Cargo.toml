@@ -1,0 +1,26 @@
+[package]
+name = "weft-yrs-ffi"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shim C-ABI propio de Weft sobre el core CRDT yrs (pinned). Consumido por Weft.Core vía P/Invoke."
+publish = false
+
+[lib]
+name = "weft_yrs_ffi"
+# cdylib => libweft_yrs_ffi.{so,dll,dylib} para P/Invoke; rlib => enlazable por tests/ y fuzz.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# PINNEADO exacto (research R16): yrs es 0.x y rompe API entre minors; un bump toca solo este shim.
+yrs = "=0.27.2"
+
+[dev-dependencies]
+# Los tests de integración nombran el tipo opaco del doc (`yrs::Doc`) en las firmas del shim.
+yrs = "=0.27.2"
+
+[features]
+# Expone weft_test_panic para verificar catch_unwind end-to-end (SC-009).
+# NUNCA presente en binarios de release: el job pack-smoke (US4) verifica la ausencia del símbolo.
+test-hooks = []
