@@ -5,8 +5,8 @@
 > (ampliamente usado en proyectos Apache-2.0). No constituye asesoría legal. Ajusta la
 > jurisdicción, la razón social exacta y los datos de contacto antes de publicar el repo.
 
-Gracias por tu interés en **Weft** (el "Proyecto"), mantenido por **Strange Days Tech**
-(la "Entidad"). Para clarificar los derechos de propiedad intelectual sobre las Contribuciones
+Gracias por tu interés en **Weft** (el "Proyecto"), mantenido por **Strange Days Tech, S.A.S. de
+C.V.** (empresa fundada en México) (la "Entidad"). Para clarificar los derechos de propiedad intelectual sobre las Contribuciones
 de cualquier persona y permitir su distribución bajo la licencia **Apache License 2.0**, la
 Entidad debe contar con un Contributor License Agreement (CLA) firmado por cada contribuidor,
 indicando los términos de licencia sobre las Contribuciones. Este acuerdo es para tu protección
