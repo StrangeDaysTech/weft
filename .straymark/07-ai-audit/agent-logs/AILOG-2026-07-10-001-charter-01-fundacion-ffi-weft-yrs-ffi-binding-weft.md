@@ -106,26 +106,34 @@ Riesgos R1–R5 del Charter mitigados según lo declarado. **Emergió R6 (new, n
 durante el fuzz de CI (ver abajo). El corte cierra el Checkpoint de `tasks.md` L54 (binding seguro
 con gates P-I/P-II).
 
-### Risk: R6 (new, not in Charter) — amplificación de memoria en decode de update no confiable
+### Risk: R6 (new, not in Charter) — robustez del decoder de yrs ante update no confiable
 
-El fuzz smoke (`cargo-fuzz` sobre `weft_doc_load`) reportó OOM con updates malformados de 4 bytes
-(`[0xd8,0xd8,0xeb,0x23]`, `[0xfa,0xff,0xa4,0x25]`, …): el decoder de yrs hace `with_capacity(N)`
-según una longitud `N` declarada en el update; un blob pequeño puede declarar una `N` enorme
-(amplificación ~DoS), sin cota.
+El fuzz smoke destapó dos características del decoder de yrs 0.27.2 sobre input malformado. En ambas
+**el shim cumple R14** (nunca panic-through / UB, solo códigos de error); son artefactos de yrs que
+el harness de fuzz malinterpretaba como fallos del shim:
 
-**No es UB ni panic ni leak, ni consumo real de memoria**: yrs *reserva* capacidad virtual grande
-pero **nunca la llena** (falla el decode al agotar el buffer diminuto antes de escribir structs) →
-el shim devuelve `WEFT_ERR_DECODE` y el **RSS real medido es ~150 MB** (`/usr/bin/time -v`).
-Verificado también bajo `ulimit -v` de 1/2/3 GB → siempre DECODE; ASan/LSan sin fugas. El shim
-cumple R14 (nunca panic-through / UB, solo códigos de error). El "OOM" era libFuzzer marcando la
-*reserva virtual*, no memoria residente.
+1. **Amplificación de memoria.** Updates como `[0xd8,0xd8,0xeb,0x23]` / `[0xfa,0xff,0xa4,0x25]`
+   declaran una longitud `N` enorme en pocos bytes; yrs hace `with_capacity(N)` sin cota. Pero
+   **reserva memoria virtual que nunca llena** (falla el decode al agotar el buffer diminuto) → el
+   shim devuelve `WEFT_ERR_DECODE`, **RSS real ~150 MB** (`/usr/bin/time -v`; verificado bajo
+   `ulimit -v` 1/2/3 GB → siempre DECODE). El allocator de ASan aborta las reservas gigantes (no
+   así glibc con overcommit) → el fuzz corre con `-s none`; la memory-safety la cubre el job `asan`.
+2. **Panics del decoder.** Updates como `[0x4a,0x01,0xed,…,0x21]` disparan un `assert!` en
+   `yrs/src/block.rs` (yrs no devuelve `Err` para todos los malformados). El shim los contiene con
+   `catch_unwind` → `WEFT_ERR_PANIC`. libfuzzer-sys aborta en su panic hook antes de que
+   `catch_unwind` actúe, así que el harness silencia ese hook para ejercitar el camino de producción.
 
 Mitigaciones aplicadas en este corte:
-- Test de regresión permanente (`malformed_update_with_huge_declared_length_decodes_cleanly`) con
-  ambos inputs reproductores → `WEFT_ERR_DECODE`, no crash.
-- Fuzz smoke con detección de OOM desactivada (`-rss_limit_mb=0 -max_len=8192`): como la
-  amplificación por longitud declarada no tiene cota, ningún `-rss_limit_mb` finito sirve y el RSS
-  real es trivial; el gate sigue detectando crashes/UB/memory-safety reales.
+- Tests de regresión permanentes: `malformed_update_with_huge_declared_length_decodes_cleanly`
+  (→ DECODE) y `malformed_update_that_panics_yrs_is_contained_not_ub` (→ error contenido, no crash).
+- Fuzz smoke reconfigurado: `-s none -rss_limit_mb=0 -max_len=8192` + hook de panic silenciado en
+  `fuzz_targets/*.rs`; el gate sigue detectando SIGSEGV/UB/crashes reales del shim.
+- Verificado localmente (`cargo-fuzz` 0.13.2): ambos targets ~9000 runs/45 s, exit 0.
+
+Mitigación de producto (**follow-up**): la resistencia a amplificación y a panics del decoder con
+input no confiable se endurece en la capa que recibe tráfico de red — el servidor relay (M2):
+límite de tamaño de mensaje + límite de recursos del proceso. Investigar además un bump de `yrs`
+(protocolo R16) que devuelva `Err` en lugar de `assert!`/reserva sin cota.
 
 Mitigación de producto (diferida, **follow-up**): la resistencia a amplificación de memoria con
 input no confiable se endurece en la capa que recibe tráfico de red — el servidor relay (M2):

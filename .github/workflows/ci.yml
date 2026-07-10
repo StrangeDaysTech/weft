@@ -83,22 +83,26 @@ jobs:
             native/weft-yrs-ffi/fuzz
       - name: Instalar cargo-fuzz
         run: cargo install cargo-fuzz --locked
-      # El objetivo del smoke es detectar panic-through / UB / memory-safety en NUESTRO shim
-      # (research R14), no perfilar la robustez de memoria del decoder de yrs. Un update malformado
-      # declara una longitud enorme en pocos bytes: yrs hace `with_capacity(N)` (reserva VIRTUAL
-      # grande) pero falla el decode sin llenarla → el RSS real se mantiene ~150 MB y el shim
-      # devuelve WEFT_ERR_DECODE (verificado local + test de regresión). libFuzzer, sin embargo,
-      # marca la reserva virtual como OOM. Como la amplificación por longitud declarada no tiene
-      # cota, ningún `-rss_limit_mb` finito sirve; se desactiva la detección de OOM
-      # (`-rss_limit_mb=0`) — el gate sigue detectando crashes/UB reales. La resistencia a
-      # amplificación con input no confiable se endurece en la capa de servidor (M2, límites de
-      # tamaño de mensaje + recursos del proceso) — ver AILOG-2026-07-10-001 §R6.
+      # El objetivo del smoke es que ningún input adversarial cause panic-through / UB / crash en
+      # NUESTRO shim (research R14). Dos características del decoder de yrs sobre input malformado
+      # obligan a configurar el harness para que mida eso y no artefactos de yrs (ver AILOG §R6):
+      #  1. `-s none` (sin ASan): yrs hace `with_capacity(N)` según una longitud declarada sin cota;
+      #     glibc reserva esa memoria VIRTUAL (nunca se llena → RSS real ~150 MB) y yrs falla el
+      #     decode → WEFT_ERR_DECODE. El allocator de ASan, en cambio, aborta reservas gigantes.
+      #     La memory-safety la cubre el job `asan` sobre la suite determinista.
+      #  2. Hook de panic silenciado en el harness (fuzz_targets/*.rs): yrs usa `assert!` en algunos
+      #     updates malformados; el shim los contiene con `catch_unwind` → WEFT_ERR_PANIC (verificado
+      #     en tests). libfuzzer-sys aborta en su panic hook antes de que catch_unwind actúe, así que
+      #     el harness lo silencia para ejercitar el mismo camino que producción. Un SIGSEGV/UB real
+      #     no pasa por el hook y sigue detectándose.
+      # La resistencia a amplificación con input no confiable se endurece en la capa de servidor
+      # (M2, límites de tamaño de mensaje + recursos del proceso).
       - name: Fuzz weft_doc_load (60 s)
         working-directory: native/weft-yrs-ffi
-        run: cargo +nightly fuzz run doc_load -- -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+        run: cargo +nightly fuzz run -s none doc_load -- -max_total_time=60 -rss_limit_mb=0 -max_len=8192
       - name: Fuzz weft_doc_apply_update (60 s)
         working-directory: native/weft-yrs-ffi
-        run: cargo +nightly fuzz run apply_update -- -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+        run: cargo +nightly fuzz run -s none apply_update -- -max_total_time=60 -rss_limit_mb=0 -max_len=8192
 
   # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
   determinism:

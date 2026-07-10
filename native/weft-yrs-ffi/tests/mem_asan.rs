@@ -220,6 +220,28 @@ fn malformed_update_with_huge_declared_length_decodes_cleanly() {
     }
 }
 
+/// Regresión (hallazgo del fuzzer, R6): un update malformado que hace `panic!` dentro de yrs
+/// (assertion en `block.rs`) NO debe cruzar la frontera — `catch_unwind` lo contiene como código
+/// de error. Verifica el contrato P-I con panic=unwind (igual que producción; el fuzz de CI corre
+/// con un hook silenciado para ejercitar este mismo camino).
+#[test]
+fn malformed_update_that_panics_yrs_is_contained_not_ub() {
+    unsafe {
+        let data = [0x4a, 0x01, 0xed, 0xed, 0xed, 0xed, 0xed, 0xed, 0xed, 0x4a, 0x21];
+
+        let mut loaded: *mut Doc = ptr::null_mut();
+        let rc = weft_doc_load(data.as_ptr(), data.len(), &mut loaded);
+        eprintln!("panic-input weft_doc_load rc = {rc}");
+        assert!(rc == WEFT_ERR_PANIC || rc == WEFT_ERR_DECODE);
+        assert!(loaded.is_null());
+
+        let doc = new_doc();
+        let rc2 = weft_doc_apply_update(doc, data.as_ptr(), data.len());
+        assert!(rc2 == WEFT_ERR_PANIC || rc2 == WEFT_ERR_DECODE);
+        weft_doc_free(doc);
+    }
+}
+
 /// Panic-safety en la frontera (SC-009): solo con la feature `test-hooks`.
 #[cfg(feature = "test-hooks")]
 #[test]
