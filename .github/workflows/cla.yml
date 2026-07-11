@@ -51,7 +51,7 @@ jobs:
           remote-organization-name: 'StrangeDaysTech'
           remote-repository-name: 'cla-registry'
           branch: 'main'
-          path-to-signatures: 'weft/signatures/version1/cla.json'
+          path-to-signatures: 'weft/signatures/version2/cla.json'
           # Texto exacto que el contribuidor comenta para firmar.
           custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
           # Bots exentos de firmar.
