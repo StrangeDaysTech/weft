@@ -38,3 +38,5 @@ Thumbs.db
 
 # Artefactos temporales de CLIs auditores (audit-execute)
 **/pending-skills/
+# Config local del CLI Qwen (auditor): settings + skills auto-extraídas, no del proyecto
+.qwen/
