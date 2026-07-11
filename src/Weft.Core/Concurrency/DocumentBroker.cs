@@ -30,6 +30,8 @@ public sealed class DocumentBroker : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(engine);
         _engine = engine;
         _options = options ?? new DocumentBrokerOptions();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(_options.MaxActiveDocuments,
+            $"{nameof(options)}.{nameof(DocumentBrokerOptions.MaxActiveDocuments)}");
         _sweeper = Task.Run(SweepLoopAsync);
     }
 
@@ -57,7 +59,6 @@ public sealed class DocumentBroker : IAsyncDisposable
             DocumentActor? existing;
             Task<DocumentActor> loadTask;
             Task? inflightEviction = null;
-            bool startedLoad = false;
             lock (_gate)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
@@ -90,37 +91,23 @@ public sealed class DocumentBroker : IAsyncDisposable
                     }
                     else
                     {
-                        loadTask = LoadAndRegisterAsync(docId, loader, ct);
+                        // La carga compartida usa el token del broker, NO el del caller: la cancelación de
+                        // un caller no debe envenenar la carga para los demás waiters del mismo docId.
+                        loadTask = LoadAndRegisterAsync(docId, loader, _shutdown.Token);
                         _loading[docId] = loadTask;
-                        startedLoad = true;
                     }
                 }
             }
 
             if (inflightEviction is not null)
             {
-                try { await inflightEviction.ConfigureAwait(false); } catch { /* el desalojo reporta aparte */ }
+                try { await inflightEviction.WaitAsync(ct).ConfigureAwait(false); } catch (OperationCanceledException) { throw; } catch { /* el desalojo reporta aparte */ }
                 continue; // el estado ya está persistido; reintentar cargará el snapshot correcto
             }
 
-            DocumentActor actor;
-            try
-            {
-                actor = existing ?? await loadTask.ConfigureAwait(false);
-            }
-            finally
-            {
-                // Solo el iniciador retira la entrada de carga, y SIEMPRE después del await: si el loader
-                // completa síncronamente, la carga se registra en _actors dentro de este mismo lock, pero
-                // _loading NO debe quedar con una entrada rancia (esa era la causa del livelock en reopen).
-                if (startedLoad)
-                {
-                    lock (_gate)
-                    {
-                        _loading.Remove(docId);
-                    }
-                }
-            }
+            // WaitAsync aplica el ct de ESTE caller solo a la espera; la carga compartida sigue viva para
+            // otros waiters aunque este cancele (finding H).
+            DocumentActor actor = existing ?? await loadTask.WaitAsync(ct).ConfigureAwait(false);
 
             // Añadir la sesión atómicamente respecto al barrido: solo si el actor sigue registrado y
             // no terminó. Si fue desalojado en la ventana, reintentar (reabrirá o reutilizará).
@@ -145,22 +132,39 @@ public sealed class DocumentBroker : IAsyncDisposable
         Func<string, CancellationToken, ValueTask<byte[]?>>? loader,
         CancellationToken ct)
     {
-        // No toca `_loading`: su ciclo de vida lo gestiona OpenAsync (alta dentro del lock, baja en el
-        // finally tras el await). Así se evita la entrada rancia cuando el loader completa síncronamente.
-        byte[]? initial = loader is not null ? await loader(docId, ct).ConfigureAwait(false) : null;
-        ICrdtDoc doc = initial is { Length: > 0 } ? _engine.LoadDoc(initial) : _engine.CreateDoc();
-        var actor = new DocumentActor(docId, doc, _options.OnEvicting);
-
-        lock (_gate)
+        // Cede ANTES de trabajar: garantiza que nunca completa síncronamente dentro del lock de OpenAsync,
+        // así OpenAsync ya asignó `_loading[docId]` antes de que el `finally` de aquí lo retire (esto evita
+        // la entrada rancia que causaba el livelock R6, y permite que la carga gestione su propia entrada).
+        await System.Threading.Tasks.Task.Yield();
+        try
         {
-            if (_disposed)
+            byte[]? initial = loader is not null ? await loader(docId, ct).ConfigureAwait(false) : null;
+            ICrdtDoc doc = initial is { Length: > 0 } ? _engine.LoadDoc(initial) : _engine.CreateDoc();
+            var actor = new DocumentActor(docId, doc, _options.OnEvicting);
+
+            bool disposedRace;
+            lock (_gate)
             {
-                _ = actor.BeginEvictionAsync(); // broker cerrado durante la carga: liberar el actor nuevo
+                disposedRace = _disposed;
+                if (!disposedRace)
+                {
+                    _actors[docId] = actor;
+                }
+            }
+            if (disposedRace)
+            {
+                // Broker cerrado durante la carga: liberar el actor de forma DETERMINISTA (await, no
+                // fire-and-forget) para que DisposeAsync —que espera las cargas en vuelo— no retorne
+                // antes de que este documento quede liberado (finding F).
+                await actor.BeginEvictionAsync().ConfigureAwait(false);
                 throw new ObjectDisposedException(nameof(DocumentBroker));
             }
-            _actors[docId] = actor;
+            return actor;
         }
-        return actor;
+        finally
+        {
+            lock (_gate) { _loading.Remove(docId); }
+        }
     }
 
     private async Task SweepLoopAsync()
@@ -198,7 +202,7 @@ public sealed class DocumentBroker : IAsyncDisposable
                 return;
             }
 
-            List<DocumentActor> toEvict = [];
+            var toEvict = new HashSet<DocumentActor>();
             long idleThreshold = (long)_options.IdleEviction.TotalMilliseconds;
             foreach (DocumentActor a in _actors.Values)
             {
@@ -217,12 +221,16 @@ public sealed class DocumentBroker : IAsyncDisposable
                 // Presión de memoria: desalojar los menos recientemente usados SIN sesión, aunque estén
                 // "tibios". El orden por inactividad descendente protege a los recién usados/creados; si
                 // alguno se desaloja en la ventana previa a su primera sesión, OpenAsync reintenta.
+                // `toEvict` es un HashSet → la exclusión es O(1) por candidato (finding K).
                 List<DocumentActor> lru = _actors.Values
                     .Where(a => !toEvict.Contains(a) && a.SessionCount == 0)
                     .OrderByDescending(a => a.IdleMilliseconds)
                     .Take(over)
                     .ToList();
-                toEvict.AddRange(lru);
+                foreach (DocumentActor a in lru)
+                {
+                    toEvict.Add(a);
+                }
             }
 
             foreach (DocumentActor a in toEvict)
@@ -281,14 +289,27 @@ public sealed class DocumentBroker : IAsyncDisposable
             // el sweeper ya está terminando
         }
 
-        // Esperar los desalojos en vuelo (persisten estado) antes de drenar el resto.
+        // Esperar las cargas y los desalojos en vuelo antes de drenar el resto, para que la liberación
+        // sea DETERMINISTA respecto al retorno de DisposeAsync (finding F). Como `_disposed` ya es true,
+        // ninguna carga posterior registra en `_actors`: las que estaban en vuelo o bien ya registraron
+        // (capturadas en `all`), o ven `_disposed` y liberan su actor ellas mismas (await, no fire-and-forget).
+        Task[] loading;
         Task[] inflight;
         List<DocumentActor> all;
         lock (_gate)
         {
+            loading = [.. _loading.Values];
             inflight = [.. _evicting.Values];
             all = [.. _actors.Values];
             _actors.Clear();
+        }
+        try
+        {
+            await Task.WhenAll(loading).ConfigureAwait(false);
+        }
+        catch
+        {
+            // una carga durante el apagado lanza ObjectDisposedException tras liberar su actor; no bloquea
         }
         try
         {

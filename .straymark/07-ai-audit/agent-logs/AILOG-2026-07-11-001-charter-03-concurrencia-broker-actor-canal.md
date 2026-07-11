@@ -108,7 +108,7 @@ US3/M2 (`DocumentSession` = T047). Trabajo de **implementación** contra `contra
       0 errores**, working set 211 MB (acotado), pool acotado (peak 969 < 2000)
 - [x] Serialización verificada con motor instrumentado (pico de concurrencia observada = 1)
 - [ ] Revisión humana del operador (pendiente — `review_required: true`)
-- [ ] Auditoría externa StrayMark (condición de cierre de CHARTER-03, tras CI verde)
+- [x] Auditoría externa StrayMark (3 auditores, 0 críticos/altos, 0 FP; **los 11 findings remediados** — ver abajo)
 
 ## Additional Notes
 
@@ -159,3 +159,31 @@ Weft.LoadTest`. El parser no los matchea (rutas sin `/` como `Weft.sln`, y el `.
 El modelo de fallo del actor y el mecanismo `_evicting`-await (R7) son decisiones de diseño
 sustantivas descubiertas en ejecución; se documentan aquí y pueden promoverse a AIDEC si la auditoría
 externa lo recomienda.
+
+## Auditoría externa y remediación (2026-07-11)
+
+Auditoría multi-modelo de 3 auditores independientes de familias distintas (glm-5.2 8.1, gpt-5-5 9.4,
+qwen3-7-max 8.7). Consolidada en `.straymark/audits/CHARTER-03/review.md`: **11 findings únicos, 0
+Critical/High tras calibración, 0 falsos positivos, 0 misattributions**. La convergencia de gpt+qwen en
+el handler de `UpdateApplied` (G) y de glm+qwen en el dead code (A) fue señal genuina (independencia
+verificada). El load test (SC-006) fue el instrumento que expuso los tres riesgos R6/R7/R8 en ejecución.
+
+**Los 11 findings se remediaron en este mismo PR** (backlog a cero), con regresión:
+
+| # | Finding | Remediación | Auditor(es) |
+|---|---------|-------------|-------------|
+| F | `DisposeAsync` no esperaba cargas en vuelo → liberación no determinista | `DisposeAsync` espera `_loading`; la carga durante apagado libera su actor con `await` (no fire-and-forget) | gpt-5-5 |
+| I | race `_state`/`_fault` podía persistir un doc faulted | `FinalizeAsync` decide por `_fault` (autoritativo), no por `_state` | qwen3-7-max |
+| G | handler de `UpdateApplied` que lanza faulteaba el actor | `NotifySessions` aísla cada handler en try/catch + traza | gpt-5-5, qwen3-7-max |
+| B | fallo de `OnEvicting` tragado sin observabilidad | `Debug.WriteLine` del fallo del hook (path de liberación intacto) | glm-5.2, gpt-5-5 |
+| H | cancelación de un caller envenenaba la carga single-flight compartida | la carga usa el token del broker; cada caller aplica su `ct` vía `WaitAsync` | gpt-5-5 |
+| A | `_persistOnEnd` dead code | campo eliminado, condición simplificada | glm-5.2, qwen3-7-max |
+| C | `MaxActiveDocuments` sin validación | guard `ThrowIfNegativeOrZero` en el ctor del broker | glm-5.2 |
+| K | LINQ O(n²) en el barrido (`toEvict.Contains`) | `toEvict` pasa a `HashSet` (exclusión O(1)) | qwen3-7-max |
+| E | comentario "cota dura" obsoleto en el harness | comentario corregido (cota de activos suave; criterio duro = working set) | glm-5.2 |
+| D | test LRU asertaba conteo, no identidad | verifica que 'a' (LRU) fue el desalojado y 'b'/'c' conservan contenido | glm-5.2 |
+| J | falta test de `UpdateApplied` | test nuevo: delta aplicable notificado a otra sesión del mismo doc | qwen3-7-max |
+
+El rediseño del ciclo de vida de `_loading` (F+H+R6 reconciliados con un `Task.Yield()` inicial en
+`LoadAndRegisterAsync` que garantiza gestión consistente de la entrada) se revalidó con el load test
+(1.3M desalojos, 0 inconsistencias) y 54 tests verdes (Core 27, incl. 2 regresiones nuevas G/J).

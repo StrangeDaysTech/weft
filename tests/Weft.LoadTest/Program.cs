@@ -131,7 +131,10 @@ for (int idx = 0; idx < docs; idx++)
     }
 }
 
-// -- Memoria: managed heap tras GC forzado (informativo); la cota dura es peak-active <= maxActive+tasks --
+// -- Memoria (informativo): managed heap tras GC forzado + working set. La memoria se acota por dos vías:
+//    el TAMAÑO por documento (cap de inserciones) y el NÚMERO de documentos activos (pool + LRU). El pico
+//    de activos es una cota SUAVE (se reafirma en cada barrido, no en OpenAsync), así que puede exceder
+//    MaxActiveDocuments transitoriamente; el criterio duro de PASS es el working set absoluto, abajo. --
 long managed = GC.GetTotalMemory(forceFullCollection: true);
 long workingSet = Process.GetCurrentProcess().WorkingSet64;
 Console.WriteLine($"[load-test] memoria: managed-heap={managed / (1024 * 1024)}MB " +

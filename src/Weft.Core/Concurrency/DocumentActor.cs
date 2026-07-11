@@ -35,7 +35,6 @@ internal sealed class DocumentActor
 
     private volatile DocumentActorState _state = DocumentActorState.Active;
     private volatile Exception? _fault;
-    private volatile bool _persistOnEnd = true;
     private long _lastActivityTick = Environment.TickCount64;
 
     internal DocumentActor(string docId, ICrdtDoc doc, Func<string, byte[], CancellationToken, ValueTask>? onEvicting)
@@ -154,20 +153,25 @@ internal sealed class DocumentActor
     private async ValueTask FinalizeAsync()
     {
         // Persistencia solo en desalojo grácil (no en fallo): drenar → OnEvicting → liberar.
-        if (_state != DocumentActorState.Faulted)
+        // `_fault` es la señal AUTORITATIVA de fallo: si es no-nulo, el documento está en estado
+        // desconocido y no debe persistirse, independientemente de `_state` (que otro hilo pudo dejar
+        // en Idle al iniciar el desalojo justo antes de que el turno faultease).
+        if (_fault is null)
         {
-            if (_persistOnEnd && _onEvicting is not null)
+            if (_onEvicting is not null)
             {
                 try
                 {
                     byte[] state = _doc.ExportState();
                     await _onEvicting(DocId, state, CancellationToken.None).ConfigureAwait(false);
                 }
-                catch
+                catch (Exception ex)
                 {
                     // La persistencia es best-effort: si el hook falla, igual liberamos el documento
                     // (no dejar memoria nativa colgada prima sobre no perder el snapshot). El fallo del
-                    // hook es responsabilidad del consumidor.
+                    // hook es responsabilidad del consumidor; lo exponemos por trazas para observabilidad.
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[DocumentActor] OnEvicting falló para '{DocId}': {ex.GetType().Name}: {ex.Message}");
                 }
             }
             _state = DocumentActorState.Evicted;
@@ -205,7 +209,17 @@ internal sealed class DocumentActor
         var mem = new ReadOnlyMemory<byte>(delta);
         foreach (DocumentSession s in snapshot)
         {
-            s.RaiseUpdateApplied(mem);
+            // Un handler de UpdateApplied que lanza NO debe faultear el documento para todas las sesiones:
+            // el bug es del consumidor (relay/persistencia de M2), no del publicador. Se aísla y se traza.
+            try
+            {
+                s.RaiseUpdateApplied(mem);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[DocumentActor] handler de UpdateApplied lanzó para '{DocId}': {ex.GetType().Name}: {ex.Message}");
+            }
         }
     }
 
