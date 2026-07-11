@@ -16,6 +16,22 @@ jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
     steps:
+      # Token de la GitHub App de la organización para escribir las firmas en el repo central
+      # StrangeDaysTech/cla-registry. El GITHUB_TOKEN por defecto no puede escribir cross-repo.
+      - name: Mint GitHub App token
+        id: app-token
+        # Solo se necesita cuando el step de CLA va a correr (misma guardia que abajo).
+        if: >-
+          (github.event_name == 'issue_comment' &&
+           contains(github.event.comment.body, 'I hereby sign the CLA')) ||
+          github.event_name == 'pull_request_target'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CLA_BOT_APP_ID }}
+          private-key: ${{ secrets.CLA_BOT_PRIVATE_KEY }}
+          owner: StrangeDaysTech
+          repositories: cla-registry
+
       - name: CLA Assistant
         # Solo actúa sobre PRs o sobre el comentario de firma en un PR (no en issues normales).
         if: >-
@@ -24,13 +40,18 @@ jobs:
           github.event_name == 'pull_request_target'
         uses: contributor-assistant/github-action@v2.6.1
         env:
+          # Comentarios y commit status en el PR de ESTE repo (Weft).
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Escritura de las firmas en el repo central (cross-repo), como la GitHub App.
+          PERSONAL_ACCESS_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
-          # Documento que el firmante debe leer (vive en main tras el merge de este PR de setup).
+          # Documento que el firmante debe leer (canónico, legible, en main de Weft).
           path-to-document: 'https://github.com/StrangeDaysTech/weft/blob/main/CLA.md'
-          # Las firmas NO pueden ir a main (el ruleset exige PR); rama dedicada no protegida.
-          branch: 'cla-signatures'
-          path-to-signatures: 'signatures/version1/cla.json'
+          # Fuente de verdad central de firmas, por proyecto (carpeta weft/).
+          remote-organization-name: 'StrangeDaysTech'
+          remote-repository-name: 'cla-registry'
+          branch: 'main'
+          path-to-signatures: 'weft/signatures/version2/cla.json'
           # Texto exacto que el contribuidor comenta para firmar.
           custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
           # Bots exentos de firmar.
