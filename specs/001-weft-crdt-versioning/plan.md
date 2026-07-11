@@ -2,6 +2,13 @@
 
 **Branch**: `001-weft-crdt-versioning` | **Date**: 2026-07-10 | **Spec**: [spec.md](./spec.md)
 
+> **Refresh 2026-07-11 (scope-limitado a US3/M2)**: tras cerrar M0 (CHARTER-01/02) y M1 (CHARTER-03),
+> se refresca **solo** la planificación de US3/M2 para reflejar los refinamientos empíricos de M1 que el
+> relay hereda (ver §"US3/M2 — anclajes sobre M1"). Las secciones de M0/M1 (Summary de Core/Versioning/Loro,
+> Constitution Check P-I..P-VI, Project Structure de `native/`/`Weft.Core`/`Weft.Versioning`/`Weft.Loro`,
+> Technical Context de M0/M1) son **inmutables**: el código shippeado es la verdad, no este plan.
+> `tasks.md` NO se regenera (conserva los `[X]` + `*CHARTER-NN: <sha>*`). Fuente: AILOG-2026-07-11-001.
+
 **Input**: Feature specification from `/specs/001-weft-crdt-versioning/spec.md`
 
 **Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
@@ -54,6 +61,8 @@ El enfoque técnico completo está validado por los spikes 01–03 (`docs/spikes
 **Decisiones cerradas**: respetadas íntegras (motor yrs, shim propio, content-addressing, actor por doc, Apache-2.0, Tiptap recomendado, dual-path Loro). No se detectó contradicción técnica dura.
 
 **Re-check post-Phase 1**: ✅ PASS — los contratos generados (`contracts/`) no introducen violaciones: ninguna API pública expone punteros nativos ni tipos del motor; la superficie de `Weft.Versioning` depende solo de las abstracciones.
+
+**Re-check per spec-refresh (2026-07-11, cadencia del bridge)**: ✅ PASS. El refresh de US3/M2 no altera ningún veredicto. Cómo se tensa cada principio en US3 (detalle en §"US3/M2 — anclajes sobre M1"): **P-V** (serialización por doc, cerrado en M1) es re-estresado por la concurrencia de red — el relay aplica **todo** update entrante vía `DocumentSession`/turno del actor, nunca al `ICrdtDoc` crudo. **P-III** (determinismo) se activa en el publish del servidor (paridad de `VersionId` server↔local). **P-I/P-II** (frontera nativa / memoria) quedan bajo nueva presión por input de red **no confiable** — mitigado por el cap de tamaño de mensaje (FU-002). **P-IV** (abstracción de motor) se preserva: el servidor habla a `DocumentBroker`/`DocumentSession` y a blobs **opacos** de `IDocumentStore`, no a tipos de yrs. Ninguna fila locked se reescribe.
 
 ## Project Structure
 
@@ -109,6 +118,51 @@ docs/                        # evidencia de spikes + docs públicos
 ```
 
 **Structure Decision**: solución única .NET (`Weft.sln`) con crates Rust en `native/` — un solo repo, frontera clara binding/nativo. `Weft.Core` contiene las abstracciones (subcarpeta `Abstractions/`, mismo ensamblado en v1 para minimizar paquetes; si un consumidor exigiera las abstracciones sin binarios nativos, extraer `Weft.Abstractions` es un refactor no-breaking diferido). Los adaptadores EF Core/Redis del servidor viven como paquetes separados (`Weft.Server.Persistence.*`) para no arrastrar sus dependencias al relay básico.
+
+## US3/M2 — anclajes sobre M1 (refresh 2026-07-11)
+
+> Refresh **scope-limitado**: refina la planificación de US3/M2 sin regenerar el plan ni alterar M0/M1.
+> Fuente empírica: `AILOG-2026-07-11-001` (CHARTER-03) §R6/R7/R8 y §Auditoría. El contrato de API v1 del
+> servidor no cambia (`contracts/server-api.md`); esto documenta **cómo** el relay consume las superficies
+> de concurrencia de M1, que se refinaron en ejecución respecto a la anticipación original del plan.
+
+El relay `Weft.Server` (US3) no toca `ICrdtDoc` ni el motor: se ancla en `DocumentBroker`/`DocumentSession`
+(M1, `Weft.Concurrency`) y en `VersionStore` (M0). Cuatro anclajes concretos que el diseño de M2 debe respetar,
+derivados de cómo M1 quedó realmente implementado:
+
+1. **Broadcast vía `DocumentSession.UpdateApplied` (perezoso)**. El evento solo computa el delta (2 llamadas
+   FFI extra) si hay un handler suscrito. El relay se suscribe **una vez por documento** (no por conexión) y
+   difunde el delta a las demás conexiones del doc. Un doc sin clientes no paga el coste del delta.
+2. **Refcount de sesiones = no desalojo con clientes vivos**. Mientras una `DocumentSession` viva, el broker
+   nunca desaloja su documento. El relay mantiene una sesión por documento activo → un doc con conexiones
+   abiertas permanece residente; el desalojo (y su `OnEvicting`→persistencia) solo ocurre cuando la última
+   conexión cierra y expira el idle.
+3. **Publish y persistencia dentro del turno del actor + `_evicting`-await (R7)**. `IWeftServer.PublishAsync`
+   y la persistencia (`IDocumentStore.AppendUpdate`/`SaveSnapshot`) ejecutan **dentro del turno del actor**
+   del doc: el state-vector/export es consistente aunque haya tráfico concurrente, garantizando paridad de
+   `VersionId` server↔local (P-III). El broker rastrea desalojos en vuelo (`_evicting`) y una reapertura
+   espera a que el desalojo **persista** antes de cargar — el relay hereda esta garantía y no debe cargar del
+   `IDocumentStore` un snapshot a medio escribir (evita la pérdida de updates que R7 destapó en M1).
+4. **Handlers de relay aislados (finding G)**. `NotifySessions` aísla cada handler `UpdateApplied` en
+   try/catch: un fallo en el broadcast de una conexión **no faultea el actor** ni afecta a los pares. El relay
+   se apoya en esto para el edge case "conexión malformada → cierre 1002 sin impacto en los demás".
+
+**FU-002 — hardening del decoder ante input de red no confiable** (`.straymark/follow-ups-backlog.md`,
+`charter-triggered`, trigger "when M2"). US3 es el punto donde el motor recibe bytes de red no confiables:
+un update malformado puede amplificar memoria (pocos bytes → asignación gigante en el decoder yrs → posible
+abort), tensando P-I/P-II. Mitigación en dos capas: **(a)** cap configurable de tamaño de mensaje en el
+framing lib0/y-sync (rechazar antes del decoder); **(b)** límites de recursos por conexión (buffer de
+recepción acotado, backpressure) + el path malformed→1002. Se evaluará un bump de `yrs` con validación de
+longitud si procede.
+
+**Ejecución de M2 en 3 cortes** (granularidad por *shippable cut*, bridge §granularidad; espeja los 2 cortes
+de M0):
+
+| Corte | Tareas | Effort | Entrega |
+|---|---|---|---|
+| Foundation — códec y-sync + stores + contract suite | T043, T044, T045, T046, T050 | M | Substrato sin red: framing lib0/y-sync unit-tested (cap FU-002 parte a), `IDocumentStore`+InMemory+FileSystem pasando una contract suite compartida. |
+| Relay end-to-end + journey US3 | T047, T048, T049, T051, T052 | L | Los 5 criterios del Independent Test de US3 + cliente Tiptap real. Límites de conexión (FU-002 parte b). **Cierra M2.** |
+| Adaptadores externos | T053, T054 | S/M | EFCore + Redis contra la contract suite ya escrita. Fuera del journey; no bloquea M2. |
 
 ## Complexity Tracking
 
