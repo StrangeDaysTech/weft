@@ -12,8 +12,11 @@ public sealed class LoroEngine : ICrdtEngine
     /// <summary>Instancia compartida del motor (sin estado, thread-safe).</summary>
     public static LoroEngine Instance { get; } = new();
 
+    /// <summary>Nombre estable del motor; fuente única compartida con <see cref="LoroDoc.EngineName"/>.</summary>
+    internal const string EngineName = "loro";
+
     /// <inheritdoc/>
-    public string Name => "loro";
+    public string Name => EngineName;
 
     /// <inheritdoc/>
     /// <remarks>

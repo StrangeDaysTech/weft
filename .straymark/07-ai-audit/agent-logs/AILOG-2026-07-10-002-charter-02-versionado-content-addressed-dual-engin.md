@@ -6,6 +6,9 @@ created: 2026-07-10
 agent: claude-opus-4-8
 confidence: high
 review_required: true
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-11
+review_outcome: approved
 risk_level: high
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -84,7 +87,7 @@ shim Loro en los spikes 02/03 (reescrito limpio con nombres `weft_loro_*`).
 - [x] **Gate P-II**: ASan/LSan sobre AMBOS shims (yrs 7 + loro 5 tests) → 0 fugas
 - [x] **Fuzz local ambos shims**: yrs (informativo, R6) + loro (limpio, ~1.3M runs/target, no amplifica)
 - [x] Sample end-to-end ejecutado (journey US1 legible)
-- [ ] Revisión humana del operador (pendiente — `review_required: true`)
+- [x] Revisión humana del operador — aprobada 2026-07-11 (ver §Approval)
 - [ ] **Auditoría externa StrayMark** (condición de cierre del Charter — pendiente antes de close)
 
 ## Additional Notes
@@ -140,3 +143,7 @@ Derivados de la auditoría multi-modelo (gpt-5-5, qwen3-7-max, gemini-3-1-pro; v
   que un merge cross-engine lance `ArgumentException` clara en vez de `CorruptUpdateException` opaca.
 - **Follow-up (G5, baja)**: añadir un test directo de `FileSystemBlobStore` (round-trip + sharding con
   directorio temporal); hoy solo `InMemoryBlobStore` se ejercita en la suite.
+
+## Approval
+
+**Approved**: 2026-07-11 by `Jose Villaseñor Montfort`.

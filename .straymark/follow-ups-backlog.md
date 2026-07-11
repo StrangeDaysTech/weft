@@ -1,9 +1,9 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 5
+total_open: 2
 total_promoted: 0
-total_closed_in_session: 4
+total_closed_in_session: 7
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -32,27 +32,27 @@ fully_extracted_ailogs:
 
 ### FU-007 — G3: usar `VersionId` directo como key de `InMemoryBlobStore`
 - **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G3, qwen3-7-max) · review.md §4
-- **Status**: open
+- **Status**: closed
 - **Trigger**: ready
 - **Destination**: chore
 - **Cost**: XS
-- **Notes**: `ConcurrentDictionary<VersionId, byte[]>` en vez de `id.ToString()`; ahorra la asignación del hex de 64 chars por operación. `src/Weft.Versioning/Blobs/InMemoryBlobStore.cs:9`. Real_debt, sin impacto operativo (solo store en memoria de tests/dev).
+- **Notes**: `ConcurrentDictionary<VersionId, byte[]>` en vez de `id.ToString()`; ahorra la asignación del hex de 64 chars por operación. `src/Weft.Versioning/Blobs/InMemoryBlobStore.cs:9`. Real_debt, sin impacto operativo (solo store en memoria de tests/dev). **Cerrado 2026-07-10** (AILOG-2026-07-10-003): key `VersionId` directo, `.ToString()` eliminado.
 
 ### FU-008 — G4: guard de compatibilidad de motor en `VersionStore.Merge`
 - **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G4, qwen3-7-max) · review.md §4
-- **Status**: open
+- **Status**: closed
 - **Trigger**: ready
 - **Destination**: chore
 - **Cost**: S
-- **Notes**: un merge cross-engine (yrs↔Loro) hoy lanza `CorruptUpdateException` opaca. Añadir `EngineName` a `ICrdtDoc` (o similar) y lanzar `ArgumentException` clara antes del FFI. `src/Weft.Versioning/VersionStore.cs:67`. Ningún path actual lo dispara.
+- **Notes**: un merge cross-engine (yrs↔Loro) hoy lanza `CorruptUpdateException` opaca. Añadir `EngineName` a `ICrdtDoc` (o similar) y lanzar `ArgumentException` clara antes del FFI. `src/Weft.Versioning/VersionStore.cs:67`. Ningún path actual lo dispara. **Cerrado 2026-07-10** (AILOG-2026-07-10-003): `ICrdtDoc.EngineName` + guards en `Merge`/`MergeAsync` + tests `CrossEngineMergeGuardTests`.
 
 ### FU-009 — G5: test directo de `FileSystemBlobStore`
 - **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G5, hallado por el calibrador) · review.md §4
-- **Status**: open
+- **Status**: closed
 - **Trigger**: ready
 - **Destination**: chore
 - **Cost**: S
-- **Notes**: T024 sin cobertura directa; solo `InMemoryBlobStore` se ejercita en la suite. Añadir round-trip + sharding `aa/bb/hash` + escritura atómica con directorio temporal.
+- **Notes**: T024 sin cobertura directa; solo `InMemoryBlobStore` se ejercita en la suite. Añadir round-trip + sharding `aa/bb/hash` + escritura atómica con directorio temporal. **Cerrado 2026-07-10** (AILOG-2026-07-10-003): `FileSystemBlobStoreTests` (5 casos: round-trip, ausencia, sharding, idempotencia, sin temporales).
 
 ### FU-001 — (ruido del extractor: línea de resumen, no follow-up)
 - **Origin**: AILOG-2026-07-10-001 §R1 (new, not in Charter)

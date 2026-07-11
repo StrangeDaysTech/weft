@@ -12,8 +12,11 @@ public sealed class YrsEngine : ICrdtEngine
     /// <summary>Instancia compartida del motor (sin estado, thread-safe).</summary>
     public static YrsEngine Instance { get; } = new();
 
+    /// <summary>Nombre estable del motor; fuente única compartida con <see cref="YrsDoc.EngineName"/>.</summary>
+    internal const string EngineName = "yrs";
+
     /// <inheritdoc/>
-    public string Name => "yrs";
+    public string Name => EngineName;
 
     /// <inheritdoc/>
     public INativeVersioning? NativeVersioning => null;

@@ -11,6 +11,8 @@ internal sealed class LoroDoc : ICrdtDoc
 
     private LoroDoc(DocHandle handle) => _handle = handle;
 
+    public string EngineName => LoroEngine.EngineName;
+
     internal static LoroDoc Create()
     {
         FfiStatus.ThrowIfError(NativeMethods.weft_loro_doc_new(out nint raw));

@@ -56,17 +56,33 @@ public sealed class VersionStore
         CheckoutAsync(from, ct);
 
     /// <summary>Merge CRDT: importa el estado de la rama en el destino (convergente, sin conflictos).</summary>
+    /// <exception cref="ArgumentException">Los documentos pertenecen a motores distintos (yrs↔Loro).</exception>
     public void Merge(ICrdtDoc target, ICrdtDoc branch)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(branch);
+        if (target.EngineName != branch.EngineName)
+        {
+            throw new ArgumentException(
+                $"No se pueden mezclar documentos de motores distintos: destino '{target.EngineName}', " +
+                $"rama '{branch.EngineName}'. El formato de update no es intercambiable entre motores.",
+                nameof(branch));
+        }
         target.ApplyUpdate(branch.ExportState());
     }
 
     /// <summary>Merge CRDT desde una versión publicada hacia un documento vivo destino.</summary>
+    /// <exception cref="ArgumentException">El destino pertenece a un motor distinto al del almacén.</exception>
     public async ValueTask MergeAsync(ICrdtDoc target, VersionId branchVersion, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(target);
+        if (target.EngineName != _engine.Name)
+        {
+            throw new ArgumentException(
+                $"El documento destino pertenece al motor '{target.EngineName}', pero el almacén decodifica " +
+                $"con '{_engine.Name}'. El formato de update no es intercambiable entre motores.",
+                nameof(target));
+        }
         byte[] blob = await LoadVerifiedAsync(branchVersion, ct).ConfigureAwait(false);
         target.ApplyUpdate(blob);
     }

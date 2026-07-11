@@ -6,6 +6,12 @@ namespace Weft;
 /// </summary>
 public interface ICrdtDoc : IDisposable
 {
+    /// <summary>
+    /// Nombre estable del motor que respalda este documento ("yrs", "loro"). Coincide con
+    /// <see cref="ICrdtEngine.Name"/>. Permite rechazar mezclas cross-engine antes de cruzar el FFI.
+    /// </summary>
+    string EngineName { get; }
+
     // -- Texto por campo nombrado (v1) --
 
     /// <summary>Inserta <paramref name="text"/> en el campo <paramref name="field"/> en la posición <paramref name="index"/>.</summary>
