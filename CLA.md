@@ -91,6 +91,9 @@ texto exacto:
 
 > **I have read the CLA Document and I hereby sign the CLA**
 
-Tu firma (usuario de GitHub, y el commit del PR) se registrará en la rama `cla-signatures` del
-repositorio. Solo necesitas firmar una vez; futuras contribuciones quedan cubiertas mientras el
-contenido de este CLA no cambie.
+Tu firma (usuario de GitHub y número de PR) se registra en el repositorio central
+[`StrangeDaysTech/cla-registry`](https://github.com/StrangeDaysTech/cla-registry), en la carpeta
+`weft/`, que es la fuente de verdad verificable de las firmas de este proyecto. El comentario que
+dejas en tu PR es la evidencia original de tu firma; el registro central apunta a él y congela la
+versión del CLA que firmaste. Solo necesitas firmar una vez; futuras contribuciones quedan cubiertas
+mientras el contenido de este CLA no cambie.
