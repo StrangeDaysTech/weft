@@ -3,7 +3,7 @@ last_scan: 2026-07-10
 schema_version: v1
 total_open: 5
 total_promoted: 0
-total_closed_in_session: 0
+total_closed_in_session: 4
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -23,71 +23,93 @@ fully_extracted_ailogs:
 > Maintained by `straymark followups drift --apply`; counters are CLI-owned.
 > Convention: `.straymark/00-governance/FOLLOW-UPS-BACKLOG-PATTERN.md` ·
 > Schema: `.straymark/schemas/follow-ups-backlog.schema.v1.json`
-
-<!--
-Entry shape (v1 — optional fields marked):
-
-### FU-NNN — <short description>
-- **Origin**: AILOG-NNNN-NN-NN-NNN <pointer to source section>
-- **Origin-class**: ex-ante-planning | testing | telemetry | staging | real-env-bug   (optional)
-- **Status**: open | in-progress | suspected-closed | closed | superseded | promoted
-- **Severity**: normal | blocking                                                     (optional)
-- **Trigger**: ready | <calendar date> | when <X> | <other>
-- **Destination**: chore | mini-charter | charter-replanning | operations | <charter-id> | <TDE id>
-- **Cost**: <effort estimate>
-- **Labels**: <free tags, comma-separated>                                            (optional)
-- **Notes**: <free-form context>
--->
+>
+> **Triaje 2026-07-10 (M0 cerrado)**: el extractor heurístico capturó secciones `## Risk: R<N>` de
+> los AILOGs; varias eran riesgos ya RESUELTOS o duplicados, no follow-ups accionables. Reclasificadas
+> a mano y añadidos los follow-ups reales de la auditoría externa de CHARTER-02 (G1/G3/G4/G5).
 
 ## Bucket: ready
 
-### FU-001 — Riesgos R1–R5 del Charter mitigados según lo declarado. Emergió R6 (new, not in Charter)
+### FU-007 — G3: usar `VersionId` directo como key de `InMemoryBlobStore`
+- **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G3, qwen3-7-max) · review.md §4
+- **Status**: open
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: XS
+- **Notes**: `ConcurrentDictionary<VersionId, byte[]>` en vez de `id.ToString()`; ahorra la asignación del hex de 64 chars por operación. `src/Weft.Versioning/Blobs/InMemoryBlobStore.cs:9`. Real_debt, sin impacto operativo (solo store en memoria de tests/dev).
+
+### FU-008 — G4: guard de compatibilidad de motor en `VersionStore.Merge`
+- **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G4, qwen3-7-max) · review.md §4
+- **Status**: open
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: S
+- **Notes**: un merge cross-engine (yrs↔Loro) hoy lanza `CorruptUpdateException` opaca. Añadir `EngineName` a `ICrdtDoc` (o similar) y lanzar `ArgumentException` clara antes del FFI. `src/Weft.Versioning/VersionStore.cs:67`. Ningún path actual lo dispara.
+
+### FU-009 — G5: test directo de `FileSystemBlobStore`
+- **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G5, hallado por el calibrador) · review.md §4
+- **Status**: open
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: S
+- **Notes**: T024 sin cobertura directa; solo `InMemoryBlobStore` se ejercita en la suite. Añadir round-trip + sharding `aa/bb/hash` + escritura atómica con directorio temporal.
+
+### FU-001 — (ruido del extractor: línea de resumen, no follow-up)
 - **Origin**: AILOG-2026-07-10-001 §R1 (new, not in Charter)
 - **Source-hash**: 356d0132850b
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-10.
+- **Status**: closed
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: XS
+- **Notes**: Cerrado en triaje: capturó la línea "Riesgos R1–R5 mitigados…", no un follow-up accionable.
 
-### FU-002 — ### Risk: R6 (new, not in Charter) — amplificación de memoria en decode de update no confiable
-- **Origin**: AILOG-2026-07-10-001 §R6 (new, not in Charter)
-- **Source-hash**: 69e431c0f7d9
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-10.
-
-### FU-003 — ### Risk: R6 (new, not in Charter) — robustez del decoder de yrs ante update no confiable
+### FU-003 — (duplicado de FU-002: misma R6-amplificación de yrs)
 - **Origin**: AILOG-2026-07-10-001 §R6 (new, not in Charter)
 - **Source-hash**: f848fb99fdfb
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-10.
+- **Status**: superseded
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: XS
+- **Notes**: Superseded por FU-002 (dos redacciones del mismo riesgo tras editar el AILOG).
 
-### FU-004 — ### Risk: R6 (new, not in Charter) — índices de yrs eran byte-offsets, no UTF-16
+### FU-004 — R6 (índices UTF-16): RESUELTO en CHARTER-02
 - **Origin**: AILOG-2026-07-10-002 §R6 (new, not in Charter)
 - **Source-hash**: 24e92818b6c7
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-10.
+- **Status**: closed
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: XS
+- **Notes**: Corregido a `OffsetKind::Utf16` + regresión `Utf16IndexingTests`. No es follow-up pendiente.
 
-### FU-005 — ### Risk: R7 (new, not in Charter) — Snapshot de Loro no es content-addressable determinista
+### FU-005 — R7 (export Loro): RESUELTO en CHARTER-02
 - **Origin**: AILOG-2026-07-10-002 §R7 (new, not in Charter)
 - **Source-hash**: 1d1c514561fe
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-10.
+- **Status**: closed
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: XS
+- **Notes**: Corregido a `ExportMode::all_updates()` + AIDEC-2026-07-10-001 (aprobado). No es follow-up pendiente.
+
 ## Bucket: time-triggered
 
 ## Bucket: charter-triggered
+
+### FU-002 — R6 (CHARTER-01): hardening del decoder ante amplificación de memoria (DoS)
+- **Origin**: AILOG-2026-07-10-001 §R6 (new, not in Charter)
+- **Source-hash**: 69e431c0f7d9
+- **Status**: open
+- **Trigger**: when M2 (servidor relay recibe input de red no confiable)
+- **Destination**: charter-replanning
+- **Cost**: M
+- **Notes**: El decoder de yrs amplifica memoria con update malformado (pocos bytes → asignación gigante → posible abort). Mitigar en la capa de red (M2/US3): límite de tamaño de mensaje + límite de recursos del proceso. Evaluar bump de yrs con validación de longitud. El fuzz es informativo hasta entonces.
+
+### FU-006 — G1: implementar la superficie `INativeVersioning` de Loro (diferida)
+- **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G1, gpt-5-5 + qwen3-7-max) · review.md §4 · Charter-02 Closing notes
+- **Status**: open
+- **Trigger**: when se requiera versionado nativo de Loro (probes de paridad)
+- **Destination**: mini-charter
+- **Cost**: M
+- **Notes**: Diferido en CHARTER-02. Implementar probes `native_diff`/`native_branch`/`shallow_snapshot` en `weft-loro-ffi` + header `include/weft_loro_ffi.h` + `LoroNativeVersioning.cs` (`LoroEngine.NativeVersioning` pasaría de `null` a la implementación). Capacidad opcional; ningún gate depende. Reconciliar quickstart §US5 al implementarlo.
 
 ## Bucket: phase-blocked
 
