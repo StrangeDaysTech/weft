@@ -44,9 +44,13 @@ el content-addressing (hash del blob) sea una identidad citable cross-nodo?
 - Primer candidato "natural" (análogo aparente al export completo).
 
 **Cons**:
-- **NO es byte-determinista cross-réplica**: el snapshot incluye metadata dependiente de la réplica
-  (peer-ids aleatorios, orden interno del estado materializado). Dos docs con el mismo estado lógico
-  producen snapshots distintos → VersionId distinto (viola SC-002).
+- **NO es byte-determinista cross-réplica**: además del oplog, el snapshot serializa el **estado
+  materializado**, cuyo layout depende de la réplica (p. ej. el orden en que aplicó localmente las ops
+  al converger). Dos docs con el mismo estado lógico producen snapshots distintos → VersionId distinto
+  (viola SC-002). *(La causa NO son los peer-ids: son consistentes tras converger — por eso
+  `all_updates`, que exporta solo el oplog con esos mismos op-ids, sí es determinista. La causa raíz
+  exacta del layout del estado materializado no se investigó a fondo: el hecho empírico bastó para
+  descartar Snapshot.)*
 - Los tests resultaron **flaky** (verde en local/macOS por casualidad, rojo en ubuntu/windows) — R7.
 
 ### Alternative 2: `ExportMode::all_updates()`
