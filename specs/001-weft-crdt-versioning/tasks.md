@@ -61,16 +61,16 @@
 
 **Independent Test** (spec US1): consola con solo la librería: crear→editar→publicar v1→editar→publicar v2→diff→branch+merge→compactación implícita; réplicas convergidas publican el mismo hash
 
-- [ ] T022 [P] [US1] Implement `VersionId` struct in `src/Weft.Versioning/VersionId.cs` (SHA-256, hex lowercase, Parse/TryParse/AsSpan, igualdad por valor)
-- [ ] T023 [P] [US1] Define `IBlobStore` + `InMemoryBlobStore` in `src/Weft.Versioning/Blobs/IBlobStore.cs`, `InMemoryBlobStore.cs` (put idempotente, thread-safe)
-- [ ] T024 [US1] Implement `FileSystemBlobStore` in `src/Weft.Versioning/Blobs/FileSystemBlobStore.cs` (sharding `aa/bb/hash`, escritura atómica temp+rename)
-- [ ] T025 [P] [US1] Implement word-level LCS diff in `src/Weft.Versioning/TextDiff.cs` (`TextDiff`, `TextDiffSegment`, `DiffOp` per contracts/versioning-api.md)
-- [ ] T026 [US1] Implement `VersionStore` in `src/Weft.Versioning/VersionStore.cs`: `PublishAsync`/`CheckoutAsync` (verifica integridad → `BlobIntegrityException`)/`DiffAsync`/`BranchAsync`/`Merge`/`MergeAsync`
-- [ ] T027 [P] [US1] Create engine-parametrized versioning suite `tests/Weft.Versioning.Tests/VersioningSuiteBase.cs` + `YrsVersioningTests.cs`: las **7** postcondiciones de contracts/versioning-api.md (dedup, round-trip, mismo VersionId cross-réplica, diff, conmutatividad de merge, compactación acotada FR-012)
-- [ ] T028 [P] [US1] Unit tests `tests/Weft.Versioning.Tests/TextDiffTests.cs` (Equal/Insert/Delete, determinismo del diff, casos límite: campo vacío, sin cambios)
-- [ ] T029 [P] [US1] Create determinism gate `tests/Weft.Determinism.Tests/DeterminismTests.cs`: corpus de secuencias con client-ids fijos → export/hash idénticos entre réplicas y corridas (P-III; base del job cross-RID)
-- [ ] T030 [US1] Create runnable sample `samples/Weft.Sample.Versioning/Program.cs` ejecutando el user journey completo de US1 (salida legible con hashes y diff)
-- [ ] T031 [US1] Wire CI jobs in `.github/workflows/ci.yml`: `determinism` (bloqueante) + versioning tests en la matriz de plataformas
+- [X] T022 [P] [US1] Implement `VersionId` struct in `src/Weft.Versioning/VersionId.cs` (SHA-256, hex lowercase, Parse/TryParse/AsSpan, igualdad por valor) — CHARTER-02
+- [X] T023 [P] [US1] Define `IBlobStore` + `InMemoryBlobStore` in `src/Weft.Versioning/Blobs/IBlobStore.cs`, `InMemoryBlobStore.cs` (put idempotente, thread-safe) — CHARTER-02
+- [X] T024 [US1] Implement `FileSystemBlobStore` in `src/Weft.Versioning/Blobs/FileSystemBlobStore.cs` (sharding `aa/bb/hash`, escritura atómica temp+rename) — CHARTER-02
+- [X] T025 [P] [US1] Implement word-level LCS diff in `src/Weft.Versioning/TextDiff.cs` (`TextDiff`, `TextDiffSegment`, `DiffOp` per contracts/versioning-api.md) — CHARTER-02
+- [X] T026 [US1] Implement `VersionStore` in `src/Weft.Versioning/VersionStore.cs`: `PublishAsync`/`CheckoutAsync` (verifica integridad → `BlobIntegrityException`)/`DiffAsync`/`BranchAsync`/`Merge`/`MergeAsync` — CHARTER-02
+- [X] T027 [P] [US1] Create engine-parametrized versioning suite `tests/Weft.Versioning.Tests/VersioningSuiteBase.cs` + `YrsVersioningTests.cs`: las **7** postcondiciones de contracts/versioning-api.md (dedup, round-trip, mismo VersionId cross-réplica, diff, conmutatividad de merge, compactación acotada FR-012) — CHARTER-02
+- [X] T028 [P] [US1] Unit tests `tests/Weft.Versioning.Tests/TextDiffTests.cs` (Equal/Insert/Delete, determinismo del diff, casos límite: campo vacío, sin cambios) — CHARTER-02
+- [X] T029 [P] [US1] Create determinism gate `tests/Weft.Determinism.Tests/DeterminismTests.cs`: corpus de secuencias con client-ids fijos → export/hash idénticos entre réplicas y corridas (P-III; base del job cross-RID) — CHARTER-02
+- [X] T030 [US1] Create runnable sample `samples/Weft.Sample.Versioning/Program.cs` ejecutando el user journey completo de US1 (salida legible con hashes y diff) — CHARTER-02
+- [X] T031 [US1] Wire CI jobs in `.github/workflows/ci.yml`: `determinism` (bloqueante) + versioning tests en la matriz de plataformas — CHARTER-02
 
 **Checkpoint**: capa de versionado completa sobre yrs — falta la evidencia dual-engine para cerrar M0 (siguiente fase)
 
@@ -82,10 +82,10 @@
 
 **Independent Test** (spec US5): la MISMA suite de versionado verde sobre yrs y Loro; probes nativos responden en Loro y su ausencia en yrs no rompe nada
 
-- [ ] T032 [P] [US5] Create crate `native/weft-loro-ffi/` (`loro = "=1.13.6"`): ABI núcleo `weft_loro_*` + probes (`native_diff_probe`, `native_branch_probe`, `shallow_snapshot`) + header + tests/mem_asan
-- [ ] T033 [US5] Implement `src/Weft.Loro/LoroEngine.cs` + `LoroDoc.cs` + `LoroNativeVersioning.cs` (`ICrdtEngine` + `INativeVersioning` per contracts/core-api.md)
-- [ ] T034 [US5] Activate dual-engine theory in `tests/Weft.Versioning.Tests/LoroVersioningTests.cs` (hereda `VersioningSuiteBase` de T027) + promote CI job `dual-engine` a gate bloqueante (SC-008)
-- [ ] T035 [P] [US5] Extend `asan` CI job matrix to `weft-loro-ffi` in `.github/workflows/ci.yml` (P-II cubre ambos shims)
+- [X] T032 [P] [US5] Create crate `native/weft-loro-ffi/` (`loro = "=1.13.6"`): ABI núcleo `weft_loro_*` + tests/mem_asan + fuzz — CHARTER-02. **DIFERIDO a follow-up** (auditoría CHARTER-02, G1): probes `native_diff_probe`/`native_branch_probe`/`shallow_snapshot` + header `include/weft_loro_ffi.h` — capacidad opcional `INativeVersioning`; ningún gate de M0 depende de ella.
+- [X] T033 [US5] Implement `src/Weft.Loro/LoroEngine.cs` + `LoroDoc.cs` (`ICrdtEngine` per contracts/core-api.md) — CHARTER-02. **DIFERIDO a follow-up** (auditoría CHARTER-02, G1): `LoroNativeVersioning.cs` (`INativeVersioning`); `LoroEngine.NativeVersioning = null` en M0.
+- [X] T034 [US5] Activate dual-engine theory in `tests/Weft.Versioning.Tests/LoroVersioningTests.cs` (hereda `VersioningSuiteBase` de T027) + promote CI job `dual-engine` a gate bloqueante (SC-008) — CHARTER-02
+- [X] T035 [P] [US5] Extend `asan` CI job matrix to `weft-loro-ffi` in `.github/workflows/ci.yml` (P-II cubre ambos shims) — CHARTER-02
 
 **Checkpoint**: **M0 se declara cerrado aquí** (US1 + US5): API mínima estable con gates de memoria, determinismo **y dual-engine** activos — evidencia completa para la revisión de hito de la constitución (P-IV)
 

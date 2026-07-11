@@ -2,7 +2,7 @@
 # En M0 solo el shim de yrs; weft-loro-ffi entra en CHARTER-02 (US5).
 [workspace]
 resolver = "2"
-members = ["weft-yrs-ffi"]
+members = ["weft-yrs-ffi", "weft-loro-ffi"]
 
 [workspace.package]
 edition = "2021"

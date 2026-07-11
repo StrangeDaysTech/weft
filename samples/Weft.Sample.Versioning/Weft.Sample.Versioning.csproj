@@ -1,28 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="../../src/Weft.Versioning/Weft.Versioning.csproj" />
-    <ProjectReference Include="../../src/Weft.Loro/Weft.Loro.csproj" />
   </ItemGroup>
 
-  <!-- Copia el cdylib compilado por cargo al layout runtimes/<rid>/native/ para que el resolver
-       de Weft.Core lo encuentre (la suite corre sobre YrsEngine, y en CHARTER-02 también Loro). -->
-  <Target Name="CopyWeftNativeForTests" AfterTargets="Build">
+  <Target Name="CopyWeftNativeForSample" AfterTargets="Build">
     <PropertyGroup>
       <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_WeftRid>
       <_WeftRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_WeftRid>
@@ -35,7 +23,6 @@
     </PropertyGroup>
     <ItemGroup>
       <_WeftNative Include="$(MSBuildProjectDirectory)/../../native/target/release/$(_WeftPrefix)weft_yrs_ffi$(_WeftExt)" />
-      <_WeftNative Include="$(MSBuildProjectDirectory)/../../native/target/release/$(_WeftPrefix)weft_loro_ffi$(_WeftExt)" />
     </ItemGroup>
     <Copy SourceFiles="@(_WeftNative)"
           DestinationFolder="$(OutDir)runtimes/$(_WeftRid)/native/"

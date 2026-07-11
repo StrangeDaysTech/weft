@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Weft — adaptador dual-path sobre el motor CRDT Loro (vía shim weft-loro-ffi). Prueba la portabilidad de la abstracción ICrdtEngine (constitución P-IV).</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Weft.Core/Weft.Core.csproj" />
+  </ItemGroup>
+
+</Project>

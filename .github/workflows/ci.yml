@@ -59,13 +59,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
-      - name: cargo test bajo AddressSanitizer + LeakSanitizer
+      # Matriz de sanitizers sobre AMBOS shims (T035): sin -p corre todo el workspace nativo.
+      - name: cargo test bajo AddressSanitizer + LeakSanitizer (yrs + loro)
         working-directory: native
         env:
           RUSTFLAGS: "-Zsanitizer=address"
           ASAN_OPTIONS: "detect_leaks=1"
         run: >-
-          cargo +nightly test -p weft-yrs-ffi --features test-hooks
+          cargo +nightly test --features test-hooks
           --target x86_64-unknown-linux-gnu
 
   # ── Fuzzing de la frontera FFI (research R14): smoke de 60 s por target en cada PR ─────────
@@ -88,11 +89,15 @@ jobs:
           workspaces: |
             native
             native/weft-yrs-ffi/fuzz
+            native/weft-loro-ffi/fuzz
       - name: Instalar cargo-fuzz
         run: cargo install cargo-fuzz --locked
       # Compilar aparte: un fallo de compilación de los targets SÍ debe romper el job (rojo).
-      - name: Build fuzz targets
+      - name: Build fuzz targets (yrs)
         working-directory: native/weft-yrs-ffi
+        run: cargo +nightly fuzz build -s none
+      - name: Build fuzz targets (loro)
+        working-directory: native/weft-loro-ffi
         run: cargo +nightly fuzz build -s none
       # El objetivo del smoke es que ningún input adversarial cause panic-through / UB / crash en
       # NUESTRO shim (research R14). Dos características del decoder de yrs sobre input malformado
@@ -124,21 +129,61 @@ jobs:
           cargo +nightly fuzz run -s none apply_update --
           -max_total_time=60 -rss_limit_mb=0 -max_len=8192
           || echo "::warning title=fuzz informativo (R6)::apply_update halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
+      # Shim Loro (localmente no amplifica memoria; mismo patrón informativo por robustez).
+      - name: Fuzz loro_doc_load (60 s)
+        working-directory: native/weft-loro-ffi
+        run: >-
+          cargo +nightly fuzz run -s none loro_doc_load --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (loro)::loro_doc_load halló un crash — no bloquea M0 (ver AILOG)"
+      - name: Fuzz loro_apply_update (60 s)
+        working-directory: native/weft-loro-ffi
+        run: >-
+          cargo +nightly fuzz run -s none loro_apply_update --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (loro)::loro_apply_update halló un crash — no bloquea M0 (ver AILOG)"
 
   # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
+  # ── Gate P-III: determinismo del encoding (bloqueante desde US1) ──────────────────────────
   determinism:
     name: determinism
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - run: echo "Gate de determinismo del encoding (P-III) — se activa en US1 (CHARTER-02, T029/T031)."
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build shim (test-hooks)
+        working-directory: native
+        run: cargo build --release --features test-hooks
+      - name: Determinism gate
+        run: dotnet test tests/Weft.Determinism.Tests/ --configuration Release
+      # El cross-implementación vs Yjs JS (mismo hash en todos los RIDs) se añade en US4 (T058).
 
+  # ── Gate P-IV: suite de versionado sobre yrs Y Loro (bloqueante desde US5, SC-008) ────────
   dual-engine:
     name: dual-engine
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - run: echo "Suite de versionado sobre yrs Y Loro (P-IV) — se activa en US5 (CHARTER-02, T034)."
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build shims (yrs + loro, test-hooks)
+        working-directory: native
+        run: cargo build --release --features test-hooks
+      - name: Dual-engine versioning suite
+        run: dotnet test tests/Weft.Versioning.Tests/ --configuration Release
 
   pack-smoke:
     name: pack-smoke
