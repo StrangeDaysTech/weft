@@ -6,6 +6,9 @@ created: 2026-07-11
 agent: claude-opus-4-8
 confidence: high
 review_required: true
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-11
+review_outcome: approved
 risk_level: high
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -68,12 +71,13 @@ US3/M2 (`DocumentSession` = T047). Trabajo de **implementación** contra `contra
 | `src/Weft.Core/Concurrency/DocumentActor.cs` | New — actor canal single-reader (T037) |
 | `src/Weft.Core/Concurrency/DocumentBroker.cs` | New — registro/pooling/idle+LRU/dispose (T038) |
 | `src/Weft.Core/Concurrency/DocumentSession.cs` | New — espejo async + ExecuteAsync + UpdateApplied (T039) |
-| `tests/Weft.Core.Tests/DocumentBrokerTests.cs` | New — 7 tests de concurrencia (T040) |
+| `tests/Weft.Core.Tests/DocumentBrokerTests.cs` | New — tests de concurrencia (T040; 7 de base + G/J de remediación = 9) |
 | `tests/Weft.LoadTest/**` | New — harness de carga SC-006 (T041) |
 | `.github/workflows/ci.yml` | Change — job nightly `load-test` + trigger schedule (T042) |
 | `Weft.sln` | Change — añadido `Weft.LoadTest` |
 | `specs/001-weft-crdt-versioning/tasks.md` | Change — T036–T042 marcadas `[X]` |
-| `.straymark/charters/03-*.md` | Change — declaración + status in-progress |
+| `.straymark/charters/03-*.md` | Change — declaración → cierre (status closed + §Closing notes) |
+| `.straymark/charters/CHARTER-03.telemetry.yaml` | New — telemetría de cierre (external_audit incl.) |
 
 ## Decisions Made
 
@@ -103,11 +107,13 @@ US3/M2 (`DocumentSession` = T047). Trabajo de **implementación** contra `contra
 ## Verification
 
 - [x] `dotnet build Weft.sln -c Release` — 0 warnings / 0 errores
-- [x] **52 tests .NET** verdes (Core 25 [18 M0 + 7 concurrencia], Versioning 25, Determinism 2)
+- [x] **52 tests .NET** verdes en implementación (Core 25 [18 M0 + 7 concurrencia], Versioning 25,
+      Determinism 2); **54 tras la remediación de auditoría** (Core 27 con los tests G/J — ver §Auditoría)
 - [x] **Load test** (2000 docs × 16 tareas × 30 s): ops=300k, **evictions=433k, 0 inconsistencias,
-      0 errores**, working set 211 MB (acotado), pool acotado (peak 969 < 2000)
+      0 errores**, working set 211 MB (acotado), pool acotado (peak 969 < 2000); revalidado tras
+      remediación (1000 docs: 1.3M desalojos, 0 inconsistencias)
 - [x] Serialización verificada con motor instrumentado (pico de concurrencia observada = 1)
-- [ ] Revisión humana del operador (pendiente — `review_required: true`)
+- [x] Revisión humana del operador — aprobada 2026-07-11 (ver §Approval)
 - [x] Auditoría externa StrayMark (3 auditores, 0 críticos/altos, 0 FP; **los 11 findings remediados** — ver abajo)
 
 ## Additional Notes
@@ -187,3 +193,7 @@ verificada). El load test (SC-006) fue el instrumento que expuso los tres riesgo
 El rediseño del ciclo de vida de `_loading` (F+H+R6 reconciliados con un `Task.Yield()` inicial en
 `LoadAndRegisterAsync` que garantiza gestión consistente de la entrada) se revalidó con el load test
 (1.3M desalojos, 0 inconsistencias) y 54 tests verdes (Core 27, incl. 2 regresiones nuevas G/J).
+
+## Approval
+
+**Approved**: 2026-07-11 by `Jose Villaseñor Montfort`.
