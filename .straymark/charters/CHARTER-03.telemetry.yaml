@@ -1,0 +1,172 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Conceptual:    Propuesta/straymark-charter-telemetry.md (in the upstream repo)
+# Storage path:  .straymark/charters/CHARTER-03.telemetry.yaml
+#
+# Fill time target: 5-10 minutes per Charter. The point is signal, not exhaustiveness —
+# leave a field blank or omit it if you don't have honest data for it. Honest gaps
+# are more useful than invented numbers.
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-03"               # match the charter_id of the Charter file
+  charter_title: "Concurrencia broker actor-canal y ciclo de vida a escala"
+  closed_at: "2026-07-11"                # date of the closing commit / merge
+
+  # ---------- Origin & activation ----------
+  # Which AILOGs (if any) motivated this Charter, and were they still useful when
+  # execution actually happened? still_relevant_at_execution captures whether the
+  # AILOG content lined up with reality, not whether it merely existed.
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-11-001"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución del Charter (originado del spec 001)."
+
+  # The trigger as declared in the Charter, plus what actually fired the Charter
+  # in practice. Sentinel found that declared triggers tend to be prescriptive
+  # (when SHOULD this run) while the effective trigger was usually meta — the
+  # delta between the two is the interesting datum.
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "M0 cerrado (versionado + dual-engine en main); tasks.md fija T036–T042 como corte de M1."
+    fired_at: "2026-07-11"
+    fire_clarity: "clear"
+    fire_clarity_notes: ""
+
+  # ---------- Pre-work ----------
+  # Whether the Charter's §Pre-trabajo section did its job. If items_discovered_during_planning
+  # is high, the field is not protecting you — flag it.
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: ""                 # high | medium | low
+    pre_work_notes: ""
+
+  # ---------- Planning session (if any) ----------
+  # Many Charters execute without a formal planning session. If so, set occurred:false
+  # and skip the rest of this block.
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  # TIME only. Sentinel's data showed lines-changed is not predictive (1.0x to 8.1x drift);
+  # do NOT attempt to capture it. Estimation is one of the questions this telemetry exists
+  # to answer.
+  effort:
+    started_at: "2026-07-11"
+    finished_at: "2026-07-11"
+    estimated_effort: "L (~3h)"
+    actual_effort: "L (~5h)"
+    estimation_drift_factor: 1.7
+    estimation_drift_reason: "3 riesgos de concurrencia emergentes (R6/R7/R8) destapados por el load test exigieron rediseñar el ciclo de vida; más el ciclo de auditoría externa y la remediación de 11 findings en el mismo PR."
+
+  # ---------- Agent quality during execution ----------
+  # r_n_plus_one_emergent_count is the field most worth your time: risks named
+  # during execution that weren't in §Risks. Sentinel validated this as the
+  # cross-agent signal of disciplined execution.
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 3
+    skill_prompts_used: ["straymark-charter-new", "straymark-audit-prompt", "straymark-audit-review"]
+
+  # ---------- External audit ----------
+  # ARRAY, not a single object — dual-audit (e.g. Copilot + Gemini) gives you
+  # cross-model calibration. The categorization DELTA between auditors is signal:
+  # if Copilot calls something "implementation_gap" and Gemini calls the same
+  # finding "false_positive", that disagreement is itself useful data.
+  external_audit:
+    - auditor: "glm-5.2"
+      findings_total: 5
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 5
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "5 findings Low; única evidencia empírica (ejecutó build+tests+load). review.md §3.1. Rating 8.1."
+    - auditor: "gpt-5-5"
+      findings_total: 4
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 1
+        real_debt: 3
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "Más profundo (95 citas); único en hallar F (dispose-vs-load) y H. review.md §3.2. Rating 9.4."
+    - auditor: "qwen3-7-max"
+      findings_total: 5
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 5
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "Mejor calibración; único en hallar I (race _state/_fault) y K. review.md §3.3. Rating 8.7."
+
+  # ---------- Outcome & follow-ups ----------
+  # scope_change_notes uses F1...FN encoding consistent with claude-analisis output.
+  # Optional category suffix: IG (implementation gap), FP (false positive), HALL (hallucination).
+  # Example: "F1 (IG): handler.go declared but not modified — scope simplified mid-flight."
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "R6/R7/R8 emergentes remediados en ejecución; 11 findings de auditoría externa remediados en el mismo PR (backlog a cero, 0 nuevos follow-ups)."
+    new_followups_generated: 0
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: ""
+
+  # ---------- Pre-declare SpecKit refresh (optional) ----------
+  # Populate this block ONLY if this Charter was preceded by a SpecKit refresh PR
+  # per the Charter-chain-evolution pattern (see
+  # .straymark/00-governance/CHARTER-CHAIN-EVOLUTION.md Pattern 1). Omit the block
+  # entirely if the refresh did not apply — absence means "pattern not used".
+  # Use `straymark charter refresh-suggest <module>` to check the heuristic.
+  # pre_declare_refresh:
+  #   enabled: true
+  #   refresh_pr: "owner/repo#76"
+  #   refresh_aidec: "AIDEC-2026-07-11-NNN-slug"
+  #   reusable_patterns_integrated: 0
+  #   code_gaps_integrated: 0
+  #   discipline_patterns_integrated: 0
+  #   empirical_corrections_integrated: 0
+  #   operator_decisions_ratified: 0
+
+  # ---------- Post-close audit-driven amendment (optional) ----------
+  # Populate this block ONLY if this Charter received a Batch N.4 amendment AFTER
+  # `status: closed` (e.g. external audit findings remediated on the same execute
+  # branch). See .straymark/00-governance/CHARTER-CHAIN-EVOLUTION.md Pattern 2.
+  # `straymark charter amend <id>` scaffolds the amendment and emits this block.
+  # post_close_amendment:
+  #   applied: true
+  #   trigger: "external_audit"           # external_audit | production_incident | deferred_implementation
+  #   ailog_id: "AILOG-2026-07-11-NNN"    # the NEW AILOG that documents the amendment
+  #   findings_closed: 0
+  #   files_modified: 0
+  #   effort_hours: 0.0
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  # Quantitative fields tell you what happened; qualitative tells you what to change.
+  # The format_iteration field is part of the self-evolving feedback loop: each
+  # Charter refines the format of the next.
+  qualitative:
+    format_iteration: "v4"
+    friction_points: ["El load test destapó bugs sutiles de concurrencia (livelock, carrera desalojo/reapertura) que exigieron rediseñar el ciclo de vida de _loading."]
+    wins: ["El harness de carga validó SC-006 y actuó como herramienta de diseño, no solo gate (destapó R6/R7/R8).", "Auditoría multi-modelo limpia: 11 findings, 0 críticos/altos, 0 falsos positivos; los 11 remediados en el PR."]
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: ""

@@ -1,0 +1,39 @@
+MERGE-REPORTS audit cycle (CHARTER-03-concurrencia-broker-actor-canal-y-ciclo-de-vida-a)
+  ✔ Validated .straymark/audits/CHARTER-03/report-glm-5.2.md (5 findings)
+  ✔ Validated .straymark/audits/CHARTER-03/report-gpt-5-5.md (4 findings)
+  ✔ Validated .straymark/audits/CHARTER-03/report-qwen3-7-max.md (5 findings)
+
+  Audit cycle merge complete.
+
+  external_audit YAML — paste into telemetry:
+  (charter_telemetry.external_audit array)
+
+    - auditor: "glm-5.2"
+      findings_total: 5
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 5
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "see audit/charters/CHARTER-03/auditor-primary.md"
+    - auditor: "gpt-5-5"
+      findings_total: 4
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 1
+        real_debt: 3
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "see audit/charters/CHARTER-03/auditor-secondary.md"
+    - auditor: "qwen3-7-max"
+      findings_total: 5
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 5
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "see audit/charters/CHARTER-03/auditor-secondary.md"
+
+

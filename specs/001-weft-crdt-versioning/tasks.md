@@ -97,13 +97,13 @@
 
 **Independent Test** (spec US2): prueba de carga con cientos de docs y tareas concurrentes → estados consistentes, memoria acotada, cero recursos sin liberar
 
-- [ ] T036 [P] [US2] Define `DocumentBrokerOptions` in `src/Weft.Core/Concurrency/DocumentBrokerOptions.cs` (IdleEviction, MaxActiveDocuments, OnEvicting)
-- [ ] T037 [US2] Implement `DocumentActor` (internal) in `src/Weft.Core/Concurrency/DocumentActor.cs`: Channel unbounded single-reader, estados Active/Idle/Evicted/Faulted, drenado en desalojo, doc liberado exactamente una vez
-- [ ] T038 [US2] Implement `DocumentBroker` in `src/Weft.Core/Concurrency/DocumentBroker.cs`: registro docId→actor, reutilización, desalojo por inactividad + LRU al superar máximo, `DisposeAsync` drena todo
-- [ ] T039 [US2] Implement `DocumentSession` in `src/Weft.Core/Concurrency/DocumentSession.cs`: espejo async de `ICrdtDoc`, `ExecuteAsync` (turno atómico), evento `UpdateApplied`, `IAsyncDisposable`
-- [ ] T040 [P] [US2] Concurrency tests `tests/Weft.Core.Tests/DocumentBrokerTests.cs`: serialización (nunca 2 ops simultáneas del mismo doc), FIFO por sesión, eviction→OnEvicting→reopen con loader, actor Faulted propaga excepción causal, dispose semantics
-- [ ] T041 [P] [US2] Load test harness `tests/Weft.LoadTest/Program.cs`: cientos de docs × tareas concurrentes sostenidas → consistencia final + memoria acotada (medición GC/working set; SC-006)
-- [ ] T042 [US2] Add CI nightly job `load-test` in `.github/workflows/ci.yml` (no bloqueante en PR, bloqueante para cierre de M1)
+- [X] T036 [P] [US2] Define `DocumentBrokerOptions` in `src/Weft.Core/Concurrency/DocumentBrokerOptions.cs` (IdleEviction, MaxActiveDocuments, OnEvicting) — CHARTER-03
+- [X] T037 [US2] Implement `DocumentActor` (internal) in `src/Weft.Core/Concurrency/DocumentActor.cs`: Channel unbounded single-reader, estados Active/Idle/Evicted/Faulted, drenado en desalojo, doc liberado exactamente una vez — CHARTER-03
+- [X] T038 [US2] Implement `DocumentBroker` in `src/Weft.Core/Concurrency/DocumentBroker.cs`: registro docId→actor, reutilización, desalojo por inactividad + LRU al superar máximo, `DisposeAsync` drena todo — CHARTER-03
+- [X] T039 [US2] Implement `DocumentSession` in `src/Weft.Core/Concurrency/DocumentSession.cs`: espejo async de `ICrdtDoc`, `ExecuteAsync` (turno atómico), evento `UpdateApplied`, `IAsyncDisposable` — CHARTER-03
+- [X] T040 [P] [US2] Concurrency tests `tests/Weft.Core.Tests/DocumentBrokerTests.cs`: serialización (nunca 2 ops simultáneas del mismo doc), FIFO por sesión, eviction→OnEvicting→reopen con loader, actor Faulted propaga excepción causal, dispose semantics — CHARTER-03
+- [X] T041 [P] [US2] Load test harness `tests/Weft.LoadTest/Program.cs`: cientos de docs × tareas concurrentes sostenidas → consistencia final + memoria acotada (medición GC/working set; SC-006) — CHARTER-03
+- [X] T042 [US2] Add CI nightly job `load-test` in `.github/workflows/ci.yml` (no bloqueante en PR, bloqueante para cierre de M1) — CHARTER-03
 
 **Checkpoint**: M1 — concurrencia a escala validada
 
