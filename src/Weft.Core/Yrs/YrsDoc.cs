@@ -14,6 +14,8 @@ internal sealed class YrsDoc : ICrdtDoc
 
     private YrsDoc(DocHandle handle) => _handle = handle;
 
+    public string EngineName => YrsEngine.EngineName;
+
     internal static YrsDoc Create()
     {
         FfiStatus.ThrowIfError(NativeMethods.weft_doc_new(out nint raw));
