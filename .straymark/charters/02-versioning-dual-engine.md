@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-02-versioning-dual-engine
-status: in-progress
+status: closed
+closed_at: 2026-07-10
 effort_estimate: L
 trigger: "CHARTER-01 cerrado (binding seguro con gates P-I/P-II verdes en main). tasks.md fija T022–T035 (US1 versionado + US5 dual-engine) como el segundo y último corte de M0: cierra el hito activando los gates de determinismo (P-III) y dual-engine (P-IV)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Versionado content-addressed y dual-engine
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Segundo y último corte de M0 (T022–T035): capa de dominio de versionado engine-agnóstica (US1) + adaptador Loro y suite dual-engine (US5). Cierra M0.
 
@@ -143,3 +144,20 @@ A diferencia de CHARTER-01, este Charter **requiere auditoría externa multi-mod
    `/straymark-audit-review`. Los findings `real_debt` se remedian antes de cerrar; el bloque
    `external_audit` de la telemetría se llena con la calibración cross-modelo.
 4. `straymark charter close CHARTER-02` (telemetría, status `closed`). No borrar este archivo.
+
+## Closing notes
+
+Cierre 2026-07-10. Divergencias respecto a §Scope/§Files, remediadas atómicamente (mismo PR #4):
+
+- **Superficie `INativeVersioning` de Loro DIFERIDA (auditoría G1)**: §Scope declaraba los probes
+  nativos (`native_diff`/`native_branch`/`shallow_snapshot`), el header `include/weft_loro_ffi.h` y
+  `LoroNativeVersioning.cs`. No se entregaron: `LoroEngine.NativeVersioning => null`. Es capacidad
+  **opcional** (core-api.md); ningún gate ni postcondición de M0 depende de ella y la suite dual-engine
+  pasa sin ella. Reconciliado en `tasks.md` T032/T033 (marcados como diferido), `quickstart.md` §US5 y
+  registrado como follow-up. Ref: `.straymark/audits/CHARTER-02/review.md` §4, AILOG-2026-07-10-002.
+- **Scope expansion (R6/R7)**: se modificó `native/weft-yrs-ffi/src/lib.rs` (fuera de los Files
+  declarados) para el fix de índices UTF-16 (R6) — bug latente de CHARTER-01. Ver AILOG §R6/§R7 y
+  AIDEC-2026-07-10-001 (export `all_updates`, aprobado).
+- **Auditoría externa**: 3 auditores (gpt-5-5 9.2, qwen3-7-max 8.9, gemini-3-1-pro 4.1); 5 findings
+  válidos, 0 críticos, 0 falsos positivos. G1/G2 remediados; G3–G5 en follow-ups. Telemetría
+  `external_audit` completa.

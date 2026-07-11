@@ -1,0 +1,117 @@
+# StrayMark Charter telemetry — CHARTER-02 (cerrado 2026-07-10).
+# Schema: .straymark/schemas/charter-telemetry.schema.v0.json
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-02"
+  charter_title: "Versionado content-addressed y dual-engine"
+  closed_at: "2026-07-10"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-10-002"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución (no originante). El Charter nació del spec 001."
+
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "CHARTER-01 cerrado; T022–T035 forman el 2º y último corte de M0 (US1 versionado + US5 dual-engine), cierra el hito activando P-III y P-IV."
+    fired_at: "2026-07-10"
+    fire_clarity: "clear"
+    fire_clarity_notes: "El corte sale de los checkpoints de tasks.md; CHARTER-01 ya en main."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "high"
+    pre_work_notes: "Contratos (versioning-api/core-api) + código de spikes 02/03 como referencia + fundación de CHARTER-01."
+
+  # ---------- Planning session ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: "Plan derivado del spec/tasks."
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-10"
+    finished_at: "2026-07-10"
+    estimated_effort: "L"
+    actual_effort: "L (~1.8x por imprevistos + remediación de auditoría)"
+    estimation_drift_factor: 1.8
+    estimation_drift_reason: "La implementación T022–T035 cupo en L. Sobrecoste por: R6 (bug latente de índices UTF-8→UTF-16 destapado al ejercitar el diff con acentos), R7 (no-determinismo del Snapshot de Loro, flaky, destapado por la matriz de CI multiplataforma — un solo runner lo habría dejado pasar), y la remediación de la auditoría externa (G1/G2)."
+
+  # ---------- Agent quality ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 3
+    r_n_plus_one_emergent_count: 2
+    skill_prompts_used: ["speckit-implement", "straymark-audit-prompt", "straymark-audit-review", "straymark-aidec"]
+
+  # ---------- External audit ----------
+  # audit_quality = juicio del calibrador (claude-opus-4-8), no el auto-declarado.
+  # Calibración completa + ratings en .straymark/audits/CHARTER-02/review.md.
+  external_audit:
+    - auditor: "gpt-5-5"
+      findings_total: 2
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 2
+        real_debt: 0
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "Rating 9.2/10. 170 citas, task-by-task, disciplina solo-lectura estricta; único en detectar la falta de AIDEC (G2). Ver review.md §3.1."
+    - auditor: "qwen3-7-max"
+      findings_total: 5
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 3
+        real_debt: 2
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "Rating 8.9/10. Único en aportar los 2 real_debt (G3/G4). Salvedad: corrió build/test (escribió artefactos), tensión con la disciplina solo-lectura. Ver review.md §3.2."
+    - auditor: "gemini-3-1-pro"
+      findings_total: 0
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 0
+        false_positive: 0
+      audit_quality: "low"
+      audit_notes: "Rating 4.1/10. Superficial: 2 citas, 2/14 tareas traceadas, ningún gap real hallado, cierre recomendado sin evidencia. audit_quality rebajado de 'high' (auto-declarado) por el calibrador. Ver review.md §3.3."
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1: fix R6 (OffsetKind::Utf16 en yrs, bug latente de CHARTER-01) — scope expansion documentada. F2: fix R7 (Loro export all_updates vs Snapshot). F3 (G1, auditoría): superficie INativeVersioning de Loro (probes/header/LoroNativeVersioning) diferida a follow-up y reconciliada en tasks.md/quickstart."
+    new_followups_generated: 4
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M0"
+
+  # ---------- Qualitative ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points:
+      - "R7 (Snapshot de Loro no content-addressable determinista) solo visible en la matriz de CI multiplataforma — verde en local/macOS por casualidad, rojo en ubuntu/windows. Un solo runner lo habría dejado pasar."
+      - "R6 (índices byte-UTF-8 en yrs) destapado al ejercitar el diff con texto acentuado en el sample; los tests de CHARTER-01 (solo ASCII) no lo vieron."
+      - "Se generó el prompt de auditoría con el CI aún corriendo; el CI cambió el código (R7) y hubo que detener/regenerar. Regla nueva fijada."
+    wins:
+      - "Suite de versionado (7 postcondiciones) verde e idéntica sobre yrs Y Loro → M0 cerrado (P-III + P-IV)."
+      - "Auditoría multi-modelo (3 familias): 5 findings válidos, 0 críticos, 0 falsos positivos; convergencia independiente GPT↔Qwen en G1."
+      - "El gate dual-engine + matriz de 3 plataformas es lo que hizo visible el no-determinismo del content-addressing (R7). Verificación local completa antes de CI (lección de CHARTER-01)."
+    overall_satisfaction: 4
+    would_repeat_format: true
+    proposed_format_changes: "Mantener dual-engine + matriz multiplataforma bloqueantes (hacen visible el no-determinismo). Añadir un test de convergencia repetido N veces localmente para atrapar flakiness de content-addressing antes de CI."
