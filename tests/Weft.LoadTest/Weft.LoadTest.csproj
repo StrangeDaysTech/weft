@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Servidor GC: comportamiento de memoria representativo del uso en servidor (US2). -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Weft.Core/Weft.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    Copia el cdylib de yrs al layout runtimes/<rid>/native/ para que NativeLibraryResolver lo
+    encuentre (mismo patrón que los proyectos de test). El load test solo usa YrsEngine.
+  -->
+  <Target Name="CopyWeftNativeForLoadTest" AfterTargets="Build">
+    <PropertyGroup>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_WeftRid>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('Windows'))">weft_yrs_ffi.dll</_WeftNativeName>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libweft_yrs_ffi.dylib</_WeftNativeName>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('Linux'))">libweft_yrs_ffi.so</_WeftNativeName>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WeftNative Include="$(MSBuildProjectDirectory)/../../native/target/release/$(_WeftNativeName)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WeftNative)"
+          DestinationFolder="$(OutDir)runtimes/$(_WeftRid)/native/"
+          Condition="Exists('%(_WeftNative.FullPath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

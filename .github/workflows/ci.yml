@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "0 6 * * *" # nightly 06:00 UTC — job load-test (M1, SC-006)
+  workflow_dispatch:
 
 # Cancela ejecuciones antiguas de la misma rama/PR.
 concurrency:
@@ -191,3 +194,32 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: echo "Smoke del NuGet nativo multi-RID + ausencia de weft_test_panic (P-VI) — se activa en US4 (M3, T057)."
+
+  # ── Gate M1 (P-V, SC-006): prueba de carga de concurrencia ────────────────────────────────
+  # Nightly (schedule) + manual (workflow_dispatch): NO corre en PR (no lo bloquea), pero es
+  # BLOQUEANTE para el cierre de M1 — el nightly debe estar verde. El harness sale con código ≠ 0
+  # si algún documento queda inconsistente, la memoria no se acota (pico de documentos activos por
+  # encima del pool) o alguna operación falla. Ver AILOG (US2) y CHARTER-03 §Verification.
+  load-test:
+    name: load-test (nightly)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build shim (release)
+        working-directory: native
+        run: cargo build --release
+      # docs (2000) >> max-active (pool) fuerza desalojo/reapertura intensos → ejercita la carrera
+      # persistencia-vs-recarga sin pérdida de updates (SC-006), no solo el camino feliz.
+      - name: Load test (miles de docs, tareas concurrentes sostenidas)
+        run: >-
+          dotnet run --configuration Release --project tests/Weft.LoadTest --
+          --docs 2000 --tasks 16 --seconds 60
