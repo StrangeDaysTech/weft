@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-03-concurrencia-broker-actor-canal-y-ciclo-de-vida-a
-status: in-progress
+status: closed
+closed_at: 2026-07-11
 effort_estimate: L
 trigger: "CHARTER-02 cerrado (M0: versionado content-addressed + dual-engine verde en main). tasks.md fija T036–T042 (US2 concurrencia) como corte de M1: broker actor/canal por documento + ciclo de vida a escala (pooling, desalojo idle+LRU, liberación determinista), activando y validando el principio constitucional P-V con prueba de carga (SC-006)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Concurrencia broker actor-canal y ciclo de vida a escala
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Corte de M1 (T036–T042): capa de concurrencia serializada por documento (US2) — broker actor/canal, sesiones async y ciclo de vida a escala. Cierra M1.
 
@@ -157,3 +158,22 @@ el hito M1 y activa el principio constitucional P-V; amerita revisión cross-mod
    vía `/straymark-audit-execute`; el agente consolida con `/straymark-audit-review`. Los findings `real_debt`
    se remedian antes de cerrar; el bloque `external_audit` de la telemetría se llena con la calibración.
 4. `straymark charter close CHARTER-03` (telemetría, status `closed`). No borrar este archivo.
+
+## Closing notes
+
+Cierre 2026-07-11 (PR #8). Divergencias respecto a la declaración, todas remediadas atómicamente en el
+mismo PR:
+
+- **Riesgos emergentes R6/R7/R8 (no en §Risks)**: el load test (T041) actuó como herramienta de diseño
+  y destapó tres bugs de concurrencia en ejecución — livelock por entrada de carga rancia (R6), carrera
+  desalojo-vs-reapertura con pérdida de updates (R7, la corrupción que P-V/SC-006 prohíben) y
+  pooling/barrido inefectivos bajo carga (R8). Corregidos con regresión. Ver AILOG-2026-07-11-001 §R6/R7/R8.
+- **Scope expansion del drift (parser)**: `Weft.sln` y `tests/Weft.LoadTest/Weft.LoadTest.csproj` aparecen
+  como "no declarados" por el parser (rutas sin `/` y celda de dos rutas), pero son scope real (§Files).
+  Mismo patrón que CHARTER-01. Ver AILOG §"scope expansion del drift check".
+- **Auditoría externa (3 auditores)**: glm-5.2 (8.1), gpt-5-5 (9.4), qwen3-7-max (8.7). 11 findings
+  consolidados, **0 Critical/High tras calibración, 0 falsos positivos**. **Los 11 remediados en el PR**
+  (backlog a cero): F (dispose espera cargas), I (fault autoritativo), G (handler aislado), H (cancelación
+  desacoplada), B (traza de hook), A/C/K/E (calidad), D/J (cobertura). Reconciliar F+H+R6 exigió rediseñar
+  el ciclo de vida de `_loading`. Telemetría `external_audit` completa; review en
+  `.straymark/audits/CHARTER-03/review.md`.
