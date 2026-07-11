@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 4
+total_open: 5
 total_promoted: 0
 total_closed_in_session: 0
 total_phase_blocked: 0
@@ -71,6 +71,15 @@ Entry shape (v1 — optional fields marked):
 ### FU-004 — ### Risk: R6 (new, not in Charter) — índices de yrs eran byte-offsets, no UTF-16
 - **Origin**: AILOG-2026-07-10-002 §R6 (new, not in Charter)
 - **Source-hash**: 24e92818b6c7
+- **Status**: open
+- **Trigger**: TBD
+- **Destination**: TBD
+- **Cost**: TBD
+- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-10.
+
+### FU-005 — ### Risk: R7 (new, not in Charter) — Snapshot de Loro no es content-addressable determinista
+- **Origin**: AILOG-2026-07-10-002 §R7 (new, not in Charter)
+- **Source-hash**: 1d1c514561fe
 - **Status**: open
 - **Trigger**: TBD
 - **Destination**: TBD

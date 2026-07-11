@@ -35,3 +35,6 @@ Thumbs.db
 
 # ---- Spec Kit (mantener specs; ignorar temporales si los hubiera) ----
 # .specify/  -> se versiona (spec/plan/tasks son fuente de verdad)
+
+# Artefactos temporales de CLIs auditores (audit-execute)
+**/pending-skills/

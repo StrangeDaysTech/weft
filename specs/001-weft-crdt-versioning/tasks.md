@@ -82,8 +82,8 @@
 
 **Independent Test** (spec US5): la MISMA suite de versionado verde sobre yrs y Loro; probes nativos responden en Loro y su ausencia en yrs no rompe nada
 
-- [X] T032 [P] [US5] Create crate `native/weft-loro-ffi/` (`loro = "=1.13.6"`): ABI núcleo `weft_loro_*` + probes (`native_diff_probe`, `native_branch_probe`, `shallow_snapshot`) + header + tests/mem_asan — CHARTER-02
-- [X] T033 [US5] Implement `src/Weft.Loro/LoroEngine.cs` + `LoroDoc.cs` + `LoroNativeVersioning.cs` (`ICrdtEngine` + `INativeVersioning` per contracts/core-api.md) — CHARTER-02
+- [X] T032 [P] [US5] Create crate `native/weft-loro-ffi/` (`loro = "=1.13.6"`): ABI núcleo `weft_loro_*` + tests/mem_asan + fuzz — CHARTER-02. **DIFERIDO a follow-up** (auditoría CHARTER-02, G1): probes `native_diff_probe`/`native_branch_probe`/`shallow_snapshot` + header `include/weft_loro_ffi.h` — capacidad opcional `INativeVersioning`; ningún gate de M0 depende de ella.
+- [X] T033 [US5] Implement `src/Weft.Loro/LoroEngine.cs` + `LoroDoc.cs` (`ICrdtEngine` per contracts/core-api.md) — CHARTER-02. **DIFERIDO a follow-up** (auditoría CHARTER-02, G1): `LoroNativeVersioning.cs` (`INativeVersioning`); `LoroEngine.NativeVersioning = null` en M0.
 - [X] T034 [US5] Activate dual-engine theory in `tests/Weft.Versioning.Tests/LoroVersioningTests.cs` (hereda `VersioningSuiteBase` de T027) + promote CI job `dual-engine` a gate bloqueante (SC-008) — CHARTER-02
 - [X] T035 [P] [US5] Extend `asan` CI job matrix to `weft-loro-ffi` in `.github/workflows/ci.yml` (P-II cubre ambos shims) — CHARTER-02
 

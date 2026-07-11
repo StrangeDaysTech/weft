@@ -124,3 +124,19 @@ bloqueante en el futuro.
 
 `cargo-fuzz` estaba instalado desde el inicio; dual-engine, ASan de ambos shims y fuzz de ambos se
 ejecutaron localmente y en verde antes de pushear. Sin iteraciones a ciegas en CI.
+
+## Follow-ups (auditoría externa CHARTER-02)
+
+Derivados de la auditoría multi-modelo (gpt-5-5, qwen3-7-max, gemini-3-1-pro; ver
+`.straymark/audits/CHARTER-02/review.md`). Ninguno bloquea el cierre de M0:
+
+- **Follow-up (G1, alta)**: implementar la superficie `INativeVersioning` de Loro diferida — probes
+  `native_diff_probe`/`native_branch_probe`/`shallow_snapshot` en `weft-loro-ffi`, header
+  `include/weft_loro_ffi.h`, y `LoroNativeVersioning.cs` (`LoroEngine.NativeVersioning` pasaría de
+  `null` a la implementación). Capacidad opcional; reconciliado en tasks.md/quickstart como diferido.
+- **Follow-up (G3, baja)**: usar `VersionId` directo como key de `InMemoryBlobStore` en vez de
+  `id.ToString()` (ahorra la asignación del hex de 64 chars por operación).
+- **Follow-up (G4, baja)**: añadir un guard de compatibilidad de motor en `VersionStore.Merge` para
+  que un merge cross-engine lance `ArgumentException` clara en vez de `CorruptUpdateException` opaca.
+- **Follow-up (G5, baja)**: añadir un test directo de `FileSystemBlobStore` (round-trip + sharding con
+  directorio temporal); hoy solo `InMemoryBlobStore` se ejercita en la suite.

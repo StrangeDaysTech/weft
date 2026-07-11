@@ -84,8 +84,9 @@ dotnet test tests/Weft.Versioning.Tests -c Release    # theory: YrsEngine Y Loro
 ```
 
 **Esperado**: la MISMA suite de versionado verde sobre ambos motores (SC-008);
-`LoroEngine.NativeVersioning != null` y sus probes responden; `YrsEngine.NativeVersioning == null`
-sin romper ningún flujo.
+`YrsEngine.NativeVersioning == null` sin romper ningún flujo. **Nota (M0)**: la superficie
+`INativeVersioning` de Loro (probes nativos) está **diferida a post-M0** (auditoría CHARTER-02, G1) —
+`LoroEngine.NativeVersioning == null` en M0; es capacidad opcional y ningún gate depende de ella.
 
 ## Gates de CI (constitución — un rojo bloquea merge)
 
