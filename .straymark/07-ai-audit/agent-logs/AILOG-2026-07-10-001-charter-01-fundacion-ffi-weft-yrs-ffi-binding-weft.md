@@ -6,6 +6,9 @@ created: 2026-07-10
 agent: claude-opus-4-8
 confidence: high
 review_required: true
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-11
+review_outcome: approved
 risk_level: high
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -97,7 +100,7 @@ código de referencia validado en los spikes 01/03 (reescrito limpio con nombres
 - [x] Tests pasan (16 .NET verdes; 5 Rust verdes)
 - [x] Gate de memoria P-II verde local: 5 tests bajo `-Zsanitizer=address` + `detect_leaks=1`, 0 fugas
 - [x] Panic-safety SC-009: `weft_test_panic` → `WEFT_ERR_PANIC` (100 iter, proceso estable) → `WeftEngineException(Panic)`
-- [ ] Revisión humana del operador (pendiente — `review_required: true`)
+- [x] Revisión humana del operador — aprobada 2026-07-11 (ver §Approval)
 - [ ] Fuzz smoke y ASan en CI (se ejecutan en el PR; `cargo-fuzz`/nightly no disponibles en local)
 
 ## Additional Notes
@@ -157,3 +160,7 @@ de T003–T005 (`Directory.Build.props`, `.editorconfig`, `rustfmt.toml`, `Weft.
 `native/Cargo.toml`, `rust-toolchain.toml`, `Cargo.lock`); (c) `tasks.md` (marcado de progreso);
 (d) `FfiStatus.cs`, archivo nuevo por la decisión de extraer el mapeo código→excepción (ver
 Decisions). No hay expansión de alcance real fuera de T001–T021.
+
+## Approval
+
+**Approved**: 2026-07-11 by `Jose Villaseñor Montfort`.

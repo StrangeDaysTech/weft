@@ -6,6 +6,9 @@ created: 2026-07-10
 agent: claude-opus-4-8
 confidence: high
 review_required: true
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-11
+review_outcome: approved
 risk_level: low
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -85,11 +88,15 @@ FU-007 (XS), FU-008 (S) y FU-009 (S). Origen: `.straymark/audits/CHARTER-02/revi
 - [x] **45 tests .NET** verdes (Core 18, Versioning 25, Determinism 2); 8 nuevos (5 FileSystem + 3 guard)
 - [x] Guard cross-engine verificado: `Merge(yrsDoc, loroDoc)` → `ArgumentException` (no `CorruptUpdateException`)
 - [x] Backlog reconciliado con `straymark followups recount` (bucket `ready` = 0)
-- [ ] Revisión humana del operador (pendiente — `review_required: true`)
-- [ ] CI del PR en verde antes de merge (regla del proyecto)
+- [x] Revisión humana del operador — aprobada 2026-07-11 (ver §Approval)
+- [x] CI del PR #7 en verde (11/11 checks)
 
 ## Additional Notes
 
 Trabajo `chore` sin auditoría externa (no aplica a limpieza de deuda menor). No introduce follow-ups
 nuevos; cierra los tres accionables de M0. FU-002 (hardening decoder, trigger M2) y FU-006 (superficie
 `INativeVersioning` de Loro, mini-charter) permanecen diferidos a sus triggers.
+
+## Approval
+
+**Approved**: 2026-07-11 by `Jose Villaseñor Montfort`.
