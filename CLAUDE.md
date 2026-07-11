@@ -34,6 +34,16 @@ de motor viva, concurrencia serializada por doc, portabilidad por RID). Las deci
 Contratos de referencia: `specs/001-weft-crdt-versioning/contracts/` (core-api, ffi-abi,
 versioning-api, server-api).
 
+## Auditoría externa (StrayMark)
+
+Generar el prompt de auditoría externa (`straymark charter audit --prepare` / `/straymark-audit-prompt`)
+SOLO con el estado estable: **CI del PR en verde** (ni en curso ni rojo), sin trabajos en vuelo que
+puedan cambiar el árbol, y working tree limpio y pusheado. El prompt embebe el diff `origin/main..HEAD`
+y el código al momento de generarlo; si algo pendiente lo altera después (p. ej. un gate que falla y
+fuerza un fix), el prompt queda obsoleto y hay que detener y regenerar las auditorías. Secuencia:
+PR → **CI verde** → `--prepare` → lanzar auditores. (Origen: CHARTER-02 — el prompt se generó con el CI
+corriendo, el CI destapó R7, y hubo que regenerar.)
+
 <!-- straymark:begin -->
 > **Read and follow the rules in [STRAYMARK.md](STRAYMARK.md).**
 > That file contains all StrayMark documentation governance rules for this project.
