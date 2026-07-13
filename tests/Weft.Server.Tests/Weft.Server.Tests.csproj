@@ -6,9 +6,15 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <!-- El relay se hospeda en un TestServer (WebHostBuilder + UseWebSockets + MapWeft). -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,5 +24,29 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Weft.Server/Weft.Server.csproj" />
   </ItemGroup>
+
+  <!--
+    Los tests de integración usan el motor yrs REAL en ambos lados (cliente simulado + servidor), así que
+    necesitan el cdylib nativo en el output bajo el layout de paquete NuGet (runtimes/<rid>/native/). Mismo
+    helper que Weft.Core.Tests: build CON `test-hooks` en desarrollo local (Linux); en CI el workflow coloca
+    el binario por plataforma.
+  -->
+  <Target Name="CopyWeftNativeForTests" AfterTargets="Build">
+    <PropertyGroup>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_WeftRid>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('Windows'))">weft_yrs_ffi.dll</_WeftNativeName>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libweft_yrs_ffi.dylib</_WeftNativeName>
+      <_WeftNativeName Condition="$([MSBuild]::IsOSPlatform('Linux'))">libweft_yrs_ffi.so</_WeftNativeName>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WeftNative Include="$(MSBuildProjectDirectory)/../../native/target/release/$(_WeftNativeName)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WeftNative)"
+          DestinationFolder="$(OutDir)runtimes/$(_WeftRid)/native/"
+          Condition="Exists('%(_WeftNative.FullPath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

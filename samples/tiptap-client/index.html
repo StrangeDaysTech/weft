@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weft · Tiptap collab</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+      .bar { color: #666; font-size: 0.85rem; margin-bottom: 0.5rem; }
+      .ProseMirror { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; min-height: 220px; outline: none; }
+      .collaboration-cursor__caret { border-left: 1px solid; border-right: 1px solid; margin-left: -1px; position: relative; word-break: normal; }
+      .collaboration-cursor__label { font-size: 12px; position: absolute; top: -1.4em; left: -1px; padding: 0 4px; border-radius: 4px 4px 4px 0; color: #fff; white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <div class="bar">doc: <b id="room"></b> · relay: <b id="status">connecting…</b> · abre esta misma URL en 2+ pestañas</div>
+    <div id="editor"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

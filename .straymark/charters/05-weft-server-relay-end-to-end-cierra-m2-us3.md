@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-05-weft-server-relay-end-to-end-cierra-m2-us3
-status: declared
+status: closed
+closed_at: 2026-07-13
 effort_estimate: L
 trigger: "CHARTER-04 cerrado (M2 corte 1: códec + stores + contract suite verde en main, cc2605b); la base de Weft.Server (SyncProtocol, IDocumentStore, IWeftAuthorizer) está disponible. tasks.md fija T047–T052 (US3) como el relay end-to-end; este es el 2.º corte de M2 y lo CIERRA. Se ancla en las superficies de concurrencia de M1 (DocumentBroker/DocumentSession) y retira el riesgo de compat del wire con un cliente Yjs real (Tiptap). Cierra FU-002 con la parte b (límites por conexión)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Weft.Server relay end-to-end — cierra M2/US3
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Segundo y último corte de M2 (T047–T049,
 > T051, T052): el relay WebSocket y-sync end-to-end sobre el substrato de CHARTER-04. **Cierra M2.**
@@ -30,11 +31,13 @@ El relay **no toca `ICrdtDoc` ni el motor**: se ancla en las superficies de conc
 M1", origen `AILOG-2026-07-11-001`). Cuatro anclajes concretos: (1) **broadcast vía
 `DocumentSession.UpdateApplied`** (perezoso: el delta solo se computa si hay handler suscrito) — el relay se
 suscribe **una vez por documento**, no por conexión; (2) **refcount de sesiones** — mientras una sesión viva,
-el broker no desaloja el doc, así que un doc con conexiones abiertas permanece residente; (3) **publish y
-persistencia dentro del turno del actor + `_evicting`-await** — `PublishAsync` y `AppendUpdate`/`SaveSnapshot`
-ejecutan dentro del turno del actor del doc (state-vector consistente → paridad de `VersionId` server↔local,
-P-III), y una reapertura espera a que un desalojo en vuelo **persista** antes de cargar (evita la pérdida de
-updates que R7 destapó en M1); (4) **handlers de relay aislados** — `NotifySessions` aísla cada handler
+el broker no desaloja el doc, así que un doc con conexiones abiertas permanece residente; (3) **snapshot
+consistente en el turno del actor + persistencia después + `_evicting`-await** — la **captura del estado**
+(`ExportState` en `PublishAsync`; `ApplyUpdate` en el relay) ejecuta **dentro del turno del actor** del doc
+(state-vector consistente → paridad de `VersionId` server↔local, P-III); la **persistencia**
+(`AppendUpdate`/`SaveSnapshot`/`PutAsync`) va **después, fuera del turno** (broadcast-then-persist — decisión
+consciente, ver AIDEC §5, corregida en remediación de la auditoría F3), y una reapertura espera a que un
+desalojo en vuelo **persista** antes de cargar (evita la pérdida de updates que R7 destapó en M1); (4) **handlers de relay aislados** — `NotifySessions` aísla cada handler
 `UpdateApplied` en try/catch, base del edge case "conexión malformada → cierre 1002 sin impacto en los pares".
 
 Trabajo de **implementación** contra el contrato congelado `contracts/server-api.md` (API v1). Tensa cuatro
@@ -103,9 +106,12 @@ backpressure, sobre el cap de tamaño de la parte a); **P-IV** preservado (habla
 | `src/Weft.Server/WeftServerExtensions.cs` | New — `AddWeftServer(options)` (falla sin `IWeftAuthorizer`) + `MapWeft(path)` (T048) |
 | `src/Weft.Server/WeftServerOptions.cs` | New — opciones (`Engine`, `Broker`=`DocumentBrokerOptions`) (T048) |
 | `src/Weft.Server/WeftServer.cs` | New — `IWeftServer`: `PublishAsync`/`GetConnectionCountAsync`/`DisconnectAllAsync` (T049) |
+| `src/Weft.Server/DocumentHub.cs` | New (scope expansion) — hub por doc: sesión única + broadcast perezoso + persistencia (T047); ver §Closing notes |
+| `src/Weft.Server/Protocol/AwarenessProtocol.cs` | New (scope expansion) — parsing mínimo de clientIDs para la retirada (FR-015, T047); ver §Closing notes |
 | `src/Weft.Server/Weft.Server.csproj` | Change — `ProjectReference` a `Weft.Core` (broker/session) y `Weft.Versioning` (VersionStore/VersionId) |
 | `tests/Weft.Server.Tests/RelayTests.cs` | New — integración: 2 clientes, convergencia, delta, Deny, 1008, awareness, restart-recovery, paridad VersionId (T051) |
-| `tests/Weft.Server.Tests/Weft.Server.Tests.csproj` | Change — `Microsoft.AspNetCore.Mvc.Testing` (WebApplicationFactory) para los tests de integración |
+| `tests/Weft.Server.Tests/Weft.Server.Tests.csproj` | Change — `Microsoft.AspNetCore.TestHost` + `FrameworkReference` ASP.NET Core + copia del cdylib (TestHost en vez de Mvc.Testing — ver §Closing notes) |
+| `.gitignore` | Change — `node_modules/` + `weft-data/` (samples) |
 | `samples/Weft.Sample.Server/Program.cs` | New — relay + FileSystemDocumentStore + authorizer demo (T052) |
 | `samples/Weft.Sample.Server/Weft.Sample.Server.csproj` | New — proyecto sample |
 | `samples/tiptap-client/` | New — Tiptap + y-prosemirror + y-websocket (cliente de validación manual, T052) |
@@ -210,3 +216,26 @@ y pusheado — ver `CLAUDE.md` §"Auditoría externa"). Al cerrar:
    el estado de FU-006 (Loro nativo, sigue diferido).
 6. Confirmar que **M2 queda cerrado** (US3 verde incl. Tiptap real); el siguiente hito es M3 (US4, release NuGet
    multi-RID) tras CHARTER-06 (adaptadores externos, fuera del journey de M2).
+
+## Closing notes
+
+Cerrado **2026-07-13** vía **PR #18** (implementación + firma AILOG/AIDEC + auditoría externa + remediación +
+cierre, todo en el mismo PR). **Cierra el hito M2.**
+
+- **Scope expansion (drift, intencional)**: `src/Weft.Server/DocumentHub.cs` y
+  `src/Weft.Server/Protocol/AwarenessProtocol.cs` — descomposición interna del handler (T047): el hub
+  por-documento (sesión única + broadcast perezoso vía `UpdateApplied`) y el parsing mínimo de awareness para
+  la retirada (FR-015). Añadidos a §Files. Documentado en AILOG §Scope expansion. `.gitignore` (incidental).
+- **TestHost en vez de Mvc.Testing** (§Files corregido): la declaración citaba `Microsoft.AspNetCore.Mvc.Testing`;
+  la implementación usa `Microsoft.AspNetCore.TestHost` con `HostBuilder.ConfigureWebHost` (`WebHostBuilder`/
+  `TestServer(IWebHostBuilder)` están deprecados en .NET 10). Sustitución más ligera y suficiente; la auditoría
+  (glm-5-2 L-2) lo confirmó como no-defecto.
+- **Compat del wire (R1) retirada**: check headless `yjs`/`y-websocket` reales convergiendo contra el relay.
+- **FU-002 cerrado**: parte a (cap, CHARTER-04) + parte b (límites por conexión/backpressure + malformed→1002 +
+  oversized→1009, este Charter).
+- **Auditoría externa multi-modelo** (obligatoria por cierre de hito): 3 auditores (gpt-5-5 9.4, glm-5-2 8.6,
+  qwen3.7-max 7.0), 1 High + 2 Medium + 3 Low + 1 FP, **todos los válidos remediados en el PR** con tests de
+  regresión (F1 ReadOnly-handshake, F2 awareness clock-0, F3 doc broadcast-then-persist, F4/F5/F6 robustez). Ver
+  `.straymark/audits/CHARTER-05/review.md` y AILOG §Auditoría externa y remediación. El §Context se corrigió (F3):
+  la persistencia va **después** del turno del actor (broadcast-then-persist, AIDEC §5), no dentro.
+- **Verificación final**: build Release 0 warnings, **108 tests verdes**, ASan/LSan 0 fugas, compat headless verde.

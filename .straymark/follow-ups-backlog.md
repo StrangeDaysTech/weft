@@ -1,9 +1,9 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 2
+total_open: 1
 total_promoted: 0
-total_closed_in_session: 7
+total_closed_in_session: 8
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -97,11 +97,11 @@ fully_extracted_ailogs:
 ### FU-002 — R6 (CHARTER-01): hardening del decoder ante amplificación de memoria (DoS)
 - **Origin**: AILOG-2026-07-10-001 §R6 (new, not in Charter)
 - **Source-hash**: 69e431c0f7d9
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when M2 (servidor relay recibe input de red no confiable)
 - **Destination**: charter-replanning
 - **Cost**: M
-- **Notes**: El decoder de yrs amplifica memoria con update malformado (pocos bytes → asignación gigante → posible abort). Mitigar en la capa de red (M2/US3): límite de tamaño de mensaje + límite de recursos del proceso. Evaluar bump de yrs con validación de longitud. El fuzz es informativo hasta entonces. **Mitigación PARCIAL en CHARTER-04 (2026-07-13)**: parte a entregada — cap configurable de tamaño de mensaje en el framing lib0 + guarda anti-DoS de prefijo de longitud mentiroso (`SyncProtocol.Decode`/`Lib0Reader`, unit-tested). Sigue **open**: falta la parte b (límites de recursos por conexión / backpressure + path malformed→1002 en el connection handler real) → **CHARTER-05**, que cierra este FU.
+- **Notes**: El decoder de yrs amplifica memoria con update malformado (pocos bytes → asignación gigante → posible abort). Mitigar en la capa de red (M2/US3): límite de tamaño de mensaje + límite de recursos del proceso. Evaluar bump de yrs con validación de longitud. El fuzz es informativo hasta entonces. **Mitigación PARCIAL en CHARTER-04 (2026-07-13)**: parte a entregada — cap configurable de tamaño de mensaje en el framing lib0 + guarda anti-DoS de prefijo de longitud mentiroso (`SyncProtocol.Decode`/`Lib0Reader`, unit-tested). **CERRADO 2026-07-13 (CHARTER-05, PR #18)**: parte b entregada — límites de recursos por conexión / backpressure (`WeftServerOptions.MaxSendQueuePerConnection`, cola de envío acotada que cierra al consumidor lento) + path malformed→1002 + oversized→1009 en `WeftConnection`. FU-002 completo (parte a en CHARTER-04, parte b en CHARTER-05).
 
 ### FU-006 — G1: implementar la superficie `INativeVersioning` de Loro (diferida)
 - **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G1, gpt-5-5 + qwen3-7-max) · review.md §4 · Charter-02 Closing notes

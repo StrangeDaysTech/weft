@@ -1,0 +1,39 @@
+MERGE-REPORTS audit cycle (CHARTER-05-weft-server-relay-end-to-end-cierra-m2-us3)
+  ✔ Validated .straymark/audits/CHARTER-05/report-glm-5-2.md (4 findings)
+  ✔ Validated .straymark/audits/CHARTER-05/report-gpt-5-5.md (3 findings)
+  ✔ Validated .straymark/audits/CHARTER-05/report-qwen3.7-max.md (3 findings)
+
+  Audit cycle merge complete.
+
+  external_audit YAML — paste into telemetry:
+  (charter_telemetry.external_audit array)
+
+    - auditor: "glm-5-2"
+      findings_total: 4
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 3
+        false_positive: 1
+      audit_quality: "high"
+      audit_notes: "see audit/charters/CHARTER-05/auditor-primary.md"
+    - auditor: "gpt-5-5"
+      findings_total: 3
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 1
+        real_debt: 2
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "see audit/charters/CHARTER-05/auditor-secondary.md"
+    - auditor: "qwen3.7-max"
+      findings_total: 3
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 3
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "see audit/charters/CHARTER-05/auditor-secondary.md"
+
+

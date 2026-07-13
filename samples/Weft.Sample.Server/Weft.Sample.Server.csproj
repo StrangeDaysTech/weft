@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Weft.Server/Weft.Server.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyWeftNativeForSample" AfterTargets="Build">
+    <PropertyGroup>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_WeftRid>
+      <_WeftRid Condition="$([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_WeftRid>
+      <_WeftPrefix Condition="$([MSBuild]::IsOSPlatform('Windows'))"></_WeftPrefix>
+      <_WeftPrefix Condition="!$([MSBuild]::IsOSPlatform('Windows'))">lib</_WeftPrefix>
+      <_WeftExt Condition="$([MSBuild]::IsOSPlatform('Windows'))">.dll</_WeftExt>
+      <_WeftExt Condition="$([MSBuild]::IsOSPlatform('OSX'))">.dylib</_WeftExt>
+      <_WeftExt Condition="$([MSBuild]::IsOSPlatform('Linux'))">.so</_WeftExt>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WeftNative Include="$(MSBuildProjectDirectory)/../../native/target/release/$(_WeftPrefix)weft_yrs_ffi$(_WeftExt)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WeftNative)"
+          DestinationFolder="$(OutDir)runtimes/$(_WeftRid)/native/"
+          Condition="Exists('%(_WeftNative.FullPath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
