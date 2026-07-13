@@ -1,0 +1,110 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Storage path:  .straymark/charters/CHARTER-05.telemetry.yaml
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-05"
+  charter_title: "Weft.Server relay end-to-end — cierra M2/US3"
+  closed_at: "2026-07-13"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-13-001"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución del Charter (originado del spec 001, corte 2 de M2)."
+
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "CHARTER-04 cerrado (M2 corte 1: códec + stores + contract suite verde en main, cc2605b); base de Weft.Server disponible. tasks.md fija T047–T052 como el relay end-to-end (corte 2 de M2, lo cierra)."
+    fired_at: "2026-07-13"
+    fire_clarity: "clear"
+    fire_clarity_notes: "Corte final del plan de 3 cortes de M2 (plan.md §US3/M2)."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_notes: "Sin sección de pre-trabajo; reconnaissance #210 confirmó las superficies M1/CHARTER-04 y la ausencia de los archivos NEW antes de declarar."
+
+  # ---------- Planning session ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-13"
+    finished_at: "2026-07-13"
+    estimated_effort: "L (~4h)"
+    actual_effort: "L (~5h)"
+    estimation_drift_factor: 1.25
+    estimation_drift_reason: "La auditoría externa destapó 2 bugs de código (ReadOnly-handshake High, awareness-clock0 Medium) que exigieron un ciclo de remediación con tests de regresión, más el ciclo de auditoría multi-modelo (prompt/execute/review) sobre la implementación base."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 0
+    skill_prompts_used: ["straymark-charter-new", "straymark-audit-prompt", "straymark-audit-review"]
+
+  # ---------- External audit ----------
+  external_audit:
+    - auditor: "gpt-5-5"
+      findings_total: 3
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 1
+        real_debt: 2
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "Rating 9.4 (calibrador). El más fuerte de la ronda: único en hallar el crash de awareness (F2) y en calibrar el ReadOnly (F1) como High con evidencia del test que pasa por la razón equivocada. 59 citas, 0 FP. review.md §3.1."
+    - auditor: "glm-5-2"
+      findings_total: 4
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 3
+        false_positive: 1
+      audit_quality: "high"
+      audit_notes: "Rating 8.6 (calibrador). Excelente calibración: auto-marcó su propio hallazgo débil (Mvc.Testing vs TestHost) como FP; convergió con gpt en ReadOnly (F1) y persistencia (F3); único en el race de shutdown (F4). review.md §3.2."
+    - auditor: "qwen3.7-max"
+      findings_total: 3
+      findings_by_category:
+        hallucination: 0
+        implementation_gap: 0
+        real_debt: 3
+        false_positive: 0
+      audit_quality: "high"
+      audit_notes: "Rating 7.0 (calibrador). Verificación de contratos cross-boundary excepcional y 3 Low válidos (F5/F6/F7), pero no detectó los 2 bugs de comportamiento (ReadOnly, awareness) ni el apply-before-persist; su veredicto de cierre fue erróneo y su sugerencia DropWrite (F7) sería incorrecta. review.md §3.3."
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1–F6 remediados de la auditoría externa en el mismo PR (F1 ReadOnly-handshake High, F2 awareness-clock0 Medium: 2 bugs de código con tests de regresión; F3 doc broadcast-then-persist; F4/F5/F6 robustez). Scope expansion intencional: DocumentHub.cs + AwarenessProtocol.cs (descomposición interna de T047). TestHost en vez de Mvc.Testing (deprecación .NET 10). F7 sin acción (DropWrite sería incorrecto)."
+    new_followups_generated: 0
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M2"
+
+  # ---------- Qualitative ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points: ["La auditoría externa destapó 2 bugs de código (ReadOnly-handshake, awareness-clock0) que los 107 tests locales no cazaban — el test de ReadOnly incluso pasaba por la razón equivocada (lo cerraba el Step2 del handshake, no el edit).", "WebHostBuilder/TestServer(IWebHostBuilder) están deprecados en .NET 10; los tests de integración se migraron a HostBuilder.ConfigureWebHost + UseTestServer."]
+    wins: ["Compat del wire (R1) retirada de forma programática y reproducible con un check headless yjs/y-websocket REAL — más fuerte que un navegador manual que no se puede automatizar.", "Auditoría multi-modelo de alto valor: gpt-5-5 (9.4) único en el crash de awareness; convergencia gpt+glm en el ReadOnly; los 6 findings válidos remediados en el mismo PR con regresiones que fallan sin el fix.", "Paridad de VersionId server↔local por construcción (mismo ExportState determinista + FromBlob)."]
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: ""
