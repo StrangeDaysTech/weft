@@ -115,14 +115,14 @@
 
 **Independent Test** (spec US3): dos clientes simulados/Tiptap convergen en vivo; reconexión solo delta; Deny/ReadOnly efectivos; publish produce hash citable; restart recupera estado
 
-- [ ] T043 [P] [US3] Implement lib0 varint + y-sync framing in `src/Weft.Server/Protocol/Lib0Encoding.cs`, `SyncProtocol.cs` (SyncStep1/2, Update, Awareness per contracts/server-api.md)
-- [ ] T044 [P] [US3] Define auth hook in `src/Weft.Server/Auth/IWeftAuthorizer.cs` + `WeftAccess` enum (Deny/ReadOnly/ReadWrite)
-- [ ] T045 [P] [US3] Define `IDocumentStore` + `InMemoryDocumentStore` in `src/Weft.Server/Persistence/IDocumentStore.cs`, `InMemoryDocumentStore.cs` (Load/AppendUpdate/SaveSnapshot)
-- [ ] T046 [US3] Implement `FileSystemDocumentStore` in `src/Weft.Server/Persistence/FileSystemDocumentStore.cs` (snapshot + updates append, compaction al guardar snapshot)
+- [X] T043 [P] [US3] Implement lib0 varint + y-sync framing in `src/Weft.Server/Protocol/Lib0Encoding.cs`, `SyncProtocol.cs` (SyncStep1/2, Update, Awareness per contracts/server-api.md) — CHARTER-04
+- [X] T044 [P] [US3] Define auth hook in `src/Weft.Server/Auth/IWeftAuthorizer.cs` + `WeftAccess` enum (Deny/ReadOnly/ReadWrite) — CHARTER-04
+- [X] T045 [P] [US3] Define `IDocumentStore` + `InMemoryDocumentStore` in `src/Weft.Server/Persistence/IDocumentStore.cs`, `InMemoryDocumentStore.cs` (Load/AppendUpdate/SaveSnapshot) — CHARTER-04
+- [X] T046 [US3] Implement `FileSystemDocumentStore` in `src/Weft.Server/Persistence/FileSystemDocumentStore.cs` (snapshot + updates append, compaction al guardar snapshot) — CHARTER-04
 - [ ] T047 [US3] Implement connection handler `src/Weft.Server/WeftConnection.cs`: handshake (authz→403/upgrade), sync bidireccional incremental, relay de updates vía DocumentBroker + persistencia, awareness broadcast + retirada al cerrar, ReadOnly→close 1008, malformed→close 1002
 - [ ] T048 [US3] Implement DI + endpoint in `src/Weft.Server/WeftServerExtensions.cs`: `AddWeftServer(options)` (falla al arrancar sin `IWeftAuthorizer`), `MapWeft(path)` con `{docId}`
 - [ ] T049 [US3] Implement `IWeftServer` service in `src/Weft.Server/WeftServer.cs`: `PublishAsync` (VersionStore dentro del turno del actor — mismo VersionId que local), `GetConnectionCountAsync`, `DisconnectAllAsync`
-- [ ] T050 [P] [US3] Shared `IDocumentStore` contract suite `tests/Weft.Server.Tests/DocumentStoreContractSuite.cs` (corre contra InMemory y FileSystem; luego EFCore/Redis)
+- [X] T050 [P] [US3] Shared `IDocumentStore` contract suite `tests/Weft.Server.Tests/DocumentStoreContractSuite.cs` (corre contra InMemory y FileSystem; luego EFCore/Redis) — CHARTER-04
 - [ ] T051 [P] [US3] Server integration tests `tests/Weft.Server.Tests/RelayTests.cs`: 2 clientes simulados (convergencia <1 s, delta en reconexión con bytes medidos, Deny sin bytes de contenido, ReadOnly→1008, awareness, restart-recovery, paridad de VersionId con publish local)
 - [ ] T052 [US3] Create samples `samples/Weft.Sample.Server/Program.cs` (relay + FileSystemDocumentStore + authorizer demo) + `samples/tiptap-client/` (Tiptap + y-prosemirror + y-websocket) y ejecutar la validación manual de quickstart.md §US3
 - [ ] T053 [P] [US3] EF Core adapter package `src/Weft.Server.Persistence.EFCore/EFCoreDocumentStore.cs` (+ pasa la contract suite)

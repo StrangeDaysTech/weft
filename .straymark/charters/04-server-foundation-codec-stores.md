@@ -1,6 +1,6 @@
 ---
 charter_id: CHARTER-04-server-foundation-codec-stores
-status: declared
+status: in-progress
 effort_estimate: M
 trigger: "CHARTER-03 cerrado (M1: concurrencia broker verde en main) + spec-refresh de US3/M2 mergeado (PR #13, plan.md §'US3/M2 — anclajes sobre M1'). tasks.md fija T043–T054 (US3) como M2; este es el primer corte (foundation): códec lib0/y-sync + IDocumentStore (InMemory/FileSystem) verificables por una contract suite compartida, SIN red todavía. Activa la mitigación parte-a de FU-002 (cap de tamaño de mensaje) y establece la base de intercambiabilidad de stores (P-IV)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +10,7 @@ design_provenance: new
 
 # Charter: Weft.Server foundation — códec y-sync + stores + contract suite
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: M.
+> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: M.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Primer corte de M2 (T043–T046, T050):
 > substrato del relay `Weft.Server` —códec lib0/y-sync y persistencia de blobs opacos— verificable sin red.
