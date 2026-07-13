@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-04-server-foundation-codec-stores
-status: in-progress
+status: closed
+closed_at: 2026-07-13
 effort_estimate: M
 trigger: "CHARTER-03 cerrado (M1: concurrencia broker verde en main) + spec-refresh de US3/M2 mergeado (PR #13, plan.md §'US3/M2 — anclajes sobre M1'). tasks.md fija T043–T054 (US3) como M2; este es el primer corte (foundation): códec lib0/y-sync + IDocumentStore (InMemory/FileSystem) verificables por una contract suite compartida, SIN red todavía. Activa la mitigación parte-a de FU-002 (cap de tamaño de mensaje) y establece la base de intercambiabilidad de stores (P-IV)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Weft.Server foundation — códec y-sync + stores + contract suite
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: M.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: M.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Primer corte de M2 (T043–T046, T050):
 > substrato del relay `Weft.Server` —códec lib0/y-sync y persistencia de blobs opacos— verificable sin red.
@@ -92,12 +93,14 @@ Proyecto nuevo `src/Weft.Server/` (namespace `Weft.Server`; `net10.0`, referenci
 | `src/Weft.Server/Persistence/IDocumentStore.cs` | New — Load/AppendUpdate/SaveSnapshot, blobs opacos (T045) |
 | `src/Weft.Server/Persistence/InMemoryDocumentStore.cs` | New — store en memoria (T045) |
 | `src/Weft.Server/Persistence/FileSystemDocumentStore.cs` | New — snapshot+updates append, compaction atómica (T046) |
+| `src/Weft.Server/Persistence/DocumentStateFraming.cs` | New (scope expansion intencional) — formato del estado de `LoadAsync` (records `VarUint8Array`, blobs opacos); ver AILOG §Scope expansion |
 | `tests/Weft.Server.Tests/Weft.Server.Tests.csproj` | New — proyecto de tests (xUnit) |
 | `tests/Weft.Server.Tests/DocumentStoreContractSuite.cs` | New — suite compartida InMemory+FileSystem (T050) |
 | `tests/Weft.Server.Tests/Lib0EncodingTests.cs` | New — vectores lib0/y-sync + test del cap de tamaño (T043) |
 | `Weft.sln` | Change — añadir `Weft.Server` y `Weft.Server.Tests` |
-| `specs/001-weft-crdt-versioning/tasks.md` | Change — marcar T043–T046, T050 `[X]` + `*CHARTER-04: <sha>*` |
-| `.straymark/07-ai-audit/agent-logs/AILOG-*.md` | New, `risk_level: medium` |
+| `specs/001-weft-crdt-versioning/tasks.md` | Change — marcar T043–T046, T050 `[X] — CHARTER-04` |
+| `.straymark/07-ai-audit/agent-logs/AILOG-*.md` | New, `risk_level: medium` (AILOG-2026-07-12-001) |
+| `.straymark/07-ai-audit/decisions/AIDEC-*.md` | New (cap de tamaño + forma del estado de `LoadAsync`) (AIDEC-2026-07-12-001) |
 
 ## Verification
 
@@ -163,3 +166,22 @@ constitucional nuevo; la auditoría se reserva para CHARTER-05, que cierra M2). 
 4. `straymark charter close CHARTER-04` (telemetría, status `closed`, `closed_at`). No borrar este archivo.
 5. Confirmar que **FU-002 sigue `open`** en `.straymark/follow-ups-backlog.md` con nota de mitigación parcial
    (parte a entregada); se cierra en CHARTER-05 al añadir la parte b.
+
+## Closing notes
+
+Cerrado **2026-07-13** vía **PR #15** (squash `008c417` en `main`) + PR de cierre `chore/close-charter-04`.
+
+- **Entregado (T043–T046, T050)**: códec lib0/y-sync con cap de tamaño (FU-002 parte a), `IWeftAuthorizer`,
+  `IDocumentStore` + InMemory/FileSystem + `DocumentStateFraming`, contract suite compartida. Contrato
+  congelado `contracts/server-api.md` respetado.
+- **Verificación**: build Release 0 warnings; **100 tests .NET** verdes (Server 46, Core 27, Versioning 25,
+  Determinism 2); en modo ahorro los gates se corrieron **localmente** (cargo test 7, ASan/LSan 12 sin fugas,
+  docs-validation 0 errores) además de la corrida de CI de la nube en el PR.
+- **Drift** (`aafb9a9..008c417`): 4 archivos "no declarados" → 3 FP del parser (`Weft.sln`, ambos `.csproj`,
+  ya declarados) + `DocumentStateFraming.cs` (expansión intencional, ahora en §Files to modify). Documentado
+  en AILOG-2026-07-12-001 §Scope expansion.
+- **Decisiones**: AIDEC-2026-07-12-001 (forma del cap de tamaño; forma del estado de `LoadAsync`). AILOG +
+  AIDEC **firmados** por el operador (status `accepted`/`approved`).
+- **FU-002 permanece `open`**: parte a (cap en el framing) entregada aquí; parte b (límites por conexión /
+  backpressure + path malformed→1002) queda para **CHARTER-05**, que cierra M2 y cierra FU-002.
+- **Sin auditoría externa** (no cierra hito ni principio nuevo; reservada a CHARTER-05).

@@ -1,0 +1,91 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Conceptual:    Propuesta/straymark-charter-telemetry.md (in the upstream repo)
+# Storage path:  .straymark/charters/CHARTER-04.telemetry.yaml
+#
+# Fill time target: 5-10 minutes per Charter. The point is signal, not exhaustiveness —
+# leave a field blank or omit it if you don't have honest data for it. Honest gaps
+# are more useful than invented numbers.
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-04"               # match the charter_id of the Charter file
+  charter_title: "Weft.Server foundation — códec y-sync + stores + contract suite"
+  closed_at: "2026-07-13"                # date of the closing commit / merge
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-12-001"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución del Charter (originado del spec 001, corte 1 de M2)."
+
+  # The trigger as declared in the Charter, plus what actually fired it in practice.
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "CHARTER-03 cerrado (M1: broker de concurrencia verde en main) + spec-refresh de US3/M2 mergeado (PR #13); tasks.md fija T043–T054 como M2, este es el corte 1 (foundation, sin red)."
+    fired_at: "2026-07-12"
+    fire_clarity: "clear"
+    fire_clarity_notes: "Corte pre-planificado del plan de 3 cortes de M2 (plan.md §US3/M2)."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_notes: "Sin sección de pre-trabajo en este Charter (greenfield sobre contrato congelado)."
+
+  # ---------- Planning session (if any) ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-12"
+    finished_at: "2026-07-13"
+    estimated_effort: "M (~2h)"
+    actual_effort: "M (~2h)"
+    estimation_drift_factor: 1.0
+    estimation_drift_reason: "Corte limpio sobre contrato congelado; el único desvío fue un bug de conversión C# nullable→vacío (ciclo de debug corto) que la dual-suite destapó antes de main — sin cambio de alcance."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 0
+    skill_prompts_used: []
+
+  # ---------- External audit ----------
+  # Corte de foundation: sin auditoría externa multi-modelo (no cierra hito ni principio nuevo;
+  # la auditoría se reserva a CHARTER-05, que cierra M2).
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1: DocumentStateFraming.cs añadido (formato del estado de LoadAsync como records VarUint8Array) — expansión intencional dentro de T045, blobs opacos (P-IV); documentado en AILOG §Scope expansion y añadido a §Files to modify al cierre. Bug de conversión nullable→vacío-no-nulo destapado por la contract suite dual y corregido antes de main (exactamente la intención de R2)."
+    new_followups_generated: 0
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: ""
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points: ["Modo ahorro: los gates de CI se replicaron localmente a mano (dotnet/cargo/ASan/docs-validation) en vez de depender de la nube.", "Conflicto de merge en el charter por el squash de PR #14 (status declared vs in-progress) al actualizar la branch para hacer PR #15 mergeable; resuelto a favor de in-progress."]
+    wins: ["La contract suite dual (InMemory+FileSystem) destapó un bug de conversión C# nullable→vacío ANTES de main — exactamente la intención de R2 del Charter (suite fuerte contra dos implementaciones reales desde el día uno).", "Contrato server-api.md (API v1) congelado respetado sin cambios; substrato del relay listo para CHARTER-05.", "FU-002 parte a (cap de tamaño) entregada con guarda anti-DoS de prefijo mentiroso unit-tested."]
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: ""
