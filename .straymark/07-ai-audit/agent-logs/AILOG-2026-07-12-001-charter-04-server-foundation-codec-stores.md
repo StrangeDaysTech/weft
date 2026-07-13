@@ -1,19 +1,19 @@
 ---
 id: AILOG-2026-07-12-001
 title: "CHARTER-04: Weft.Server foundation — códec y-sync + stores + contract suite (T043–T046, T050)"
-status: draft
+status: accepted
 created: 2026-07-12
 agent: claude-opus-4-8
 confidence: high
 review_required: true
-reviewed_by: ""
-reviewed_at: ""
-review_outcome: pending
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-13
+review_outcome: approved
 risk_level: medium
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
 iso_42001_clause: []
-lines_changed: 0
+lines_changed: 1457
 files_modified: []
 observability_scope: none
 tags: [server, y-sync, lib0, codec, persistence, document-store, contract-suite, ffi-boundary]
@@ -141,6 +141,12 @@ backpressure, path malformed→1002 en el handler real) es CHARTER-05. `FU-002` 
 
 La forma del cap y la forma del estado de `LoadAsync` son decisiones de diseño sustantivas sobre el contrato
 congelado; se documentan en AIDEC-2026-07-12-001.
+
+## Approval
+
+**Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Concordancia AILOG↔código verificada punto por punto
+(códec, stores, contract suite, fix del bug nullable, verificación local 100 tests + ASan/LSan sin fugas);
+`lines_changed` corregido a 1457 (diff real `origin/main..HEAD`). AIDEC-2026-07-12-001 firmado en paralelo.
 
 ### Scope expansion del drift check (`straymark charter drift --range origin/main..HEAD`)
 

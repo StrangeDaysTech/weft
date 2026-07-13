@@ -1,14 +1,14 @@
 ---
 id: AIDEC-2026-07-12-001
 title: "CHARTER-04: forma del cap de tamaño (FU-002 a) y forma del estado que devuelve IDocumentStore.LoadAsync"
-status: draft
+status: accepted
 created: 2026-07-12
 agent: claude-opus-4-8
 confidence: high
 review_required: true
-reviewed_by: ""
-reviewed_at: ""
-review_outcome: pending
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-13
+review_outcome: approved
 risk_level: medium
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -110,3 +110,11 @@ lo hereda sin cambiarlo.
   antes de main.
 - CHARTER-05 depende de `ReadRecords` para reconstruir el doc; CHARTER-06 depende del formato para pasar la
   contract suite intacta.
+
+## Approval
+
+**Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Ambas decisiones verificadas contra el código:
+las dos guardas del cap (`Decode` + `ReadVarUint8Array`, default 16 MiB) con sus tests
+(`Decode_rejects_frame_exceeding_size_cap_before_parsing`, `Decode_rejects_lying_length_prefix_without_allocating`),
+y la forma del estado de `LoadAsync` (`DocumentStateFraming.Frame`/`ReadRecords`, firma fijada a `byte[]?`).
+Compañero de AILOG-2026-07-12-001 (también firmado).
