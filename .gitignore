@@ -26,6 +26,11 @@ runtimes/*/native/*.so
 runtimes/*/native/*.dll
 runtimes/*/native/*.dylib
 
+# ---- Node (samples/tiptap-client) ----
+node_modules/
+# datos durables generados por el sample server (FileSystemDocumentStore)
+**/weft-data/
+
 # ---- Herramientas / entorno ----
 .idea/
 .vscode/

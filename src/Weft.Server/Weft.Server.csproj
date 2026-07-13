@@ -4,9 +4,15 @@
     <Description>Weft — relay WebSocket y-sync para ASP.NET Core: códec lib0/y-protocols, hook de autorización y persistencia de blobs opacos (IDocumentStore). Compatible con clientes del ecosistema Yjs.</Description>
   </PropertyGroup>
 
-  <!-- Solo por HttpContext en IWeftAuthorizer (el hook de autorización del consumidor). -->
+  <!-- HttpContext (IWeftAuthorizer), WebSockets y el endpoint MapWeft. -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- El relay se ancla en el broker/sesión de M1 (Weft.Core) y publica vía content-addressing (Weft.Versioning). -->
+  <ItemGroup>
+    <ProjectReference Include="../Weft.Core/Weft.Core.csproj" />
+    <ProjectReference Include="../Weft.Versioning/Weft.Versioning.csproj" />
   </ItemGroup>
 
   <ItemGroup>

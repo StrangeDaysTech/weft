@@ -1,6 +1,6 @@
 ---
 charter_id: CHARTER-05-weft-server-relay-end-to-end-cierra-m2-us3
-status: declared
+status: in-progress
 effort_estimate: L
 trigger: "CHARTER-04 cerrado (M2 corte 1: códec + stores + contract suite verde en main, cc2605b); la base de Weft.Server (SyncProtocol, IDocumentStore, IWeftAuthorizer) está disponible. tasks.md fija T047–T052 (US3) como el relay end-to-end; este es el 2.º corte de M2 y lo CIERRA. Se ancla en las superficies de concurrencia de M1 (DocumentBroker/DocumentSession) y retira el riesgo de compat del wire con un cliente Yjs real (Tiptap). Cierra FU-002 con la parte b (límites por conexión)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +10,7 @@ design_provenance: new
 
 # Charter: Weft.Server relay end-to-end — cierra M2/US3
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md`. Segundo y último corte de M2 (T047–T049,
 > T051, T052): el relay WebSocket y-sync end-to-end sobre el substrato de CHARTER-04. **Cierra M2.**
