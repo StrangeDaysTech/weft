@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 1
+total_open: 2
 total_promoted: 0
 total_closed_in_session: 8
 total_phase_blocked: 0
@@ -110,6 +110,14 @@ fully_extracted_ailogs:
 - **Destination**: mini-charter
 - **Cost**: M
 - **Notes**: Diferido en CHARTER-02. Implementar probes `native_diff`/`native_branch`/`shallow_snapshot` en `weft-loro-ffi` + header `include/weft_loro_ffi.h` + `LoroNativeVersioning.cs` (`LoroEngine.NativeVersioning` pasaría de `null` a la implementación). Capacidad opcional; ningún gate depende. Reconciliar quickstart §US5 al implementarlo.
+
+### FU-010 — endurecimiento de durabilidad del relay: persist-before-broadcast (opcional)
+- **Origin**: AIDEC-2026-07-13-001 §5 (CHARTER-05) · review.md F3 (auditoría gpt-5-5 + glm-5-2)
+- **Status**: open
+- **Trigger**: when se requieran garantías de durabilidad duras (relay multi-nodo, o SLA de no-pérdida sin depender de la reconexión)
+- **Destination**: charter-replanning
+- **Cost**: M
+- **Notes**: El relay hace **broadcast-then-persist** (AIDEC §5): aplica el update dentro del turno del actor (difunde a los pares) y persiste `IDocumentStore.AppendUpdate` **después**, fuera del turno. Un fallo del append + crash antes del snapshot pierde ese update del store; en v1 (single-node) la auto-sanación CRDT (re-sync en reconexión) lo recupera. Endurecer SOLO si se requieren semánticas duras: persist-before-broadcast (reestructurar el orden) o manejar el fallo de append cerrando la conexión + test de crash mid-operation. **Ningún gate depende hoy**; decisión consciente documentada, no un bug.
 
 ## Bucket: phase-blocked
 
