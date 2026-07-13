@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Weft — relay WebSocket y-sync para ASP.NET Core: códec lib0/y-protocols, hook de autorización y persistencia de blobs opacos (IDocumentStore). Compatible con clientes del ecosistema Yjs.</Description>
+  </PropertyGroup>
+
+  <!-- Solo por HttpContext en IWeftAuthorizer (el hook de autorización del consumidor). -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- La contract suite ejercita los stores y el códec; algunos invariantes se validan a nivel internal. -->
+    <InternalsVisibleTo Include="Weft.Server.Tests" />
+  </ItemGroup>
+
+</Project>
