@@ -401,6 +401,11 @@ public sealed class RelayTests
         await using YClient observer = await YClient.ConnectAsync(server, "doc");
         YClient presence = await YClient.ConnectAsync(server, "doc");
 
+        // Liveness: una edición converge en observer → ambas conexiones están unidas al hub antes de difundir
+        // awareness (evita la carrera "observer aún no está en el hub" al hacer el broadcast).
+        await presence.EditAsync(0, "x");
+        Assert.True(await WaitUntilAsync(() => observer.Text() == "x", TimeSpan.FromSeconds(5)));
+
         const uint clientId = 4242;
         await presence.SendAwarenessAsync(AwarenessUpdate(clientId, 1, "{\"user\":\"A\"}"));
 
@@ -420,21 +425,28 @@ public sealed class RelayTests
     public async Task Awareness_with_zero_clock_for_new_client_does_not_crash()
     {
         // Regresión de F2 (auditoría CHARTER-05): un awareness con clock 0 para un clientID nuevo no debe
-        // lanzar KeyNotFoundException en TrackClients (que tumbaría la conexión antes del broadcast).
+        // lanzar KeyNotFoundException en TrackClients (que faultearía la conexión). Se prueba por SUPERVIVENCIA
+        // (una edición posterior al awareness aún se relaya), evitando la carrera de "observer aún no está en
+        // el hub" con una barrera de liveness previa.
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore());
         TestServer server = relay.Server;
         await using YClient observer = await YClient.ConnectAsync(server, "doc");
         await using YClient presence = await YClient.ConnectAsync(server, "doc");
 
-        const uint clientId = 777;
-        await presence.SendAwarenessAsync(AwarenessUpdate(clientId, 0, "{\"user\":\"Z\"}"));
+        // Liveness: una edición de presence converge en observer → ambas conexiones vivas y unidas al hub.
+        await presence.EditAsync(0, "live");
+        Assert.True(await WaitUntilAsync(() => observer.Text() == "live", TimeSpan.FromSeconds(5)),
+            $"no se estableció liveness: observer='{observer.Text()}'");
 
-        // El observador recibe el awareness (el broadcast, tras TrackClients, se alcanza) y nadie se cerró.
-        Assert.True(await WaitUntilAsync(
-            () => observer.AwarenessReceived.Any(p => AwarenessHasClient(p, clientId, requireNull: false)),
-            TimeSpan.FromSeconds(5)));
+        // Awareness con clock 0 para un clientID nuevo (común en el primer awareness de un cliente Yjs).
+        await presence.SendAwarenessAsync(AwarenessUpdate(777, 0, "{\"user\":\"Z\"}"));
+
+        // La conexión de presence SIGUE viva tras el awareness clock-0: una edición posterior aún se relaya
+        // (sin el fix, TrackClients habría lanzado y faulteado la conexión → esta edición nunca llegaría).
+        await presence.EditAsync(4, " more");
+        Assert.True(await WaitUntilAsync(() => observer.Text() == "live more", TimeSpan.FromSeconds(5)),
+            $"presence dejó de relayar tras el awareness clock-0 (¿crasheó?): observer='{observer.Text()}' close={presence.CloseStatus}");
         Assert.Null(presence.CloseStatus);
-        Assert.Null(observer.CloseStatus);
     }
 
     [Fact]
