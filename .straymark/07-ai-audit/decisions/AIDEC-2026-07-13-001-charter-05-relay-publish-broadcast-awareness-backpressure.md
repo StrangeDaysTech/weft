@@ -1,14 +1,14 @@
 ---
 id: AIDEC-2026-07-13-001
 title: "CHARTER-05: decisiones del relay — paridad de publish, broadcast, retirada de awareness, backpressure"
-status: draft
+status: accepted
 created: 2026-07-13
 agent: claude-opus-4-8
 confidence: high
 review_required: true
-reviewed_by: ""
-reviewed_at: ""
-review_outcome: pending
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-13
+review_outcome: approved
 risk_level: high
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -142,3 +142,12 @@ de datos, memoria acotada. Junto al path malformed→1002 y el cap de tamaño, c
 
 Un pico transitorio de latencia de un cliente puede cerrarlo; la reconexión con delta lo recupera barato. **FU-002
 pasa a `closed`** al cerrar este Charter.
+
+## Approval
+
+**Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Las cuatro decisiones verificadas contra el código:
+paridad in-turn (`WeftServer.PublishAsync`: `ExecuteAsync(ExportState)`→`FromBlob`→`PutAsync`, guard sin
+`IBlobStore`; test `Server_publish_matches_local_publish_version_id`); broadcast-a-todos (`DocumentHub.OnUpdateApplied`;
+awareness excluye origen en `WeftConnection` `exclude: this`); retirada de awareness (`AwarenessProtocol.TrackClients`/
+`EncodeRemoval`, `null`+clock+1; test `Awareness_is_relayed_and_withdrawn_on_disconnect`); backpressure
+(`MaxSendQueuePerConnection`=256, cierre al llenarse). Compañero de AILOG-2026-07-13-001 (también firmado).

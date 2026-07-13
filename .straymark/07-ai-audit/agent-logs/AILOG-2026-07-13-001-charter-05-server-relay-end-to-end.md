@@ -1,14 +1,14 @@
 ---
 id: AILOG-2026-07-13-001
 title: "CHARTER-05: Weft.Server relay end-to-end — cierra M2/US3 (T047–T049, T051, T052)"
-status: draft
+status: accepted
 created: 2026-07-13
 agent: claude-opus-4-8
 confidence: high
 review_required: true
-reviewed_by: ""
-reviewed_at: ""
-review_outcome: pending
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-13
+review_outcome: approved
 risk_level: high
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -51,10 +51,10 @@ confiable tensa P-I/P-II: se completa la mitigación FU-002 con la parte b sobre
 2. **Opciones (T048)**: `WeftServerOptions` — `Engine` (default `YrsEngine.Instance`), `Broker`
    (`DocumentBrokerOptions`), `MaxMessageBytes` (cap FU-002 a) y `MaxSendQueuePerConnection` (backpressure, b).
 3. **Connection handler (T047)**: `WeftConnection` — send pump (cola acotada → socket) + receive loop
-   (acumula el frame con enforcement del cap, decodifica y-sync, despacha). Handshake: `Deny`→403 antes del
-   upgrade; `ReadOnly` que envía update de documento→1008; frame malformado→1002. Sync inicial `SyncStep1`;
-   `SyncStep1` del cliente→`SyncStep2(delta)`; `Update`→aplicar+persistir; awareness→relay a pares + tracking
-   de clientIDs.
+   (acumula el frame con enforcement del cap, decodifica y-sync, despacha). Enforcement **post-upgrade**:
+   `ReadOnly` que envía update de documento→1008; frame malformado→1002; frame sobredimensionado→1009 (el
+   `Deny`→403 **antes** del upgrade lo hace `MapWeft`, ver #5). Sync inicial `SyncStep1`; `SyncStep1` del
+   cliente→`SyncStep2(delta)`; `Update`→aplicar+persistir; awareness→relay a pares + tracking de clientIDs.
 4. **Hub por documento**: `DocumentHub` — una `DocumentSession` por doc (suscripción única a `UpdateApplied`,
    broadcast perezoso); `ApplyAndPersistAsync` (turno del actor + `IDocumentStore.AppendUpdate`); snapshot de
    compaction al disponer. `AwarenessProtocol` — parsing mínimo de clientIDs para la retirada (FR-015).
@@ -156,3 +156,12 @@ iniciada en CHARTER-04 (parte a). **FU-002 pasa a `closed`** al cerrar este Char
 ### Decisiones candidatas a AIDEC
 
 Paridad de publish, broadcast-a-todos, retirada de awareness y backpressure se documentan en AIDEC-2026-07-13-001.
+
+## Approval
+
+**Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Concordancia AILOG↔código revisada punto por punto
+(paridad de publish in-turn, close codes 1008/1002/1009 en `WeftConnection` y 403 en `MapWeft`, broadcast vía
+`UpdateApplied`, fail-at-startup, los 7 tests citados, verificación local 107 tests + ASan sin fugas + compat
+headless). Corregida una imprecisión de atribución en Acciones #3 (el `Deny`→403 lo hace `MapWeft` antes del
+upgrade, no `WeftConnection`). AIDEC-2026-07-13-001 firmado en paralelo. Pendiente: auditoría externa
+multi-modelo obligatoria (cierra M2) antes del cierre del Charter.
