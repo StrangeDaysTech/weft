@@ -78,6 +78,7 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
 
     internal async Task HandleConnectionAsync(string docId, WeftAccess access, WebSocket ws, CancellationToken ct)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         var connection = new WeftConnection(ws, access, _options, ct);
         DocumentHub hub = await JoinAsync(docId, connection, ct).ConfigureAwait(false);
         try
@@ -120,7 +121,15 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
             hub.Broadcast(removal, exclude: connection);
         }
 
-        await _hubGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await _hubGate.WaitAsync().ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            return; // el servidor se está cerrando: DisposeAsync liberó el gate y ya desecha los hubs
+        }
+
         try
         {
             hub.Remove(connection);
@@ -159,6 +168,7 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask<VersionId> PublishAsync(string docId, CancellationToken ct = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrEmpty(docId);
         if (_blobStore is null)
         {
@@ -180,6 +190,7 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
     /// <inheritdoc />
     public ValueTask<int> GetConnectionCountAsync(string docId, CancellationToken ct = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrEmpty(docId);
         int count = _hubs.TryGetValue(docId, out DocumentHub? hub) ? hub.ConnectionCount : 0;
         return ValueTask.FromResult(count);
@@ -188,6 +199,7 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
     /// <inheritdoc />
     public ValueTask DisconnectAllAsync(string docId, CancellationToken ct = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrEmpty(docId);
         if (_hubs.TryGetValue(docId, out DocumentHub? hub))
         {

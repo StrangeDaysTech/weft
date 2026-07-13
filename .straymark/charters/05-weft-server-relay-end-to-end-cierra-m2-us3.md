@@ -30,11 +30,13 @@ El relay **no toca `ICrdtDoc` ni el motor**: se ancla en las superficies de conc
 M1", origen `AILOG-2026-07-11-001`). Cuatro anclajes concretos: (1) **broadcast vía
 `DocumentSession.UpdateApplied`** (perezoso: el delta solo se computa si hay handler suscrito) — el relay se
 suscribe **una vez por documento**, no por conexión; (2) **refcount de sesiones** — mientras una sesión viva,
-el broker no desaloja el doc, así que un doc con conexiones abiertas permanece residente; (3) **publish y
-persistencia dentro del turno del actor + `_evicting`-await** — `PublishAsync` y `AppendUpdate`/`SaveSnapshot`
-ejecutan dentro del turno del actor del doc (state-vector consistente → paridad de `VersionId` server↔local,
-P-III), y una reapertura espera a que un desalojo en vuelo **persista** antes de cargar (evita la pérdida de
-updates que R7 destapó en M1); (4) **handlers de relay aislados** — `NotifySessions` aísla cada handler
+el broker no desaloja el doc, así que un doc con conexiones abiertas permanece residente; (3) **snapshot
+consistente en el turno del actor + persistencia después + `_evicting`-await** — la **captura del estado**
+(`ExportState` en `PublishAsync`; `ApplyUpdate` en el relay) ejecuta **dentro del turno del actor** del doc
+(state-vector consistente → paridad de `VersionId` server↔local, P-III); la **persistencia**
+(`AppendUpdate`/`SaveSnapshot`/`PutAsync`) va **después, fuera del turno** (broadcast-then-persist — decisión
+consciente, ver AIDEC §5, corregida en remediación de la auditoría F3), y una reapertura espera a que un
+desalojo en vuelo **persista** antes de cargar (evita la pérdida de updates que R7 destapó en M1); (4) **handlers de relay aislados** — `NotifySessions` aísla cada handler
 `UpdateApplied` en try/catch, base del edge case "conexión malformada → cierre 1002 sin impacto en los pares".
 
 Trabajo de **implementación** contra el contrato congelado `contracts/server-api.md` (API v1). Tensa cuatro

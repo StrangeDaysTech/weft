@@ -163,5 +163,37 @@ Paridad de publish, broadcast-a-todos, retirada de awareness y backpressure se d
 (paridad de publish in-turn, close codes 1008/1002/1009 en `WeftConnection` y 403 en `MapWeft`, broadcast vía
 `UpdateApplied`, fail-at-startup, los 7 tests citados, verificación local 107 tests + ASan sin fugas + compat
 headless). Corregida una imprecisión de atribución en Acciones #3 (el `Deny`→403 lo hace `MapWeft` antes del
-upgrade, no `WeftConnection`). AIDEC-2026-07-13-001 firmado en paralelo. Pendiente: auditoría externa
-multi-modelo obligatoria (cierra M2) antes del cierre del Charter.
+upgrade, no `WeftConnection`). AIDEC-2026-07-13-001 firmado en paralelo.
+
+## Auditoría externa y remediación (2026-07-13)
+
+Auditoría multi-modelo de 3 auditores independientes de familias distintas (gpt-5-5 **9.4**, glm-5-2 **8.6**,
+qwen3.7-max **7.0**). Consolidada por el calibrador `claude-opus-4-8` en `.straymark/audits/CHARTER-05/review.md`:
+**7 findings únicos, 0 Critical, 1 High, 2 Medium, 3 Low, 1 FP**. Sin contaminación cruzada (independencia
+verificada). La auditoría destapó **dos bugs de código reales que los 107 tests no cazaban** — el valor de la
+ronda multi-modelo. **Todos los findings válidos se remediaron en este mismo PR**, con tests de regresión:
+
+| # | Finding | Sev. | Remediación | Auditor(es) |
+|---|---------|------|-------------|-------------|
+| F1 | `ReadOnly` se cerraba 1008 en el `SyncStep2` del **handshake** (inusable con clientes Yjs); el test pasaba por la razón equivocada | High | `DispatchAsync` separa `Step2` (handshake: ReadOnly lo ignora) de `Update` (edición: ReadOnly→1008). Test reforzado: sobrevive handshake + recibe updates + cierra solo al escribir | gpt-5-5, glm-5-2 |
+| F2 | `AwarenessProtocol.TrackClients` lanzaba `KeyNotFoundException` con `clock 0` para clientID nuevo (común en Yjs) → tumbaba la conexión | Med | `TryGetValue` en vez de indexar la clave ausente. Test de regresión con `clock 0` | gpt-5-5 |
+| F3 | Discrepancia doc↔código: el §Context sobre-declaraba que `AppendUpdate` ejecuta dentro del turno del actor | Med | §Context corregido (captura en el turno, persistencia después) + **AIDEC §5** (broadcast-then-persist, decisión consciente) | gpt-5-5, glm-5-2 |
+| F6 | `AddWeftServer` no validaba `IDocumentStore` (sí `IWeftAuthorizer`) | Low | Probe de `IDocumentStore` en `MapWeft` (mismo patrón `IServiceProviderIsService`) | qwen3.7-max |
+| F4 | Race en shutdown: `LeaveAsync` en vuelo vs `DisposeAsync` que libera `_hubGate` | Low | `catch (ObjectDisposedException)` en el `WaitAsync` de `LeaveAsync` | glm-5-2 |
+| F5 | Métodos públicos de `WeftServer` sin guarda de disposed | Low | `ObjectDisposedException.ThrowIf` en `PublishAsync`/`GetConnectionCountAsync`/`DisconnectAllAsync`/`HandleConnectionAsync` | qwen3.7-max |
+| F7 | `BoundedChannelFullMode.Wait` con `TryWrite` (estilo) | Low | **Sin acción** — el comentario ya existe; el fix sugerido (DropWrite) sería **incorrecto** (rompería el backpressure y perdería updates) | qwen3.7-max |
+
+FP descartado: L-2 (Mvc.Testing vs TestHost — sustitución documentada; glm lo auto-marcó como FP).
+
+Tras la remediación: build Release 0 warnings, **108 tests verdes** (Server 54 [+1 test de awareness clock 0;
+el test de ReadOnly reemplazado por el reforzado], Core 27, Versioning 25, Determinism 2). `FU-002` se cierra
+al cerrar el Charter.
+
+## Approval
+
+**Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Concordancia AILOG↔código revisada punto por punto
+(paridad de publish in-turn, close codes 1008/1002/1009 en `WeftConnection` y 403 en `MapWeft`, broadcast vía
+`UpdateApplied`, fail-at-startup, los 7 tests citados, verificación local 107 tests + ASan sin fugas + compat
+headless). Corregida una imprecisión de atribución en Acciones #3 (el `Deny`→403 lo hace `MapWeft` antes del
+upgrade, no `WeftConnection`). AIDEC-2026-07-13-001 firmado en paralelo. Auditoría externa multi-modelo
+completada y remediada en el mismo PR (ver §Auditoría externa y remediación).

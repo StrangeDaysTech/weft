@@ -134,7 +134,20 @@ internal sealed class WeftConnection
                 TryEnqueue(SyncProtocol.EncodeSyncStep2(delta));
                 return true;
 
-            case MessageType.Sync: // Step2 o Update: el cliente envía un update de documento.
+            case MessageType.Sync when syncType == SyncMessageType.Step2:
+                // SyncStep2 = respuesta del handshake al SyncStep1 del servidor (parte del protocolo y-sync, no
+                // una edición deliberada). Una conexión ReadWrite lo aplica (aporta su estado inicial); una
+                // ReadOnly lo IGNORA (no contribuye estado, pero NO se cierra: cerrar aquí rompería el handshake
+                // y-websocket estándar y dejaría ReadOnly inusable con clientes Yjs — el enforcement de escritura
+                // es solo para Update en vivo, FR-019).
+                if (Access == WeftAccess.ReadWrite)
+                {
+                    await hub.ApplyAndPersistAsync(payload, ct).ConfigureAwait(false);
+                }
+
+                return true;
+
+            case MessageType.Sync: // Update (subtipo 2): edición de documento en vivo.
                 if (Access != WeftAccess.ReadWrite)
                 {
                     await CloseAsync(WebSocketCloseStatus.PolicyViolation, "read-only connection", ct) // 1008

@@ -35,7 +35,12 @@ internal static class AwarenessProtocol
                 uint clientId = r.ReadVarUint();
                 uint clock = r.ReadVarUint();
                 _ = r.ReadVarUint8Array(); // estado (opaco): se salta
-                tracked[clientId] = clock > tracked.GetValueOrDefault(clientId) ? clock : tracked[clientId];
+                // Insertar el cliente aunque su clock sea 0 (común en el primer awareness de un cliente Yjs);
+                // indexar `tracked[clientId]` en el else con la clave ausente lanzaría KeyNotFoundException.
+                if (!tracked.TryGetValue(clientId, out uint prevClock) || clock > prevClock)
+                {
+                    tracked[clientId] = clock;
+                }
             }
         }
         catch (MalformedMessageException)

@@ -30,10 +30,21 @@ public sealed class RelayTests
 
     // ---------- Harness ----------
 
-    private sealed class FixedAuthorizer(WeftAccess access) : IWeftAuthorizer
+    // Concede el acceso `fallback`, salvo que la conexión pida uno explícito por query (?access=ro|rw|deny) —
+    // esto permite mezclar un escritor ReadWrite y un lector ReadOnly sobre el mismo documento en un test.
+    private sealed class FixedAuthorizer(WeftAccess fallback) : IWeftAuthorizer
     {
         public ValueTask<WeftAccess> AuthorizeAsync(HttpContext context, string docId, CancellationToken ct)
-            => ValueTask.FromResult(access);
+        {
+            WeftAccess access = context.Request.Query["access"].ToString() switch
+            {
+                "ro" => WeftAccess.ReadOnly,
+                "rw" => WeftAccess.ReadWrite,
+                "deny" => WeftAccess.Deny,
+                _ => fallback,
+            };
+            return ValueTask.FromResult(access);
+        }
     }
 
     private static async Task<IHost> BuildHostAsync(WeftAccess access, IDocumentStore store, IBlobStore? blobs = null)
@@ -132,10 +143,11 @@ public sealed class RelayTests
         }
 
         public static async Task<YClient> ConnectAsync(
-            TestServer server, string docId, byte[]? seedState = null, CancellationToken ct = default)
+            TestServer server, string docId, byte[]? seedState = null, string? access = null, CancellationToken ct = default)
         {
             WebSocketClient wsc = server.CreateWebSocketClient();
-            WebSocket ws = await wsc.ConnectAsync(new Uri(server.BaseAddress, $"collab/{docId}"), ct);
+            string query = access is null ? "" : $"?access={access}";
+            WebSocket ws = await wsc.ConnectAsync(new Uri(server.BaseAddress, $"collab/{docId}{query}"), ct);
             var client = new YClient(ws);
             // Sync inicial: anunciamos nuestro state vector (tras sembrar el estado previo, si lo hay).
             byte[] sv;
@@ -355,17 +367,27 @@ public sealed class RelayTests
     }
 
     [Fact]
-    public async Task ReadOnly_client_that_writes_is_closed_with_policy_violation()
+    public async Task ReadOnly_client_receives_updates_survives_handshake_but_closes_on_write()
     {
-        await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadOnly, new InMemoryDocumentStore());
+        // Regresión de F1 (auditoría CHARTER-05): el ReadOnly no debe cerrarse por el SyncStep2 del handshake,
+        // solo por un Update en vivo. Sin el fix, el lector se cierra durante el handshake y este test falla.
+        await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore());
         TestServer server = relay.Server;
-        await using YClient ro = await YClient.ConnectAsync(server, "doc");
 
-        await ro.EditAsync(0, "nope"); // un update desde una conexión ReadOnly
+        await using YClient writer = await YClient.ConnectAsync(server, "doc");                 // ReadWrite (default)
+        await using YClient reader = await YClient.ConnectAsync(server, "doc", access: "ro");   // ReadOnly
 
-        bool closed = await WaitUntilAsync(
-            () => ro.CloseStatus == WebSocketCloseStatus.PolicyViolation, TimeSpan.FromSeconds(1));
-        Assert.True(closed, $"closeStatus={ro.CloseStatus}");
+        // El lector sobrevive el handshake (su SyncStep2 se ignora, no lo cierra) y recibe el update del escritor.
+        await writer.EditAsync(0, "shared");
+        Assert.True(await WaitUntilAsync(() => reader.Text() == "shared", TimeSpan.FromSeconds(1)),
+            $"el lector ReadOnly no recibió el update: text='{reader.Text()}' close={reader.CloseStatus}");
+        Assert.Null(reader.CloseStatus); // sigue conectado tras recibir updates
+
+        // Pero si el lector intenta escribir (Update en vivo), se cierra con 1008.
+        await reader.EditAsync(0, "nope");
+        Assert.True(await WaitUntilAsync(
+            () => reader.CloseStatus == WebSocketCloseStatus.PolicyViolation, TimeSpan.FromSeconds(1)),
+            $"close={reader.CloseStatus}");
     }
 
     [Fact]
@@ -389,6 +411,27 @@ public sealed class RelayTests
         Assert.True(await WaitUntilAsync(
             () => observer.AwarenessReceived.Any(p => AwarenessHasClient(p, clientId, requireNull: true)),
             TimeSpan.FromSeconds(1)));
+    }
+
+    [Fact]
+    public async Task Awareness_with_zero_clock_for_new_client_does_not_crash()
+    {
+        // Regresión de F2 (auditoría CHARTER-05): un awareness con clock 0 para un clientID nuevo no debe
+        // lanzar KeyNotFoundException en TrackClients (que tumbaría la conexión antes del broadcast).
+        await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore());
+        TestServer server = relay.Server;
+        await using YClient observer = await YClient.ConnectAsync(server, "doc");
+        await using YClient presence = await YClient.ConnectAsync(server, "doc");
+
+        const uint clientId = 777;
+        await presence.SendAwarenessAsync(AwarenessUpdate(clientId, 0, "{\"user\":\"Z\"}"));
+
+        // El observador recibe el awareness (el broadcast, tras TrackClients, se alcanza) y nadie se cerró.
+        Assert.True(await WaitUntilAsync(
+            () => observer.AwarenessReceived.Any(p => AwarenessHasClient(p, clientId, requireNull: false)),
+            TimeSpan.FromSeconds(1)));
+        Assert.Null(presence.CloseStatus);
+        Assert.Null(observer.CloseStatus);
     }
 
     [Fact]

@@ -143,6 +143,46 @@ de datos, memoria acotada. Junto al path malformed→1002 y el cap de tamaño, c
 Un pico transitorio de latencia de un cliente puede cerrarlo; la reconexión con delta lo recupera barato. **FU-002
 pasa a `closed`** al cerrar este Charter.
 
+---
+
+## Decisión 5 — Persistencia fuera del turno del actor (broadcast-then-persist)
+
+> Añadida en la **remediación de la auditoría externa** (finding F3, convergente gpt-5-5 + glm-5-2): reconcilia
+> una discrepancia doc↔código donde el §Context del Charter sobre-declaraba que la persistencia ejecuta *dentro*
+> del turno del actor.
+
+### Problem
+
+El §Context del Charter (heredado de los anclajes de M1) afirmaba que `AppendUpdate`/`SaveSnapshot` ejecutan
+**dentro del turno del actor**. Pero el turno del actor es **síncrono** (`Func<ICrdtDoc,T>`) y `AppendUpdateAsync`
+es una escritura async al store: no se puede `await` dentro del turno. ¿Dónde persiste el relay, y con qué
+garantías?
+
+### Decision
+
+`DocumentHub.ApplyAndPersistAsync` **aplica** el update dentro del turno del actor (`Session.ApplyUpdateAsync`
+→ dispara `UpdateApplied` → broadcast a los pares) y **persiste después**, fuera del turno
+(`_store.AppendUpdateAsync`). Es decir: **broadcast-then-persist**, análogo a la Decisión 1 (donde `ExportState`
+va en el turno pero `PutAsync` fuera).
+
+### Rationale
+
+- La **captura** del estado (apply) es lo que necesita el turno para consistencia (P-V); la escritura durable
+  son bytes inmutables que pueden persistir fuera del turno.
+- **Durabilidad**: cada update se persiste vía `AppendUpdate`; al desalojar, `OnEvicting`→`SaveSnapshot` consolida
+  el estado vivo (que ya incorporó el update). Un fallo de `AppendUpdate` + crash antes del snapshot pierde ese
+  update del store, pero la **auto-sanación CRDT** (re-sync en reconexión) lo recupera de los pares. La
+  reaplicación es idempotente (los records se aplican en orden y los updates CRDT conmutan).
+- El orden de persistencia entre conexiones concurrentes no tiene que coincidir con el orden de aplicación:
+  los updates CRDT conmutan, así que el estado reconstruido converge igual.
+
+### Consequences
+
+Los peers pueden ver un update antes de que sea durable (ventana entre apply y append). Aceptable para v1
+(single-node, self-heal en reconexión). Un endurecimiento futuro (persist-before-broadcast, o manejar el fallo
+de append cerrando la conexión) queda como follow-up si se requieren semánticas de durabilidad duras. El
+§Context del Charter se corrigió en la remediación para reflejar esto.
+
 ## Approval
 
 **Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Las cuatro decisiones verificadas contra el código:
