@@ -10,7 +10,10 @@ Weft es una librería .NET que envuelve el core CRDT [`yrs`](https://github.com/
 
 ## Estado
 
-🚧 **Diseño / construcción temprana.** El diseño se elabora antes de implementar (spec-driven). La base técnica está validada por tres experimentos previos (ver `docs/`): fundamento del binding, comparación de motores CRDT, y plomería de versionado. El código llegará por hitos.
+✅ **Release-ready (hito M3).** Los hitos M0 (versionado + dual-engine), M1 (concurrencia a escala) y M2
+(servidor relay) están cerrados y verdes en CI. El empaquetado NuGet nativo multi-RID (`linux-x64`,
+`linux-arm64`, `win-x64`, `osx-arm64`) está construido y verificado por *pack-smoke*. Los paquetes se
+**publican a NuGet.org con el corte de release M3** (el pipeline queda a un `workflow_dispatch` de distancia).
 
 ## Qué ofrece (frontera del componente)
 
@@ -22,6 +25,59 @@ Weft es un **building block reutilizable**, no una aplicación. Provee:
 - **Capacidad opcional `INativeVersioning`** para motores que la ofrezcan (p. ej. Loro), manteniendo el motor reemplazable.
 
 Lo que **no** es Weft: modelo de contenido de dominio de una app concreta, editor de frontend, ni lógica de negocio. Esas viven en el consumidor (p. ej. un LMS), que **depende de Weft, nunca al revés**.
+
+## Instalación
+
+Weft se distribuye como paquetes NuGet con los binarios nativos incluidos por RID — **sin pasos manuales**:
+el binario correcto (`linux-x64`/`linux-arm64`/`win-x64`/`osx-arm64`) se resuelve solo desde
+`runtimes/<rid>/native/`.
+
+```bash
+dotnet add package Weft.Core         # binding + versionado base (motor yrs incluido)
+dotnet add package Weft.Versioning   # publish / diff / branch / merge content-addressed
+dotnet add package Weft.Server       # relay WebSocket y-sync para ASP.NET Core (opcional)
+```
+
+Paquetes: `Weft.Core`, `Weft.Versioning`, `Weft.Server`, `Weft.Loro` (motor alternativo) y los adaptadores
+de persistencia `Weft.Server.Persistence.EFCore` / `.Redis`.
+
+## Quickstart
+
+**Editar y versionar** un documento (content-addressed, `SHA-256` del export determinista):
+
+```csharp
+using Weft;
+using Weft.Versioning;
+using Weft.Versioning.Blobs;
+using Weft.Yrs;
+
+ICrdtEngine engine = YrsEngine.Instance;
+var store = new VersionStore(engine, new InMemoryBlobStore());
+
+using ICrdtDoc doc = engine.CreateDoc();
+doc.InsertText("titulo", 0, "hola weft");
+VersionId v1 = await store.PublishAsync(doc);   // v1 = hash citable del contenido
+
+doc.InsertText("titulo", 9, " en tiempo real");
+VersionId v2 = await store.PublishAsync(doc);
+
+TextDiff diff = await store.DiffAsync(v1, v2, "titulo");   // segmentos Equal/Insert/Delete
+using ICrdtDoc restored = await store.CheckoutAsync(v1);   // reconstruye cualquier versión
+```
+
+**Servir colaboración en vivo** — relay WebSocket compatible con clientes Yjs estándar
+(`y-websocket`/`y-prosemirror`/Tiptap), en ASP.NET Core:
+
+```csharp
+builder.Services.AddWeftServer(options => { /* Engine, Broker, ... */ });
+builder.Services.AddSingleton<IWeftAuthorizer, MyAuthorizer>();       // decisión de acceso del consumidor
+builder.Services.AddWeftRedisDocumentStore("localhost:6379");         // o EFCore / FileSystem / InMemory
+
+app.MapWeft("/ws");   // endpoint WebSocket: /ws/{docId}
+```
+
+Recorrido end-to-end (editar → publicar → servir → cliente Tiptap) en
+[`samples/`](./samples) y en `specs/001-weft-crdt-versioning/quickstart.md`.
 
 ## Motor
 

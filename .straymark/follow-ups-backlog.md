@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 3
+total_open: 4
 total_promoted: 0
 total_closed_in_session: 8
 total_phase_blocked: 0
@@ -126,6 +126,14 @@ fully_extracted_ailogs:
 - **Destination**: chore
 - **Cost**: S
 - **Notes**: CHARTER-06 no añadió job de CI para el adaptador Redis por coste de minutos (GH Actions ~agotado al ejecutarlo). El test `RedisDocumentStoreContractTests` es `[SkippableFact]`: corre local con `WEFT_TEST_REDIS=localhost:6379` (Valkey) y se **omite** en CI (sin servidor). Reponer: job Linux-only en `.github/workflows/ci.yml` con service container `redis:7`/`valkey` + `WEFT_TEST_REDIS` apuntándolo, para que el adaptador Redis se ejercite en CI. **Ningún gate depende hoy**: el gate local cubre la ruta funcional y el adaptador es .NET managed puro (sin comportamiento por-plataforma). EF Core/SQLite ya corre en CI (sin infra).
+
+### FU-012 — determinism-yjs: exponer client-id determinista + promover a gate de paridad cross-impl
+- **Origin**: CHARTER-07 §Scope (T058) · AILOG-2026-07-13-003 · tests/determinism-yjs/README.md (registro hand-add + recount, §13)
+- **Status**: open
+- **Trigger**: when se quiera promover el determinismo cross-implementación de informativo a gate bloqueante (o antes del primer bump de motor con impacto de encoding, R16)
+- **Destination**: mini-charter
+- **Cost**: M
+- **Notes**: El harness `tests/determinism-yjs/` (T058) aplica el corpus compartido con Yjs y emite el SHA-256 del export, pero la paridad byte-idéntica con yrs está **gated en client-ids deterministas**: `ICrdtEngine.CreateDoc()` no toma parámetro y el shim FFI (`weft-yrs-ffi`) no expone fijar `client_id`, así que yrs asigna uno no controlable y su export no es reproducible cross-impl. Promover: (1) añadir `weft_doc_new_with_client_id` al FFI + `CreateDoc(ulong clientId)` al binding (aísla el bump, P-IV); (2) emitir el hash golden de yrs para el corpus; (3) pasar `WEFT_GOLDEN_HASH` al job y promoverlo a comparación con aserción; (4) añadir la variante unicode del corpus (índices UTF-16, R6). Hoy no-bloqueante; ningún gate depende.
 
 ## Bucket: phase-blocked
 

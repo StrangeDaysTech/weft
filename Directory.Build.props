@@ -14,6 +14,10 @@
     <Deterministic>true</Deterministic>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IsTestProject Condition="$(MSBuildProjectName.EndsWith('Tests'))">true</IsTestProject>
+    <!-- Solo las librerías de src/ se empaquetan; tests, samples y load-test no (CHARTER-07/T055). -->
+    <IsPackable Condition="'$(IsTestProject)' == 'true'">false</IsPackable>
+    <IsPackable Condition="$(MSBuildProjectDirectory.Contains('samples'))">false</IsPackable>
+    <IsPackable Condition="$(MSBuildProjectName) == 'Weft.LoadTest'">false</IsPackable>
   </PropertyGroup>
 
   <!-- Solo librerías publicables: docs XML, metadatos de paquete Apache-2.0 y SourceLink. -->

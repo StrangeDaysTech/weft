@@ -193,7 +193,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "Smoke del NuGet nativo multi-RID + ausencia de weft_test_panic (P-VI) — se activa en US4 (M3, T057)."
+      # El pack-smoke multi-RID real (SC-007/P-VI) + la verificación de ausencia de weft_test_panic
+      # (SC-009) viven en `release.yml` (CHARTER-07/T057): la matriz cross-compile es cara, así que
+      # corre por `workflow_dispatch` (dry-run), NO en cada PR. Este job por-PR queda como marcador.
+      - run: echo "pack-smoke multi-RID vive en release.yml (workflow_dispatch, dry_run) — CHARTER-07 T057."
 
   # ── Gate M1 (P-V, SC-006): prueba de carga de concurrencia ────────────────────────────────
   # Nightly (schedule) + manual (workflow_dispatch): NO corre en PR (no lo bloquea), pero es

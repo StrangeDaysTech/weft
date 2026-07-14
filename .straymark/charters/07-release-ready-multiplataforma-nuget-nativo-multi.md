@@ -1,6 +1,6 @@
 ---
 charter_id: CHARTER-07-release-ready-multiplataforma-nuget-nativo-multi
-status: declared
+status: in-progress
 effort_estimate: L
 trigger: "US3 100% completa (CHARTER-06 en main, d494105): los 6 paquetes (.NET) y 2 shims (Rust) están construidos y verdes; el gate dual-engine (T034) y todos los gates de M0/M1/M2 activos. tasks.md fija US4 (T055–T060) como el empaquetado NuGet nativo multi-RID + release OSS. Este Charter deja el release **listo para disparar** (packaging + cross-compile + pack-smoke + docs + release.yml en dry-run) SIN ejecutar el paso irreversible (publish a NuGet.org / repo público), que queda operador-gated."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +10,7 @@ design_provenance: new
 
 # Charter: Release-ready multiplataforma — NuGet nativo multi-RID + gates (publish gated)
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md` (US4, hito M3; research R11/R12/R13/R16).
 > Deja Weft **release-ready**: entrega T055–T059 y **autora** T060 (pipeline de release) en modo **dry-run**.
@@ -209,3 +209,30 @@ irreversible. Al cerrar:
 4. Confirmar el estado: **release-ready verde** (dry-run de `release.yml` pasó). **M3 sigue abierto** hasta que
    el operador dispare el publish (`dry_run=false` + API key + repo público + tag) y se cierre **CHARTER-08**
    (Polish). Dejar el runbook del paso gated en `CONTRIBUTING.md`/`GOVERNANCE.md` o el AILOG.
+
+## Closing notes
+
+Ejecución (T055–T059 + T060 dry-run) documentada en `AILOG-2026-07-13-003`. **Verificación local verde** (build
+0 warnings, 124 tests, pack local 6 `.nupkg` con los 2 RIDs de Linux, pack-smoke linux-x64, harness
+determinism-yjs, YAML válido). **Pendiente para cierre**: **1 dry-run de `release.yml`** que valide win-x64/
+osx-arm64/linux-arm64 (gasto de CI, decisión del operador — ver AILOG §Risk R2/R4). El charter permanece
+`in-progress` hasta ese dry-run.
+
+Expansiones de scope respecto a §Files (documentadas, intencionales):
+
+- **`build/Weft.Native.targets`** (New, no declarado) — targets MSBuild compartido que empaqueta el cdylib por
+  RID; extraído para no duplicar la lógica entre `Weft.Core.csproj` y `Weft.Loro.csproj` (que sí estaban
+  declarados). Ref: `AILOG-2026-07-13-003 §Actions #1`.
+- **`Directory.Build.props`** (Change, no declarado) — `IsPackable=false` para tests/samples/load-test, para que
+  `dotnet pack Weft.sln` produzca solo los 6 paquetes de librería. Ref: idem.
+- **`.straymark/follow-ups-backlog.md`** (Change, no declarado) — registro de **FU-012** (paridad determinism-yjs
+  gated en client-ids deterministas), hand-add + `recount`.
+- **Drift parser (issue #354)**: `.csproj`/`.sln`/`.yml` declarados aparecen como falso positivo de "scope
+  expansion" (el parser no reconoce esas extensiones); no es drift real (`Weft.Core.csproj`, `Weft.Loro.csproj`,
+  `release.yml`, `ci.yml` **sí** están declarados en §Files).
+- **Granularidad directorio-vs-archivo**: §Files declara `tests/determinism-yjs/`, `tests/pack-smoke/` y
+  `docs/api/` como **directorios**; el drift lista sus archivos individuales como "no declarados". No es drift —
+  el contenido de esos dirs es exactamente lo declarado (ver `AILOG-2026-07-13-003 §Modified Files`).
+- **`AIDEC-*.md` declarado pero no creado**: §Files lo marcaba condicional ("New si emerge decisión sustantiva").
+  Las decisiones (strip vía `--config`, publish gateado, zig pinneado, determinism no-bloqueante) se
+  documentaron en el **AILOG §Decisions**, sin ameritar un AIDEC aparte. No es trabajo faltante.

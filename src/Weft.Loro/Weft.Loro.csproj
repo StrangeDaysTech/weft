@@ -3,7 +3,11 @@
   <PropertyGroup>
     <Description>Weft — adaptador dual-path sobre el motor CRDT Loro (vía shim weft-loro-ffi). Prueba la portabilidad de la abstracción ICrdtEngine (constitución P-IV).</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Empaqueta el cdylib weft_loro_ffi por RID bajo runtimes/<rid>/native/ (T055). -->
+    <WeftNativeLib>weft_loro_ffi</WeftNativeLib>
   </PropertyGroup>
+
+  <Import Project="../../build/Weft.Native.targets" />
 
   <ItemGroup>
     <ProjectReference Include="../Weft.Core/Weft.Core.csproj" />

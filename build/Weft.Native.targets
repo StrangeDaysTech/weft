@@ -1,0 +1,40 @@
+<Project>
+
+  <!--
+    Empaquetado nativo multi-RID (CHARTER-07/T055, research R11 — patrón SkiaSharp).
+    El csproj que importa este archivo fija <WeftNativeLib> (p. ej. `weft_yrs_ffi`); aquí se
+    empaqueta ese cdylib bajo `runtimes/<rid>/native/` para los 4 RIDs soportados.
+
+    Cada RID se incluye SOLO si su binario cross-compilado existe (Condition Exists), así:
+      - un `dotnet pack` LOCAL incluye los RIDs presentes (linux-x64/arm64 vía cargo-zigbuild);
+      - en CI (`release.yml`) los 4 targets están staged antes del pack → paquete completo.
+
+    Los binarios se leen de `native/target/<rust-target>/release/` (build con target explícito
+    vía cargo, no el build de host en `native/target/release/`). El resolver del consumidor
+    (`NativeLibraryResolver`) ya lee este layout, no se toca.
+  -->
+
+  <PropertyGroup>
+    <_WeftNativeTargetRoot>$(MSBuildThisFileDirectory)../native/target</_WeftNativeTargetRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(WeftNativeLib)' != ''">
+    <!-- linux-x64 -->
+    <None Include="$(_WeftNativeTargetRoot)/x86_64-unknown-linux-gnu/release/lib$(WeftNativeLib).so"
+          Condition="Exists('$(_WeftNativeTargetRoot)/x86_64-unknown-linux-gnu/release/lib$(WeftNativeLib).so')"
+          Pack="true" PackagePath="runtimes/linux-x64/native/" Visible="false" />
+    <!-- linux-arm64 -->
+    <None Include="$(_WeftNativeTargetRoot)/aarch64-unknown-linux-gnu/release/lib$(WeftNativeLib).so"
+          Condition="Exists('$(_WeftNativeTargetRoot)/aarch64-unknown-linux-gnu/release/lib$(WeftNativeLib).so')"
+          Pack="true" PackagePath="runtimes/linux-arm64/native/" Visible="false" />
+    <!-- win-x64 (runner nativo Windows: x86_64-pc-windows-msvc) -->
+    <None Include="$(_WeftNativeTargetRoot)/x86_64-pc-windows-msvc/release/$(WeftNativeLib).dll"
+          Condition="Exists('$(_WeftNativeTargetRoot)/x86_64-pc-windows-msvc/release/$(WeftNativeLib).dll')"
+          Pack="true" PackagePath="runtimes/win-x64/native/" Visible="false" />
+    <!-- osx-arm64 (runner nativo macOS: aarch64-apple-darwin) -->
+    <None Include="$(_WeftNativeTargetRoot)/aarch64-apple-darwin/release/lib$(WeftNativeLib).dylib"
+          Condition="Exists('$(_WeftNativeTargetRoot)/aarch64-apple-darwin/release/lib$(WeftNativeLib).dylib')"
+          Pack="true" PackagePath="runtimes/osx-arm64/native/" Visible="false" />
+  </ItemGroup>
+
+</Project>
