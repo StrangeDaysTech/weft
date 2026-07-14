@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 2
+total_open: 3
 total_promoted: 0
 total_closed_in_session: 8
 total_phase_blocked: 0
@@ -118,6 +118,14 @@ fully_extracted_ailogs:
 - **Destination**: charter-replanning
 - **Cost**: M
 - **Notes**: El relay hace **broadcast-then-persist** (AIDEC §5): aplica el update dentro del turno del actor (difunde a los pares) y persiste `IDocumentStore.AppendUpdate` **después**, fuera del turno. Un fallo del append + crash antes del snapshot pierde ese update del store; en v1 (single-node) la auto-sanación CRDT (re-sync en reconexión) lo recupera. Endurecer SOLO si se requieren semánticas duras: persist-before-broadcast (reestructurar el orden) o manejar el fallo de append cerrando la conexión + test de crash mid-operation. **Ningún gate depende hoy**; decisión consciente documentada, no un bug.
+
+### FU-011 — reponer la cobertura del adaptador Redis en CI (job Linux-only con service container)
+- **Origin**: CHARTER-06 §Scope/§Out of scope / R4 · AILOG-2026-07-13-002 §Decisions #4 (registro hand-add + recount, vía §13; el follow-up nace en tiempo de declaración de Charter, sin sección extraíble — cf. issue straymark #360)
+- **Status**: open
+- **Trigger**: when el presupuesto de minutos de GitHub Actions lo permita (resetea mensualmente)
+- **Destination**: chore
+- **Cost**: S
+- **Notes**: CHARTER-06 no añadió job de CI para el adaptador Redis por coste de minutos (GH Actions ~agotado al ejecutarlo). El test `RedisDocumentStoreContractTests` es `[SkippableFact]`: corre local con `WEFT_TEST_REDIS=localhost:6379` (Valkey) y se **omite** en CI (sin servidor). Reponer: job Linux-only en `.github/workflows/ci.yml` con service container `redis:7`/`valkey` + `WEFT_TEST_REDIS` apuntándolo, para que el adaptador Redis se ejercite en CI. **Ningún gate depende hoy**: el gate local cubre la ruta funcional y el adaptador es .NET managed puro (sin comportamiento por-plataforma). EF Core/SQLite ya corre en CI (sin infra).
 
 ## Bucket: phase-blocked
 
