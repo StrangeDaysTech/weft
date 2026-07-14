@@ -1,14 +1,26 @@
 using System.Collections.Concurrent;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 using Weft.Server.Persistence;
+using Weft.Server.Persistence.EFCore;
+using Weft.Server.Persistence.Redis;
 
 namespace Weft.Server.Tests;
 
 /// <summary>
 /// Contract suite compartida de <see cref="IDocumentStore"/> (T050). Se ejecuta <b>idéntica</b> contra cada
-/// adaptador (aquí <see cref="InMemoryDocumentStore"/> y <see cref="FileSystemDocumentStore"/>; en CHARTER-06,
-/// EFCore y Redis sin modificarla). Es la base de la intercambiabilidad de stores que exige el escenario de
-/// aceptación de US3 y <c>contracts/server-api.md</c>.
+/// adaptador (<see cref="InMemoryDocumentStore"/>, <see cref="FileSystemDocumentStore"/> y, desde CHARTER-06,
+/// <see cref="EFCoreDocumentStore"/> y <see cref="RedisDocumentStore"/>). Es la base de la intercambiabilidad
+/// de stores que exige el escenario de aceptación de US3 y <c>contracts/server-api.md</c>.
 /// </summary>
+/// <remarks>
+/// Los tests usan <c>[SkippableFact]</c> (no <c>[Fact]</c>) para que un adaptador cuyo backend externo no esté
+/// disponible pueda <b>omitirse</b> en vez de fallar: la subclase Redis llama <c>Skip.IfNot(...)</c> en
+/// <see cref="CreateStore"/> (la primera línea de cada test), así que sin Redis/Valkey el test se salta.
+/// Para los adaptadores in-proceso (InMemory, FileSystem, EFCore/SQLite) el comportamiento es idéntico a
+/// <c>[Fact]</c> — nunca se salta.
+/// </remarks>
 public abstract class DocumentStoreContractSuite
 {
     /// <summary>Crea una instancia fresca y aislada del store bajo prueba.</summary>
@@ -24,14 +36,14 @@ public abstract class DocumentStoreContractSuite
         return DocumentStateFraming.ReadRecords(framed);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Load_of_unknown_doc_returns_null()
     {
         IDocumentStore store = CreateStore();
         Assert.Null(await store.LoadAsync("nunca-escrito"));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Appends_load_in_order()
     {
         IDocumentStore store = CreateStore();
@@ -50,7 +62,7 @@ public abstract class DocumentStoreContractSuite
         Assert.Equal(c, records[2]);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Snapshot_alone_loads_as_single_record()
     {
         IDocumentStore store = CreateStore();
@@ -62,7 +74,7 @@ public abstract class DocumentStoreContractSuite
         Assert.Equal(snapshot, Assert.Single(records));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Snapshot_replaces_accumulated_updates_then_new_updates_append()
     {
         IDocumentStore store = CreateStore();
@@ -85,7 +97,7 @@ public abstract class DocumentStoreContractSuite
         Assert.Equal(c, afterAppend[1]);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Documents_are_isolated()
     {
         IDocumentStore store = CreateStore();
@@ -96,7 +108,7 @@ public abstract class DocumentStoreContractSuite
         Assert.Equal([0x22], Assert.Single(Records(await store.LoadAsync("doc-2"))));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Large_blob_round_trips()
     {
         IDocumentStore store = CreateStore();
@@ -111,7 +123,7 @@ public abstract class DocumentStoreContractSuite
         Assert.Equal(big, Assert.Single(records));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Concurrent_appends_are_all_persisted()
     {
         IDocumentStore store = CreateStore();
@@ -130,7 +142,7 @@ public abstract class DocumentStoreContractSuite
         Assert.True(Enumerable.Range(0, n).All(seen.Contains));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Concurrent_loads_and_writes_do_not_fault()
     {
         IDocumentStore store = CreateStore();
@@ -186,5 +198,138 @@ public sealed class FileSystemDocumentStoreContractTests : DocumentStoreContract
         {
             Directory.Delete(_root, recursive: true);
         }
+    }
+}
+
+/// <summary>
+/// La contract suite contra <see cref="EFCoreDocumentStore"/> (CHARTER-06/T053) sobre <b>SQLite</b> en un archivo
+/// temporal aislado — provider real, relacional, cross-plataforma, sin infraestructura externa.
+/// </summary>
+public sealed class EFCoreDocumentStoreContractTests : DocumentStoreContractSuite, IDisposable
+{
+    private readonly string _dbPath =
+        Path.Combine(Path.GetTempPath(), "weft-efcore-store-" + Guid.NewGuid().ToString("N") + ".db");
+
+    protected override IDocumentStore CreateStore()
+    {
+        DbContextOptions<WeftDocumentStoreContext> options =
+            new DbContextOptionsBuilder<WeftDocumentStoreContext>()
+                .UseSqlite($"Data Source={_dbPath}")
+                .Options;
+
+        var factory = new SqliteContextFactory(options);
+        using (WeftDocumentStoreContext ctx = factory.CreateDbContext())
+        {
+            ctx.Database.EnsureCreated();
+        }
+
+        return new EFCoreDocumentStore(factory);
+    }
+
+    /// <summary>Factory mínima de contextos SQLite para los tests (una unidad de trabajo fresca por operación).</summary>
+    private sealed class SqliteContextFactory(DbContextOptions<WeftDocumentStoreContext> options)
+        : IDbContextFactory<WeftDocumentStoreContext>
+    {
+        public WeftDocumentStoreContext CreateDbContext() => new(options);
+    }
+
+    public void Dispose()
+    {
+        SqliteConnection.ClearAllPools();  // suelta el handle del archivo antes de borrarlo.
+        if (File.Exists(_dbPath))
+        {
+            try
+            {
+                File.Delete(_dbPath);
+            }
+            catch (IOException)
+            {
+                // best-effort: un handle rezagado del pool deja el archivo temporal; inofensivo.
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Conexión Redis/Valkey compartida para la suite (una por clase). Si el servidor no está disponible en
+/// <c>WEFT_TEST_REDIS</c> (o <c>localhost:6379</c>), <see cref="Available"/> es <c>false</c> y los tests se
+/// omiten. Usa la base de datos <see cref="TestDb"/> (aislada de la 0 por defecto) y la limpia al cerrar.
+/// </summary>
+public sealed class RedisConnectionFixture : IDisposable
+{
+    /// <summary>Índice de base de datos dedicado a los tests (no toca la db 0 por defecto del servidor).</summary>
+    public const int TestDb = 15;
+
+    /// <summary>La conexión, o <c>null</c> si el servidor no respondió.</summary>
+    public IConnectionMultiplexer? Connection { get; }
+
+    /// <summary><c>true</c> si hay una conexión viva contra Redis/Valkey.</summary>
+    public bool Available => Connection is { IsConnected: true };
+
+    /// <summary>Intenta conectar una sola vez (sin abortar si falla) para decidir si la suite corre o se omite.</summary>
+    public RedisConnectionFixture()
+    {
+        string config = Environment.GetEnvironmentVariable("WEFT_TEST_REDIS") ?? "localhost:6379";
+        var options = ConfigurationOptions.Parse(config);
+        options.AbortOnConnectFail = false;   // no lanza si el servidor no está: devuelve un mux desconectado.
+        options.ConnectTimeout = 1000;
+        options.ConnectRetry = 1;
+        options.AllowAdmin = true;            // habilita FLUSHDB en el cleanup.
+
+        ConnectionMultiplexer mux = ConnectionMultiplexer.Connect(options);
+        if (mux.IsConnected)
+        {
+            Connection = mux;
+        }
+        else
+        {
+            mux.Dispose();
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (Connection is null)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (System.Net.EndPoint endpoint in Connection.GetEndPoints())
+            {
+                Connection.GetServer(endpoint).FlushDatabase(TestDb);
+            }
+        }
+        catch (RedisException)
+        {
+            // best-effort: si el servidor deshabilita comandos admin, dejamos las claves (prefijo único por test).
+        }
+
+        Connection.Dispose();
+    }
+}
+
+/// <summary>
+/// La contract suite contra <see cref="RedisDocumentStore"/> (CHARTER-06/T054). Corre contra el Redis/Valkey
+/// real de <see cref="RedisConnectionFixture"/>; se <b>omite</b> (no falla) cuando no hay servidor. Cada
+/// <see cref="CreateStore"/> usa un prefijo de claves único → aislamiento entre tests sobre la misma conexión.
+/// </summary>
+public sealed class RedisDocumentStoreContractTests : DocumentStoreContractSuite, IClassFixture<RedisConnectionFixture>
+{
+    private readonly RedisConnectionFixture _fixture;
+
+    /// <summary>Recibe la conexión compartida vía el class fixture de xUnit.</summary>
+    public RedisDocumentStoreContractTests(RedisConnectionFixture fixture) => _fixture = fixture;
+
+    protected override IDocumentStore CreateStore()
+    {
+        Skip.IfNot(
+            _fixture.Available,
+            "Redis/Valkey no disponible en WEFT_TEST_REDIS/localhost:6379 — test omitido (corre local con el servidor levantado).");
+
+        string prefix = "weft-test:" + Guid.NewGuid().ToString("N") + ":";
+        return new RedisDocumentStore(_fixture.Connection!, prefix, RedisConnectionFixture.TestDb);
     }
 }
