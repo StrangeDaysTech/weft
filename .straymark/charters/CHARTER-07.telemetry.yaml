@@ -1,0 +1,91 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Conceptual:    Propuesta/straymark-charter-telemetry.md (in the upstream repo)
+# Storage path:  .straymark/charters/CHARTER-07.telemetry.yaml
+#
+# Fill time target: 5-10 minutes per Charter. The point is signal, not exhaustiveness —
+# leave a field blank or omit it if you don't have honest data for it. Honest gaps
+# are more useful than invented numbers.
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-07"
+  charter_title: "Release-ready multiplataforma — NuGet nativo multi-RID + gates (publish gated)"
+  closed_at: "2026-07-13"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-13-003"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución del Charter (US4/M3, originado del spec 001)."
+
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "US3 100% completa (CHARTER-06 en main, d494105); 6 paquetes .NET + 2 shims Rust construidos y verdes; gate dual-engine (T034) y gates M0/M1/M2 activos. tasks.md fija US4 (T055–T060) como el empaquetado NuGet nativo multi-RID + release OSS."
+    fired_at: "2026-07-13"
+    fire_clarity: "clear"
+    fire_clarity_notes: "Última story de la spec; alcance acotado por 2 decisiones del operador (release-ready publish-gated + Polish aparte)."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "high"
+    pre_work_notes: "Reconnaissance #210 confirmó que NativeLibraryResolver ya lee runtimes/<rid>/native/ (T055 solo alimenta el layout), los csproj sin packaging, la ausencia de release.yml y de CONTRIBUTING/GOVERNANCE. Sesión previa instaló zig+cargo-zigbuild local."
+
+  # ---------- Planning session (if any) ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-13"
+    finished_at: "2026-07-13"
+    estimated_effort: "L (~4h)"
+    actual_effort: "L (~4h)"
+    estimation_drift_factor: 1.0
+    estimation_drift_reason: "Sin sorpresas de alcance. Los ajustes (strip vía --config para no inflar el .nupkg, comentario XML con -- ilegal, IsPackable de tests/samples) fueron menores y resueltos en línea. La instalación de zig (tarball vía mirror hexops tras el throttle de ziglang.org) fue en sesión previa."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 1
+    skill_prompts_used: ["straymark-charter-new"]
+
+  # ---------- External audit ----------
+  # No aplica: Charter que no cierra hito → sin auditoría externa multi-modelo obligatoria.
+  # Recomendada antes del paso gated de publish (el binario empaquetado cruza P-I/P-II).
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "Expansiones intencionales documentadas en §Closing notes: F1 build/Weft.Native.targets (extraído para no duplicar entre Core/Loro), F2 Directory.Build.props (IsPackable de tests/samples), F3 registro FU-012 (paridad determinism-yjs). T060 entregado en dry-run (publish operador-gated, no ejecutado). Dry-run de release.yml VERDE en los 4 RIDs (run 29307786498); publish skipped (gate dry_run confirmado)."
+    new_followups_generated: 2
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M3"
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points: ["ziglang.org throttlea las descargas (~60 KB/s); resuelto con mirror de comunidad hexops + verificación SHA-256.", "workflow_dispatch solo es disparable si el workflow está en la rama por defecto → el dry-run de release.yml no corre desde la branch; hubo que mergear #21 primero y disparar en main.", "El parser de charter drift no reconoce .csproj/.sln/.yml ni dirs declarados (issue #354) → 14 FP de scope expansion, triaje manual al cierre.", "GH Actions annota deprecación de Node 20 (checkout/setup-node/upload-artifact/setup-zig) → FU-013."]
+    wins: ["Packaging con strip vía --config (sin tocar el perfil release compartido con sanitizers): yrs 936K, loro 3.8M vs 41M, 12 exports C-ABI intactos.", "Publish gateado tras inputs.dry_run (default true) + environment: release → el dry-run validó los 4 RIDs y saltó el publish, cero riesgo de publicación accidental (R1).", "Validación local de 2/4 RIDs con zig instalado antes del dry-run → el único dry-run de CI pasó al primer intento (win/mac/arm), sin iterar la matriz cara.", "pack-smoke real: consumidor que referencia Weft como PAQUETES ejercita el layout runtimes/ de punta a punta (nativo resuelto en cada RID, incl. linux-arm64 vía QEMU)."]
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: "El parser de drift debería reconocer .csproj/.sln/.yml y expandir directorios declarados a sus archivos (issue #354, comentado con la 4ª+5ª ocurrencia)."

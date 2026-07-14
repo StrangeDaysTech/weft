@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 4
+total_open: 5
 total_promoted: 0
 total_closed_in_session: 8
 total_phase_blocked: 0
@@ -134,6 +134,14 @@ fully_extracted_ailogs:
 - **Destination**: mini-charter
 - **Cost**: M
 - **Notes**: El harness `tests/determinism-yjs/` (T058) aplica el corpus compartido con Yjs y emite el SHA-256 del export, pero la paridad byte-idéntica con yrs está **gated en client-ids deterministas**: `ICrdtEngine.CreateDoc()` no toma parámetro y el shim FFI (`weft-yrs-ffi`) no expone fijar `client_id`, así que yrs asigna uno no controlable y su export no es reproducible cross-impl. Promover: (1) añadir `weft_doc_new_with_client_id` al FFI + `CreateDoc(ulong clientId)` al binding (aísla el bump, P-IV); (2) emitir el hash golden de yrs para el corpus; (3) pasar `WEFT_GOLDEN_HASH` al job y promoverlo a comparación con aserción; (4) añadir la variante unicode del corpus (índices UTF-16, R6). Hoy no-bloqueante; ningún gate depende.
+
+### FU-013 — bump de GitHub Actions fuera de Node 20 (deprecado)
+- **Origin**: CHARTER-07 (dry-run release.yml run 29307786498, annotations) · AILOG-2026-07-13-003 (registro hand-add + recount, §13)
+- **Status**: open
+- **Trigger**: when Node 20 se retire de los runners de GH (o al tocar los workflows por otra razón)
+- **Destination**: chore
+- **Cost**: XS
+- **Notes**: El dry-run anotó "Node.js 20 is deprecated" para `actions/checkout@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`, `mlugg/setup-zig@v2` (forzados a Node 24). Bump a `@v5`/equivalentes en `.github/workflows/{ci.yml,release.yml,docs-validation.yml}` cuando toque. También aviso informativo: `macos-latest` migra a macOS 26 el 2026-06-15 (revisar el runner de `native (osx-arm64)` / pack-smoke). Cosmético hoy; ningún gate depende.
 
 ## Bucket: phase-blocked
 

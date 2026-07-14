@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-07-release-ready-multiplataforma-nuget-nativo-multi
-status: in-progress
+status: closed
+closed_at: 2026-07-13
 effort_estimate: L
 trigger: "US3 100% completa (CHARTER-06 en main, d494105): los 6 paquetes (.NET) y 2 shims (Rust) están construidos y verdes; el gate dual-engine (T034) y todos los gates de M0/M1/M2 activos. tasks.md fija US4 (T055–T060) como el empaquetado NuGet nativo multi-RID + release OSS. Este Charter deja el release **listo para disparar** (packaging + cross-compile + pack-smoke + docs + release.yml en dry-run) SIN ejecutar el paso irreversible (publish a NuGet.org / repo público), que queda operador-gated."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Release-ready multiplataforma — NuGet nativo multi-RID + gates (publish gated)
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md` (US4, hito M3; research R11/R12/R13/R16).
 > Deja Weft **release-ready**: entrega T055–T059 y **autora** T060 (pipeline de release) en modo **dry-run**.
@@ -214,9 +215,10 @@ irreversible. Al cerrar:
 
 Ejecución (T055–T059 + T060 dry-run) documentada en `AILOG-2026-07-13-003`. **Verificación local verde** (build
 0 warnings, 124 tests, pack local 6 `.nupkg` con los 2 RIDs de Linux, pack-smoke linux-x64, harness
-determinism-yjs, YAML válido). **Pendiente para cierre**: **1 dry-run de `release.yml`** que valide win-x64/
-osx-arm64/linux-arm64 (gasto de CI, decisión del operador — ver AILOG §Risk R2/R4). El charter permanece
-`in-progress` hasta ese dry-run.
+determinism-yjs, YAML válido). **Dry-run de `release.yml` VERDE** (run 29307786498, post-merge de #21 en main,
+2026-07-14): native ×4 (los 4 RIDs), pack, pack-smoke ×4 (incl. linux-arm64 vía QEMU) y determinism-yjs en
+`success`; **`publish` `skipped`** (gate `dry_run=true` confirmado — nada publicado). Release-ready probado en
+los 4 RIDs → cierre. **M3 sigue abierto**: falta el publish real del operador + CHARTER-08 (Polish).
 
 Expansiones de scope respecto a §Files (documentadas, intencionales):
 

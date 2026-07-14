@@ -90,6 +90,9 @@ Weft.PackSmoke.csproj,nuget.config}`, `tests/determinism-yjs/{apply.mjs,corpus.j
   validados** — su gate es **un `workflow_dispatch` dry-run de `release.yml`**, que es un gasto deliberado de
   CI (matriz win 2×/mac 10× + QEMU) y queda **pendiente de la decisión del operador** (presupuesto de minutos).
   Hasta ese dry-run verde, "release-ready" está probado solo en Linux. Documentado, no oculto.
+  **RESUELTO (2026-07-14)**: dry-run de `release.yml` VERDE post-merge de #21 (run 29307786498) — native ×4,
+  pack, pack-smoke ×4 (incl. linux-arm64 vía QEMU) en `success`; `publish` `skipped` (gate `dry_run` confirmado).
+  Release-ready probado en los 4 RIDs.
 
 ## Impact
 
