@@ -116,6 +116,13 @@ Spec-driven, con [GitHub Spec Kit](https://github.com/github/spec-kit): **Spec �
 
 Toolchain: Rust (con `yrs` pinneado) · .NET SDK 10 (LTS) · empaquetado nativo por RID (Linux/Windows/macOS, x64/arm64).
 
+## Seguridad
+
+El relay (`Weft.Server`) capea el input de red no confiable. Si ingieres bytes CRDT **no confiables directamente**
+por la API (`weft_doc_load` / `apply_update` / `export_since`) fuera del relay, aplica un cap de tamaño y un límite
+de memoria del proceso — el decoder de `yrs` puede amplificar memoria. Detalle y reporte de vulnerabilidades:
+[GOVERNANCE.md § Seguridad](./GOVERNANCE.md#seguridad).
+
 ## Licencia
 
 [Apache-2.0](./LICENSE) © 2026 [Strange Days Tech](https://strangedays.tech/es). Librería permisiva con concesión explícita de patentes; reciproca a los motores MIT sobre los que se apoya (`yrs`, Loro).

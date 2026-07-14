@@ -1,6 +1,6 @@
 ---
 charter_id: CHARTER-08-endurecer-decoder-yrs-r6
-status: declared
+status: in-progress
 effort_estimate: M
 trigger: "FU-014 (registrado 2026-07-14): el job `fuzz` de CHARTER-07 confirmó que el decoder de yrs amplifica memoria (R6) en la ruta CRUDA del FFI, NO capeada por FU-002 (relay). Investigación upstream (2026-07-14, ver [[yrs-decoder-r6-upstream]]): `Update::decode` YA usa `try_reserve`, pero `id_set.rs:91` (delete sets) y `state_vector.rs:120` (state vectors) siguen con `with_capacity` sin acotar — presente en 0.27.2 Y en la última 0.27.3. Decisión del operador: FU-014 = charter propio + colaboración upstream (PR de `try_reserve`)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +10,7 @@ design_provenance: new
 
 # Charter: Endurecer el decoder de yrs contra amplificación de memoria (R6)
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: M.
+> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: M.
 >
 > **Origin:** Follow-up **FU-014**, sobre la spec 001 (constitución **P-I/P-II**: frontera nativa segura /
 > memoria verificada). Endurece la ruta **directa del FFI** ante la amplificación R6 que FU-002 (cerrado)
@@ -31,6 +31,11 @@ La **investigación upstream (2026-07-14, ver `[[yrs-decoder-r6-upstream]]` en m
 - **Residual** (sigue con `with_capacity` sin acotar, en 0.27.2 **y** en la última 0.27.3): `id_set.rs:91`
   (decode de **delete sets** — alcanzable desde `apply_update`, los updates llevan delete set) y
   `state_vector.rs:120` (decode de **state vectors** — alcanzable desde `weft_doc_export_since`).
+  > **Actualización (2026-07-14, durante la implementación):** una **revisión de completitud** del crate `yrs`
+  > (regla operativa: revisar más ancho que el cambio, para no enviar un fix que deja gemelos idénticos vivos)
+  > encontró que la clase real son **5 sitios**, no 2: además de los dos de arriba, `any.rs:63` (`Any::Map`),
+  > `any.rs:73` (`Any::Array`) y `sync/awareness.rs:560` (`AwarenessUpdate`, alcanzable desde presencia del
+  > relay). El PR upstream (a) los cubre los cinco. Ver **AIDEC-2026-07-14-001** decisión 2.
 - **Severidad práctica**: en glibc (overcommit) incluso el residual → reserva virtual, RSS acotado, error de
   decode limpio; el **abort** (`handle_alloc_error`, no capturable) solo en entornos memory-constrained duros
   (cgroup/contenedor con límite) o allocators eager (ASan). → robustez/calidad, no un hueco urgente.
@@ -46,9 +51,13 @@ caveat de ingesta directa.
 **In scope (4 partes):**
 
 1. **(a) PR upstream a `y-crdt`**: mantener el fork **`StrangeDaysTech/y-crdt`**; PR contra `y-crdt/y-crdt` que
-   reemplaza `with_capacity(len)` → `try_reserve(len)?` (o bound contra bytes restantes) en **`yrs/src/id_set.rs:91`**
-   y **`yrs/src/state_vector.rs:120`**, con tests upstream que ejerciten el input adversarial. Deliverable: **PR
-   abierto** (link en el AILOG/telemetría). Ejecuta la colaboración upstream decidida.
+   endurece la clase completa de allocation-bomb por prefijo de longitud, con tests upstream que ejerciten el
+   input adversarial. Deliverable: **PR abierto** (link en el AILOG/telemetría). Ejecuta la colaboración upstream
+   decidida. **Entregado: [#639](https://github.com/y-crdt/y-crdt/pull/639)** — **5 sitios** (ampliado de 2 por la
+   revisión de completitud, ver §Context y AIDEC-2026-07-14-001): `try_reserve(len)?` en `state_vector.rs:120`,
+   `any.rs:63` (`Any::Map`), `any.rs:73` (`Any::Array`) y `sync/awareness.rs:560` (`AwarenessUpdate`) →
+   variante `Error::NotEnoughMemory` existente; grow-on-push en `id_set.rs:91` (`SmallVec`; su `try_reserve` da
+   otro tipo de error → evita ampliar el enum público). 5 tests de regresión, suite del fork verde (377+34).
 2. **(b) Doc del caveat**: nota de seguridad en `GOVERNANCE.md` §Seguridad (+ pointer breve en `README.md`):
    la ruta **directa** del FFI (`weft_doc_load`/`apply_update`/`export_since`) ante bytes CRDT **no confiables**
    debe protegerse con un cap de tamaño + límite de memoria del proceso, como hace el relay (FU-002); la ruta

@@ -1,9 +1,9 @@
 ---
-last_scan: 2026-07-10
+last_scan: 2026-07-14
 schema_version: v1
 total_open: 4
 total_promoted: 0
-total_closed_in_session: 10
+total_closed_in_session: 11
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -15,6 +15,7 @@ buckets:
 fully_extracted_ailogs:
   - AILOG-2026-07-10-001
   - AILOG-2026-07-10-002
+  - AILOG-2026-07-14-002
 ---
 
 # Follow-ups Backlog
@@ -94,6 +95,15 @@ fully_extracted_ailogs:
 
 ## Bucket: charter-triggered
 
+### FU-015 — adopción del fix de R6 vía bump de yrs (protocolo R16)
+- **Origin**: AILOG-2026-07-14-002 §Follow-ups · CHARTER-08 (d) · PR upstream y-crdt/y-crdt#639
+- **Source-hash**: 72ad54b51cf2
+- **Status**: open
+- **Trigger**: when el PR upstream #639 se mergee y publique en un release de crates.io
+- **Destination**: chore
+- **Cost**: S
+- **Notes**: Bump `yrs = "=0.27.x"` en `native/weft-yrs-ffi/Cargo.toml` (+ el crate de fuzz) a la versión con el fix de R6; re-correr el fuzz `export_since` (debe pasar a RSS acotado, probando el fix) y revertir el fork `StrangeDaysTech/y-crdt` (volver a consumir yrs de crates.io). No bloquea el cierre de CHARTER-08 (entregable diferido por diseño, fuera de nuestro control: timeline de revisión de y-crdt).
+
 ### FU-002 — R6 (CHARTER-01): hardening del decoder ante amplificación de memoria (DoS)
 - **Origin**: AILOG-2026-07-10-001 §R6 (new, not in Charter)
 - **Source-hash**: 69e431c0f7d9
@@ -145,7 +155,7 @@ fully_extracted_ailogs:
 
 ### FU-014 — endurecer la ruta directa (no-relay) ante amplificación de memoria del decoder de yrs (R6)
 - **Origin**: CHARTER-07 (annotations del job `fuzz`, run de PR #23) · AILOG-2026-07-10-001 §R6 · complementa FU-002 (cerrado, mitigación de capa de relay) — registro hand-add + recount (§13)
-- **Status**: open
+- **Status**: closed
 - **Trigger**: antes de hacer el repo público, o cuando un consumidor ingiera bytes/updates CRDT no confiables fuera del relay
 - **Destination**: mini-charter
 - **Cost**: M

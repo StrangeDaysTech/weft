@@ -28,6 +28,13 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "export_since"
+path = "fuzz_targets/export_since.rs"
+test = false
+doc = false
+bench = false
+
 # panic=unwind (no el abort default de cargo-fuzz): el contrato del shim es que `catch_unwind`
 # convierte cualquier panic del motor en WEFT_ERR_PANIC en la frontera (P-I). El fuzz debe
 # ejercitar ese mismo modo que producción; con panic=abort, catch_unwind sería un no-op y un panic
