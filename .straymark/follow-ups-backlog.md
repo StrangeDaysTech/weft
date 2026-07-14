@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 3
+total_open: 4
 total_promoted: 0
 total_closed_in_session: 10
 total_phase_blocked: 0
@@ -142,6 +142,14 @@ fully_extracted_ailogs:
 - **Destination**: chore
 - **Cost**: XS
 - **Notes**: El dry-run anotó "Node.js 20 is deprecated" para `actions/checkout@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`, `mlugg/setup-zig@v2` (forzados a Node 24). Bump a `@v5`/equivalentes en `.github/workflows/{ci.yml,release.yml,docs-validation.yml}` cuando toque. También aviso informativo: `macos-latest` migra a macOS 26 el 2026-06-15 (revisar el runner de `native (osx-arm64)` / pack-smoke). Cosmético hoy; ningún gate depende. **CERRADO 2026-07-14 (AILOG-2026-07-14-001)**: familia `actions/*` → `@v5` (checkout/setup-node/setup-dotnet/upload-artifact/download-artifact) + `setup-qemu-action@v4` en ci.yml + release.yml (cla.yml/docs-validation.yml ya estaban en v5). `mlugg/setup-zig@v2` y `rust-cache@v2` se dejan (última major). `macos-latest` se deja (migración ya pasada, dry-run verde en él).
+
+### FU-014 — endurecer la ruta directa (no-relay) ante amplificación de memoria del decoder de yrs (R6)
+- **Origin**: CHARTER-07 (annotations del job `fuzz`, run de PR #23) · AILOG-2026-07-10-001 §R6 · complementa FU-002 (cerrado, mitigación de capa de relay) — registro hand-add + recount (§13)
+- **Status**: open
+- **Trigger**: antes de hacer el repo público, o cuando un consumidor ingiera bytes/updates CRDT no confiables fuera del relay
+- **Destination**: mini-charter
+- **Cost**: M
+- **Notes**: FU-002 (cerrado) mitigó R6 en la **capa de relay** (cap de tamaño de mensaje + recursos antes de decodificar). El job `fuzz` (informativo, no-bloqueante) ejercita la ruta **cruda del FFI** (`weft_doc_load`/`weft_doc_apply_update`), que **NO** está capeada por FU-002: un consumidor que alimente bytes no confiables **directamente** a la API pública (fuera del relay) podría disparar la amplificación de memoria del decoder de yrs (`with_capacity(N)` sin cota → `handle_alloc_error`, no capturable por `catch_unwind`). El shim es memory-safe (ASan verde); la amplificación es **upstream yrs**. Dos partes: **(a) [XS]** nota de seguridad en `GOVERNANCE.md`/README — "si ingieres updates/blobs CRDT no confiables fuera del relay, aplica un cap de tamaño como hace el servidor"; **(b) [M]** evaluar bump de yrs con validación de longitud (protocolo R16) o un guard de tamaño a nivel FFI en `weft_doc_load`/`apply_update`. Ningún gate depende hoy; no urge (no se publica ya). Abordar junto con FU-006/FU-010/FU-012 (mini-charters).
 
 ## Bucket: phase-blocked
 
