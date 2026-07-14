@@ -51,7 +51,7 @@ jobs:
             target: aarch64-apple-darwin
             tool: cargo
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -110,7 +110,7 @@ jobs:
           done
           exit $fail
       - name: Upload native artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: native-${{ matrix.rid }}
           path: native/out/
@@ -123,12 +123,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - name: Download native artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: native-*
           path: native-artifacts
@@ -151,7 +151,7 @@ jobs:
       - name: Pack (símbolos + SourceLink)
         run: dotnet pack Weft.sln -c Release -p:Version=${{ inputs.version }} -o artifacts/nupkg
       - name: Upload nupkgs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: nupkg
           path: artifacts/nupkg/*
@@ -171,12 +171,12 @@ jobs:
           - { rid: win-x64, runner: windows-latest }
           - { rid: osx-arm64, runner: macos-latest }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - name: Download nupkgs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: nupkg
           path: artifacts/nupkg
@@ -191,13 +191,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Download nupkgs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: nupkg
           path: artifacts/nupkg
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
       - name: hello-Weft en arm64
         run: |
           docker run --rm --platform linux/arm64 -v "$PWD":/w -w /w/tests/pack-smoke \
@@ -211,8 +211,8 @@ jobs:
     timeout-minutes: 10
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Yjs export hash del corpus compartido
@@ -232,12 +232,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - name: Download nupkgs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: nupkg
           path: artifacts/nupkg
