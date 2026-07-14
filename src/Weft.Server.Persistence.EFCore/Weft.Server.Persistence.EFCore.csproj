@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Weft — adaptador IDocumentStore sobre Entity Framework Core (persistencia de blobs opacos por documento, con snapshot + updates y compaction transaccional). Provider-agnóstico: el consumidor configura el provider (SQLite, PostgreSQL, SQL Server, …) vía DbContextOptions.</Description>
+    <RootNamespace>Weft.Server.Persistence.EFCore</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
+    <!-- Mapeo relacional (ToTable/índices, ExecuteDelete, transacciones): el adaptador es relacional,
+         pero provider-agnóstico — el consumidor elige SQLite/PostgreSQL/SQL Server. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.9" />
+  </ItemGroup>
+
+  <!-- El contrato IDocumentStore y el framing compartido (DocumentStateFraming) viven en Weft.Server. -->
+  <ItemGroup>
+    <ProjectReference Include="../Weft.Server/Weft.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Weft.Server.Tests" />
+  </ItemGroup>
+
+</Project>

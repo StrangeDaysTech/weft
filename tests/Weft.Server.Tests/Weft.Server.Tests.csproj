@@ -7,8 +7,13 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <!-- EF Core Sqlite 10.0.9 arrastra SQLitePCLRaw.lib.e_sqlite3 2.1.11 (GHSA-2m69-gcr7-jv3q, alta);
+         forzamos el bundle parcheado 3.x (SQLite ≥ 3.50). Dependencia solo de test (SQLite in-proc). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.61" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
 
@@ -23,6 +28,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Weft.Server/Weft.Server.csproj" />
+    <!-- Adaptadores externos (CHARTER-06): la contract suite compartida corre idéntica contra ellos. -->
+    <ProjectReference Include="../../src/Weft.Server.Persistence.EFCore/Weft.Server.Persistence.EFCore.csproj" />
+    <ProjectReference Include="../../src/Weft.Server.Persistence.Redis/Weft.Server.Persistence.Redis.csproj" />
   </ItemGroup>
 
   <!--

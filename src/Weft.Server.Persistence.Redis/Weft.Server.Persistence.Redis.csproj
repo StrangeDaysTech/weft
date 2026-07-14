@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Weft — adaptador IDocumentStore sobre Redis (StackExchange.Redis): snapshot como string + updates como lista, con compaction atómica vía transacción. Compatible con servidores wire-Redis (Redis, Valkey).</Description>
+    <RootNamespace>Weft.Server.Persistence.Redis</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="3.0.17" />
+  </ItemGroup>
+
+  <!-- El contrato IDocumentStore y el framing compartido (DocumentStateFraming) viven en Weft.Server. -->
+  <ItemGroup>
+    <ProjectReference Include="../Weft.Server/Weft.Server.csproj" />
+  </ItemGroup>
+
+</Project>

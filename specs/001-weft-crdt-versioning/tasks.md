@@ -125,8 +125,8 @@
 - [X] T050 [P] [US3] Shared `IDocumentStore` contract suite `tests/Weft.Server.Tests/DocumentStoreContractSuite.cs` (corre contra InMemory y FileSystem; luego EFCore/Redis) — CHARTER-04
 - [X] T051 [P] [US3] Server integration tests `tests/Weft.Server.Tests/RelayTests.cs`: 2 clientes simulados (convergencia <1 s, delta en reconexión con bytes medidos, Deny sin bytes de contenido, ReadOnly→1008, awareness, restart-recovery, paridad de VersionId con publish local) — CHARTER-05
 - [X] T052 [US3] Create samples `samples/Weft.Sample.Server/Program.cs` (relay + FileSystemDocumentStore + authorizer demo) + `samples/tiptap-client/` (Tiptap + y-prosemirror + y-websocket) y ejecutar la validación manual de quickstart.md §US3 — CHARTER-05
-- [ ] T053 [P] [US3] EF Core adapter package `src/Weft.Server.Persistence.EFCore/EFCoreDocumentStore.cs` (+ pasa la contract suite)
-- [ ] T054 [P] [US3] Redis adapter package `src/Weft.Server.Persistence.Redis/RedisDocumentStore.cs` (+ pasa la contract suite)
+- [X] T053 [P] [US3] EF Core adapter package `src/Weft.Server.Persistence.EFCore/EFCoreDocumentStore.cs` (+ pasa la contract suite) — CHARTER-06
+- [X] T054 [P] [US3] Redis adapter package `src/Weft.Server.Persistence.Redis/RedisDocumentStore.cs` (+ pasa la contract suite) — CHARTER-06
 
 **Checkpoint**: M2 — colaboración real vía servidor .NET con clientes Yjs estándar
 
