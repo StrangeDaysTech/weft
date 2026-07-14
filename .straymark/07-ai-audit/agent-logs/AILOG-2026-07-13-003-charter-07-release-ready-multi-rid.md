@@ -6,6 +6,9 @@ created: 2026-07-13
 agent: claude-opus-4-8
 confidence: high
 review_required: true
+reviewed_by: Jose Villaseñor Montfort
+reviewed_at: 2026-07-13
+review_outcome: approved
 risk_level: medium
 eu_ai_act_risk: not_applicable
 nist_genai_risks: []
@@ -90,6 +93,9 @@ Weft.PackSmoke.csproj,nuget.config}`, `tests/determinism-yjs/{apply.mjs,corpus.j
   validados** — su gate es **un `workflow_dispatch` dry-run de `release.yml`**, que es un gasto deliberado de
   CI (matriz win 2×/mac 10× + QEMU) y queda **pendiente de la decisión del operador** (presupuesto de minutos).
   Hasta ese dry-run verde, "release-ready" está probado solo en Linux. Documentado, no oculto.
+  **RESUELTO (2026-07-14)**: dry-run de `release.yml` VERDE post-merge de #21 (run 29307786498) — native ×4,
+  pack, pack-smoke ×4 (incl. linux-arm64 vía QEMU) en `success`; `publish` `skipped` (gate `dry_run` confirmado).
+  Release-ready probado en los 4 RIDs.
 
 ## Impact
 
@@ -124,5 +130,7 @@ win-x64/osx-arm64/linux-arm64(QEMU) + pack-smoke matrix. Sin él, la matriz no-L
 
 ## Approval
 
-Pendiente de confirmación del operador (`risk_level: medium`, `review_required: true`). Verificación local
-completa citada; el dry-run de la matriz multi-RID es el gasto de CI que el operador decide.
+**Approved**: 2026-07-13 by `Jose Villaseñor Montfort`. Concordancia AILOG↔realidad verificada punto por punto
+(archivos existen, build 0 warnings + 124 tests, strip yrs 936K/loro 3.8M + 12 exports, 6 `.nupkg`/`.snupkg`,
+pack-smoke y determinism-yjs verdes, `release.yml` con publish gateado tras `dry_run`, API pública intacta, y el
+dry-run multi-RID run 29307786498 en `success` con `publish` skipped). Sin afirmaciones falsas.
