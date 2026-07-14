@@ -1,0 +1,90 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Conceptual:    Propuesta/straymark-charter-telemetry.md (in the upstream repo)
+# Storage path:  .straymark/charters/CHARTER-06.telemetry.yaml
+#
+# Fill time target: 5-10 minutes per Charter. The point is signal, not exhaustiveness —
+# leave a field blank or omit it if you don't have honest data for it. Honest gaps
+# are more useful than invented numbers.
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-06"
+  charter_title: "Adaptadores de persistencia externos — EF Core + Redis"
+  closed_at: "2026-07-13"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-13-002"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución del Charter (originado del spec 001; T053/T054, últimas tareas de US3)."
+
+  trigger:
+    declared_kind: "infrastructure_milestone"
+    declared_description: "M2 cerrado (CHARTER-05 en main, 3d67761/74c1c05); DocumentStoreContractSuite verde y congelada contra InMemory+FileSystem; server-api.md declara EFCore/.Redis como paquetes separados (research R8). T053/T054 son las 2 tareas restantes de US3, fuera del journey de M2."
+    fired_at: "2026-07-13"
+    fire_clarity: "clear"
+    fire_clarity_notes: "Tareas explícitas y acotadas contra un contrato ya congelado; sin ambigüedad de alcance."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "high"
+    pre_work_notes: "Reconnaissance #210 confirmó contrato IDocumentStore, DocumentStateFraming, la contract suite, el store de referencia FileSystem y la ausencia de los paquetes NEW antes de declarar."
+
+  # ---------- Planning session (if any) ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-13"
+    finished_at: "2026-07-13"
+    estimated_effort: "S (~1h)"
+    actual_effort: "S (~1h)"
+    estimation_drift_factor: 1.0
+    estimation_drift_reason: "Ejecución en un batch, sin sorpresas de alcance. Los dos ajustes (Relational, override NU1903) fueron menores y resueltos en línea."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 1
+    skill_prompts_used: ["straymark-charter-new"]
+
+  # ---------- External audit ----------
+  # No aplica: Charter que no cierra hito → sin auditoría externa multi-modelo obligatoria.
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1: [Fact]→[SkippableFact] en el cuerpo abstracto de la contract suite (desviación de la declaración 'cuerpo intacto', necesaria para el skip de Redis; documentada atómicamente en §Closing notes). F2: Microsoft.EntityFrameworkCore.Relational añadido al paquete EFCore (ToTable/tx). F3 (R6, real_debt): override SQLitePCLRaw.bundle_e_sqlite3 3.0.3 por NU1903 (GHSA-2m69-gcr7-jv3q) en el csproj de test. Sin job de CI para Redis (decisión de coste), cobertura diferida a FU-011."
+    new_followups_generated: 1
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M2"
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points: ["EF Core Sqlite 10.0.9 arrastra SQLitePCLRaw vulnerable (NU1903) que TreatWarningsAsErrors volvió error de restore; resuelto con override al bundle parcheado.", "El parser de `straymark charter drift` no reconoce paths .csproj/.sln en §Files to modify → 4 falsos positivos de scope expansion (los archivos SÍ están declarados). Candidato a adopter-feedback."]
+    wins: ["Los dos adaptadores pasan la MISMA DocumentStoreContractSuite sin duplicarla — la intercambiabilidad de US3 verificada por construcción.", "Diseño de skip: el test de Redis corre real con Valkey local y se omite (no falla) sin servidor, validado en ambos sentidos (70 verdes con Valkey / 8 omitidos sin él).", "Valkey (fork LF de Redis) como backend local sin fricción: wire-compatible, sin requirepass, gate local sin quemar minutos de CI."]
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: "El parser de drift debería reconocer .csproj/.sln como paths declarables (evita falsos positivos de scope expansion en repos .NET)."

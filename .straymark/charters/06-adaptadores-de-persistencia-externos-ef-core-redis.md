@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-06-adaptadores-de-persistencia-externos-ef-core-redis
-status: in-progress
+status: closed
+closed_at: 2026-07-13
 effort_estimate: S
 trigger: "M2 cerrado (CHARTER-05 en main, 3d67761/74c1c05): la `DocumentStoreContractSuite` compartida está verde y congelada contra InMemory+FileSystem, y `contracts/server-api.md` §Persistencia declara `Weft.Server.Persistence.EFCore`/`.Redis` como paquetes separados (research R8). T053/T054 son las 2 tareas restantes de US3, fuera del journey de aceptación de M2 — este Charter las entrega."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Adaptadores de persistencia externos — EF Core + Redis
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: S.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: S.
 >
 > **Origin:** Derivado de `specs/001-weft-crdt-versioning/spec.md` (US3, FR-017, research R8). Entrega las
 > dos tareas de persistencia externa (**T053, T054**) que quedaron **fuera del journey de aceptación de M2**:

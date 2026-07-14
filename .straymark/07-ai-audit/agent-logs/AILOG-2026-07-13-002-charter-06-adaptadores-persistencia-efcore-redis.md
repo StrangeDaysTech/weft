@@ -120,6 +120,11 @@ WEFT_TEST_REDIS=localhost:6399 dotnet test tests/Weft.Server.Tests/ -c Release -
 
 ## Additional Notes
 
+- **Drift check** (`straymark charter drift CHARTER-06 --range origin/main..HEAD`): reporta 4 archivos como
+  "scope expansion" (`Weft.sln`, los 2 `.csproj` de los paquetes, el `.csproj` de test). **Falso positivo**:
+  los 4 **sí** están declarados en §Files to modify del Charter; el parser de drift reconoció los 6 `.cs` + 2
+  `.md` (Declared: 8) pero no las extensiones `.csproj`/`.sln`. Sin drift real: todos los archivos modificados
+  son intencionales y están declarados. (Limitación del parser candidata a adopter-feedback en StrayMark.)
 - Valkey (fork Linux Foundation de Redis, wire-compatible) instalado por el operador en Fedora; el adaptador no
   distingue Redis de Valkey. Sin `requirepass` en local (gate sin credenciales).
 - FU-011 (reponer la cobertura Redis en CI) se materializará en el registro vía este AILOG §Risk/§Decisions +
