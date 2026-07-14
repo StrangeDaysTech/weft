@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Consumidor "hello-Weft" del pack-smoke (CHARTER-07/T057, SC-007). Referencia Weft como PAQUETES
+    (no ProjectReference) para ejercitar el layout runtimes/<rid>/native/ del .nupkg: si el binario
+    nativo resuelve en una máquina limpia y edit→publish corre, el paquete es instalable sin pasos
+    manuales. NO forma parte de Weft.sln; se corre explícito (pack primero, luego dotnet run).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Versión del paquete a consumir; el pack local produce 1.0.0. Override en CI si aplica. -->
+    <WeftPackageVersion Condition="'$(WeftPackageVersion)' == ''">1.0.0</WeftPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Weft.Core" Version="$(WeftPackageVersion)" />
+    <PackageReference Include="Weft.Versioning" Version="$(WeftPackageVersion)" />
+  </ItemGroup>
+
+</Project>

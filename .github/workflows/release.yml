@@ -1,0 +1,258 @@
+name: release
+
+# Pipeline de release NuGet nativo multi-RID (CHARTER-07/US4, T056/T057/T060).
+#
+# workflow_dispatch ÚNICAMENTE (no en push/PR): la matriz cross-compile es cara y su validación es
+# un dry-run deliberado. El paso de PUBLISH (nuget push + tag + GitHub Release) va GATEADO tras
+# `inputs.dry_run` (default true) → un dispatch normal construye/empaqueta/smoke SIN publicar. Publicar
+# es un acto deliberado del operador: dispatch con dry_run=false + secret NUGET_API_KEY + environment.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run: build + pack + pack-smoke, SIN publicar a NuGet.org"
+        type: boolean
+        default: true
+      version:
+        description: "Versión SemVer del paquete (p. ej. 0.1.0)"
+        type: string
+        default: "0.1.0-alpha"
+
+permissions:
+  contents: read
+
+env:
+  ZIG_VERSION: "0.15.2"
+
+jobs:
+  # ── Cross-compile los 2 shims por RID (release, stripped, SIN test-hooks) ────────────────────
+  native:
+    name: native (${{ matrix.rid }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            tool: zigbuild
+          - rid: linux-arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            tool: zigbuild
+          - rid: win-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            tool: cargo
+          - rid: osx-arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            tool: cargo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: Setup zig
+        if: matrix.tool == 'zigbuild'
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Install cargo-zigbuild
+        if: matrix.tool == 'zigbuild'
+        run: cargo install cargo-zigbuild --locked
+      - name: Build shims (release, stripped, sin test-hooks)
+        working-directory: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          STRIP='profile.release.strip="symbols"'
+          if [ "${{ matrix.tool }}" = "zigbuild" ]; then
+            cargo zigbuild --release --config "$STRIP" --target ${{ matrix.target }} -p weft-yrs-ffi -p weft-loro-ffi
+          else
+            cargo build --release --config "$STRIP" --target ${{ matrix.target }} -p weft-yrs-ffi -p weft-loro-ffi
+          fi
+      - name: Collect cdylibs
+        working-directory: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp target/${{ matrix.target }}/release/*weft_yrs_ffi.* out/ 2>/dev/null || true
+          cp target/${{ matrix.target }}/release/*weft_loro_ffi.* out/ 2>/dev/null || true
+          # Quedarnos solo con el cdylib (descartar .d/.rlib/.pdb/.lib/.exp).
+          find out -type f ! -name '*.so' ! -name '*.dll' ! -name '*.dylib' -delete
+          ls -la out
+      - name: Verify weft_test_panic NOT exported (SC-009)
+        working-directory: native
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in out/*; do
+            case "$f" in
+              *.so|*.dylib)
+                if nm -D "$f" 2>/dev/null | grep -q weft_test_panic \
+                   || nm "$f" 2>/dev/null | grep -q weft_test_panic; then
+                  echo "✗ $f exporta weft_test_panic (test-hooks filtrado en release)"; fail=1
+                else echo "✓ $f sin weft_test_panic"; fi ;;
+              *.dll)
+                # En Windows/bash usamos strings como verificación débil (test-hooks no compilado en release).
+                if strings "$f" 2>/dev/null | grep -q weft_test_panic; then
+                  echo "✗ $f contiene weft_test_panic"; fail=1
+                else echo "✓ $f sin weft_test_panic"; fi ;;
+            esac
+          done
+          exit $fail
+      - name: Upload native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: native/out/
+          if-no-files-found: error
+
+  # ── Empaquetar los 6 .nupkg con los 4 RIDs staged ───────────────────────────────────────────
+  pack:
+    name: pack
+    needs: native
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Download native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native-artifacts
+      - name: Stage natives into native/target/<triple>/release/
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A T=(
+            [linux-x64]=x86_64-unknown-linux-gnu
+            [linux-arm64]=aarch64-unknown-linux-gnu
+            [win-x64]=x86_64-pc-windows-msvc
+            [osx-arm64]=aarch64-apple-darwin
+          )
+          for rid in "${!T[@]}"; do
+            dest="native/target/${T[$rid]}/release"
+            mkdir -p "$dest"
+            cp native-artifacts/native-$rid/* "$dest/"
+          done
+          find native/target -name '*weft_*ffi*' -type f
+      - name: Pack (símbolos + SourceLink)
+        run: dotnet pack Weft.sln -c Release -p:Version=${{ inputs.version }} -o artifacts/nupkg
+      - name: Upload nupkgs
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/nupkg/*
+          if-no-files-found: error
+
+  # ── pack-smoke: instalar el paquete y correr hello-Weft por RID (SC-007, P-VI) ───────────────
+  pack-smoke:
+    name: pack-smoke (${{ matrix.rid }})
+    needs: pack
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: linux-x64, runner: ubuntu-latest }
+          - { rid: win-x64, runner: windows-latest }
+          - { rid: osx-arm64, runner: macos-latest }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Download nupkgs
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/nupkg
+      - name: hello-Weft desde el paquete
+        working-directory: tests/pack-smoke
+        run: dotnet run -c Release -p:WeftPackageVersion=${{ inputs.version }}
+
+  # ── pack-smoke linux-arm64 vía QEMU (P-VI: RID sin runner nativo en GH) ──────────────────────
+  pack-smoke-arm:
+    name: pack-smoke (linux-arm64, QEMU)
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download nupkgs
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/nupkg
+      - uses: docker/setup-qemu-action@v3
+      - name: hello-Weft en arm64
+        run: |
+          docker run --rm --platform linux/arm64 -v "$PWD":/w -w /w/tests/pack-smoke \
+            mcr.microsoft.com/dotnet/sdk:10.0 \
+            dotnet run -c Release -p:WeftPackageVersion=${{ inputs.version }}
+
+  # ── Determinismo cross-implementación vs Yjs JS (research R13 (b)) — NO-BLOQUEANTE ───────────
+  determinism-yjs:
+    name: determinism-yjs (no-bloqueante)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Yjs export hash del corpus compartido
+        working-directory: tests/determinism-yjs
+        run: |
+          npm install
+          npm test
+
+  # ── PUBLISH (GATEADO): solo con dry_run=false. Paso irreversible del operador ─────────────────
+  publish:
+    name: publish (NuGet.org) [gated]
+    needs: [pack-smoke, pack-smoke-arm]
+    if: ${{ inputs.dry_run == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Download nupkgs
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/nupkg
+      - name: Push a NuGet.org
+        run: >-
+          dotnet nuget push "artifacts/nupkg/*.nupkg"
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+      - name: Tag + GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git tag "v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+          gh release create "v${{ inputs.version }}" artifacts/nupkg/*.nupkg \
+            --title "Weft v${{ inputs.version }}" --generate-notes

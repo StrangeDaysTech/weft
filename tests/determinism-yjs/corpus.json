@@ -1,0 +1,14 @@
+{
+  "_comment": "Corpus determinista compartido (CHARTER-07/T058). client IDs FIJOS por réplica → el export debe ser byte-idéntico entre implementaciones que apliquen esta misma secuencia. Ediciones ASCII en un solo texto 'body'; la variante unicode (índices UTF-16) es promovible tras estabilizar la paridad base.",
+  "type": "body",
+  "clientIds": [1, 2, 3],
+  "syncPasses": 2,
+  "ops": [
+    { "replica": 0, "op": "ins", "index": 0, "text": "The quick " },
+    { "replica": 1, "op": "ins", "index": 0, "text": "brown fox " },
+    { "replica": 2, "op": "ins", "index": 0, "text": "jumps " },
+    { "replica": 0, "op": "ins", "index": 10, "text": "very " },
+    { "replica": 1, "op": "ins", "index": 0, "text": "lazy " },
+    { "replica": 2, "op": "del", "index": 0, "len": 3 }
+  ]
+}

@@ -138,12 +138,12 @@
 
 **Independent Test** (spec US4): máquina limpia por RID: instalar paquete → hello Weft verde sin pasos manuales
 
-- [ ] T055 [US4] NuGet packaging of native binaries in `src/Weft.Core/Weft.Core.csproj` (+`buildTransitive/` targets si aplica): layout `runtimes/{linux-x64,linux-arm64,win-x64,osx-arm64}/native/`, pack de los paquetes (`Weft.Core`, `Weft.Versioning`, `Weft.Server`, `Weft.Loro`, adaptadores)
-- [ ] T056 [US4] Cross-compile matrix in `.github/workflows/release.yml`: cargo-zigbuild (linux x64/arm64), runners nativos (win-x64, osx-arm64), artefactos → pack (research R12)
-- [ ] T057 [P] [US4] `pack-smoke` CI matrix: instalar paquete desde artifacts y correr hello-Weft en linux-x64, win-x64, osx-arm64 + linux-arm64 (QEMU/runner arm) — SC-007; verifica además que el símbolo `weft_test_panic` NO está exportado en los binarios empaquetados (test-hooks fuera de release)
-- [ ] T058 [P] [US4] Cross-implementation determinism job `tests/determinism-yjs/` (Node + Yjs JS aplica el corpus compartido y compara blobs/hashes; job no-bloqueante, promovible — research R13)
-- [ ] T059 [P] [US4] Public docs: `README.md` quickstart de consumo (install→edit→publish→server), `docs/api/` overview por paquete, `CONTRIBUTING.md` (incl. protocolo de bump del motor, research R16), `GOVERNANCE.md`
-- [ ] T060 [US4] Release pipeline in `.github/workflows/release.yml`: versión SemVer, symbols+SourceLink, publish a NuGet.org, tag + GitHub Release con notas
+- [X] T055 [US4] NuGet packaging of native binaries in `src/Weft.Core/Weft.Core.csproj` (+`buildTransitive/` targets si aplica): layout `runtimes/{linux-x64,linux-arm64,win-x64,osx-arm64}/native/`, pack de los paquetes (`Weft.Core`, `Weft.Versioning`, `Weft.Server`, `Weft.Loro`, adaptadores) — CHARTER-07 (targets `build/Weft.Native.targets`; pack local verde linux-x64/arm64)
+- [X] T056 [US4] Cross-compile matrix in `.github/workflows/release.yml`: cargo-zigbuild (linux x64/arm64), runners nativos (win-x64, osx-arm64), artefactos → pack (research R12) — CHARTER-07
+- [X] T057 [P] [US4] `pack-smoke` CI matrix: instalar paquete desde artifacts y correr hello-Weft en linux-x64, win-x64, osx-arm64 + linux-arm64 (QEMU/runner arm) — SC-007; verifica además que el símbolo `weft_test_panic` NO está exportado en los binarios empaquetados (test-hooks fuera de release) — CHARTER-07 (`tests/pack-smoke/`; smoke local linux-x64 verde)
+- [X] T058 [P] [US4] Cross-implementation determinism job `tests/determinism-yjs/` (Node + Yjs JS aplica el corpus compartido y compara blobs/hashes; job no-bloqueante, promovible — research R13) — CHARTER-07 (harness verde; paridad con yrs gated en client-ids deterministas → FU-012)
+- [X] T059 [P] [US4] Public docs: `README.md` quickstart de consumo (install→edit→publish→server), `docs/api/` overview por paquete, `CONTRIBUTING.md` (incl. protocolo de bump del motor, research R16), `GOVERNANCE.md` — CHARTER-07
+- [~] T060 [US4] Release pipeline in `.github/workflows/release.yml`: versión SemVer, symbols+SourceLink, publish a NuGet.org, tag + GitHub Release con notas — CHARTER-07 (autorado + gateado tras `dry_run`; el publish real es operador-gated, valida con 1 dispatch dry-run)
 
 **Checkpoint**: M3 — paquete instalable multiplataforma, repo público listo (con los 6 gates de la constitución activos)
 
