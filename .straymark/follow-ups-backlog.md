@@ -1,9 +1,9 @@
 ---
 last_scan: 2026-07-10
 schema_version: v1
-total_open: 5
+total_open: 3
 total_promoted: 0
-total_closed_in_session: 8
+total_closed_in_session: 10
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -121,11 +121,11 @@ fully_extracted_ailogs:
 
 ### FU-011 — reponer la cobertura del adaptador Redis en CI (job Linux-only con service container)
 - **Origin**: CHARTER-06 §Scope/§Out of scope / R4 · AILOG-2026-07-13-002 §Decisions #4 (registro hand-add + recount, vía §13; el follow-up nace en tiempo de declaración de Charter, sin sección extraíble — cf. issue straymark #360)
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when el presupuesto de minutos de GitHub Actions lo permita (resetea mensualmente)
 - **Destination**: chore
 - **Cost**: S
-- **Notes**: CHARTER-06 no añadió job de CI para el adaptador Redis por coste de minutos (GH Actions ~agotado al ejecutarlo). El test `RedisDocumentStoreContractTests` es `[SkippableFact]`: corre local con `WEFT_TEST_REDIS=localhost:6379` (Valkey) y se **omite** en CI (sin servidor). Reponer: job Linux-only en `.github/workflows/ci.yml` con service container `redis:7`/`valkey` + `WEFT_TEST_REDIS` apuntándolo, para que el adaptador Redis se ejercite en CI. **Ningún gate depende hoy**: el gate local cubre la ruta funcional y el adaptador es .NET managed puro (sin comportamiento por-plataforma). EF Core/SQLite ya corre en CI (sin infra).
+- **Notes**: CHARTER-06 no añadió job de CI para el adaptador Redis por coste de minutos (GH Actions ~agotado al ejecutarlo). El test `RedisDocumentStoreContractTests` es `[SkippableFact]`: corre local con `WEFT_TEST_REDIS=localhost:6379` (Valkey) y se **omite** en CI (sin servidor). Reponer: job Linux-only en `.github/workflows/ci.yml` con service container `redis:7`/`valkey` + `WEFT_TEST_REDIS` apuntándolo, para que el adaptador Redis se ejercite en CI. **Ningún gate depende hoy**: el gate local cubre la ruta funcional y el adaptador es .NET managed puro (sin comportamiento por-plataforma). EF Core/SQLite ya corre en CI (sin infra). **CERRADO 2026-07-14 (AILOG-2026-07-14-001)**: job `server-adapters` (ubuntu + service `redis:7`) corre los 8 tests del adaptador Redis vía `--filter RedisDocumentStoreContractTests`; verificado 8/8 verde local con Valkey.
 
 ### FU-012 — determinism-yjs: exponer client-id determinista + promover a gate de paridad cross-impl
 - **Origin**: CHARTER-07 §Scope (T058) · AILOG-2026-07-13-003 · tests/determinism-yjs/README.md (registro hand-add + recount, §13)
@@ -137,11 +137,11 @@ fully_extracted_ailogs:
 
 ### FU-013 — bump de GitHub Actions fuera de Node 20 (deprecado)
 - **Origin**: CHARTER-07 (dry-run release.yml run 29307786498, annotations) · AILOG-2026-07-13-003 (registro hand-add + recount, §13)
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when Node 20 se retire de los runners de GH (o al tocar los workflows por otra razón)
 - **Destination**: chore
 - **Cost**: XS
-- **Notes**: El dry-run anotó "Node.js 20 is deprecated" para `actions/checkout@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`, `mlugg/setup-zig@v2` (forzados a Node 24). Bump a `@v5`/equivalentes en `.github/workflows/{ci.yml,release.yml,docs-validation.yml}` cuando toque. También aviso informativo: `macos-latest` migra a macOS 26 el 2026-06-15 (revisar el runner de `native (osx-arm64)` / pack-smoke). Cosmético hoy; ningún gate depende.
+- **Notes**: El dry-run anotó "Node.js 20 is deprecated" para `actions/checkout@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`, `mlugg/setup-zig@v2` (forzados a Node 24). Bump a `@v5`/equivalentes en `.github/workflows/{ci.yml,release.yml,docs-validation.yml}` cuando toque. También aviso informativo: `macos-latest` migra a macOS 26 el 2026-06-15 (revisar el runner de `native (osx-arm64)` / pack-smoke). Cosmético hoy; ningún gate depende. **CERRADO 2026-07-14 (AILOG-2026-07-14-001)**: familia `actions/*` → `@v5` (checkout/setup-node/setup-dotnet/upload-artifact/download-artifact) + `setup-qemu-action@v4` en ci.yml + release.yml (cla.yml/docs-validation.yml ya estaban en v5). `mlugg/setup-zig@v2` y `rust-cache@v2` se dejan (última major). `macos-latest` se deja (migración ya pasada, dry-run verde en él).
 
 ## Bucket: phase-blocked
 

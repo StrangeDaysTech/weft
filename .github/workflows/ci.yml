@@ -29,12 +29,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       # El shim se compila CON test-hooks para la suite de panic-safety (SC-009); el binario de
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
         with:
@@ -153,12 +153,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - name: Build shim (test-hooks)
@@ -174,12 +174,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - name: Build shims (yrs + loro, test-hooks)
@@ -187,6 +187,35 @@ jobs:
         run: cargo build --release --features test-hooks
       - name: Dual-engine versioning suite
         run: dotnet test tests/Weft.Versioning.Tests/ --configuration Release
+
+  # ── FU-011: adaptador Redis ejercitado en CI contra un service container ───────────────────
+  # El resto de la contract suite de IDocumentStore (InMemory/FileSystem/EFCore-SQLite) corre en el
+  # job `test`; el adaptador Redis se salta ahí (sin servidor). Aquí lo ejercitamos de verdad — es
+  # .NET managed puro (sin binario nativo), y Linux-only porque los service containers de GH Actions
+  # solo corren en runners Linux (por eso no está en la matriz test win/mac).
+  server-adapters:
+    name: server-adapters (redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - name: Contract suite del adaptador Redis (contra el service container)
+        env:
+          WEFT_TEST_REDIS: localhost:6379
+        run: dotnet test tests/Weft.Server.Tests/ -c Release --filter "FullyQualifiedName~RedisDocumentStoreContractTests"
 
   pack-smoke:
     name: pack-smoke
@@ -209,12 +238,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
       - name: Build shim (release)
