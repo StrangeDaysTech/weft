@@ -132,6 +132,15 @@ jobs:
           cargo +nightly fuzz run -s none apply_update --
           -max_total_time=60 -rss_limit_mb=0 -max_len=8192
           || echo "::warning title=fuzz informativo (R6)::apply_update halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
+      # Regresión R6 (CHARTER-08): ruta RESIDUAL state_vector::decode vía weft_doc_export_since — el
+      # único sitio de yrs que aún usa with_capacity sin acotar (id_set/state_vector; Update::decode ya
+      # usa try_reserve). Informativo hasta adoptar el fix upstream (FU-015); prueba el fix al bumpear.
+      - name: Fuzz weft_doc_export_since (60 s)
+        working-directory: native/weft-yrs-ffi
+        run: >-
+          cargo +nightly fuzz run -s none export_since --
+          -max_total_time=60 -rss_limit_mb=0 -max_len=8192
+          || echo "::warning title=fuzz informativo (R6)::export_since halló un crash por amplificación de memoria del decoder de yrs (state_vector::decode residual) — no bloquea; fix upstream vía try_reserve (FU-015)"
       # Shim Loro (localmente no amplifica memoria; mismo patrón informativo por robustez).
       - name: Fuzz loro_doc_load (60 s)
         working-directory: native/weft-loro-ffi

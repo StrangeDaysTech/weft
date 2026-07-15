@@ -37,6 +37,22 @@ Reporta vulnerabilidades de forma privada (no en un issue público) al contacto 
 [Strange Days Tech](https://strangedays.tech/es). La memoria nativa se verifica con ASan/LSan en CI (P-II) y la
 frontera FFI se fuzzea (`cargo-fuzz`); el input de red no confiable del relay tiene límites de tamaño/recursos.
 
+### Ingesta directa de bytes CRDT no confiables (caveat R6)
+
+El **relay** (`Weft.Server`) ya protege la ingesta de red: cap configurable de tamaño de mensaje y límites de
+recursos por conexión antes de decodificar (ver `WeftServerOptions`). Si en cambio alimentas bytes CRDT **no
+confiables directamente** a la API pública fuera del relay — `weft_doc_load` / `apply_update` / `export_since`,
+o sus envoltorios en `Weft.Core` — replica esa defensa: **impón un cap de tamaño de entrada y un límite de
+memoria del proceso** (p. ej. cgroup/contenedor).
+
+Motivo: el decoder de `yrs` puede amplificar memoria (allocation-bomb) — pocos bytes que declaran una longitud
+gigante disparan una reserva grande. `Update::decode` ya usa asignación falible (`try_reserve` → error
+recuperable, no abort), por lo que `apply_update` está endurecido upstream; quedan dos sitios residuales con
+`with_capacity` sin acotar (decode de *delete sets* y de *state vectors*, este último alcanzable vía
+`export_since`). En `glibc` (overcommit) el efecto práctico es una reserva virtual y un **error de decode limpio**,
+no un crash; el `abort` no capturable solo aparece en hosts memory-constrained duros o allocators eager. El fix
+canónico vive upstream (PR de `try_reserve` a `y-crdt`); un target de fuzz de regresión rastrea el residual.
+
 ## Licencia
 
 [Apache-2.0](./LICENSE) — permisiva, con concesión explícita de patentes. Recíproca con los motores MIT sobre

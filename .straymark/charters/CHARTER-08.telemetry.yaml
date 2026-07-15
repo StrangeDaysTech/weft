@@ -1,0 +1,98 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Conceptual:    Propuesta/straymark-charter-telemetry.md (in the upstream repo)
+# Storage path:  .straymark/charters/CHARTER-08.telemetry.yaml
+#
+# Fill time target: 5-10 minutes per Charter. The point is signal, not exhaustiveness —
+# leave a field blank or omit it if you don't have honest data for it. Honest gaps
+# are more useful than invented numbers.
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-08"
+  charter_title: "Endurecer el decoder de yrs contra amplificación de memoria (R6)"
+  closed_at: "2026-07-15"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-14-002"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución del Charter. El Charter se originó de FU-014 (annotations del job fuzz de CHARTER-07) + AILOG-2026-07-10-001 §R6; la investigación upstream en memoria ([[yrs-decoder-r6-upstream]]) fue el input de contexto principal — precisa pero incompleta (contó 2 sitios residuales, la revisión de completitud encontró 5)."
+
+  trigger:
+    declared_kind: "event_trigger"
+    declared_description: "FU-014 (registrado 2026-07-14): el job fuzz de CHARTER-07 confirmó que el decoder de yrs amplifica memoria (R6) en la ruta CRUDA del FFI, NO capeada por FU-002 (relay). Decisión del operador: FU-014 = charter propio + colaboración upstream (PR de try_reserve)."
+    fired_at: "2026-07-14"
+    fire_clarity: "manually_decided"
+    fire_clarity_notes: "El operador decidió promover FU-014 a Charter propio con colaboración upstream (PR de try_reserve) en vez de un guard local — decisión registrada en el trigger del Charter."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 1
+    items_completed_before_planning: 1
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "medium"
+    pre_work_notes: "Reconnaissance #210 confirmó la estructura de fuzz de weft-yrs-ffi, la existencia de GOVERNANCE.md/README.md, y los sitios upstream id_set.rs:91/state_vector.rs:120 vía GitHub API (0.27.2 y 0.27.3). Sólido en lo declarado, pero la investigación upstream previa UNDERCOUNTÓ la clase: contó 2 sitios residuales cuando la barrida de completitud durante la ejecución encontró 5 (faltaban any.rs Map/Array y awareness.rs). Ese gap es el datum: revisar solo la firma/línea de las funciones reportadas, sin barrer la clase completa en el crate, deja gemelos idénticos sin ver."
+
+  # ---------- Planning session (if any) ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-14"
+    finished_at: "2026-07-15"
+    estimated_effort: "M (~1.5h)"
+    actual_effort: "L (~3h)"
+    estimation_drift_factor: 2.0
+    estimation_drift_reason: "La revisión de completitud amplió el PR upstream de 2 a 5 sitios (más código + 3 tests extra + suite del fork re-corrida) y la revisión interactiva del operador (alcance del PR, forma del guard, identidad del commit / disclosure de IA, visibilidad del email proxy) añadió idas y vueltas legítimas antes del envío. Ninguna sorpresa técnica — el guard es un one-liner por sitio; el tiempo se fue en hacerlo completo y bien revisado."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 1
+    skill_prompts_used: []
+
+  # ---------- External audit ----------
+  # No aplica: Charter que no cierra hito → sin auditoría externa multi-modelo obligatoria.
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1 (completeness): el PR upstream (a) se amplió de 2 a 5 sitios — una revisión de completitud del crate yrs (regla operativa del operador: revisar más ancho que el cambio para no dejar gemelos idénticos vivos) encontró 3 sitios más de la misma clase de allocation-bomb por prefijo de longitud (any.rs Map+Array, awareness.rs) además de los 2 declarados (id_set, state_vector). Misma clase, mismo deliverable; reconciliado en §Context/§Scope del Charter + AIDEC-2026-07-14-001 decisión 2. Los otros 3 entregables (b/c/d) entregados como se planeó."
+    new_followups_generated: 1
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M3"
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points:
+      - "SmallVec::try_reserve devuelve el error propio de smallvec (CollectionAllocErr), no std::TryReserveError → no enchufa por ? en la variante Error::NotEnoughMemory de yrs; forzó grow-on-push en id_set en vez de try_reserve uniforme (AIDEC decisión 1). Sin impacto de comportamiento, pero rompe la simetría del fix."
+      - "El push al fork externo se rechazó por la restricción de privacidad de email de GitHub (email real en el commit); resuelto con el email noreply del usuario tras --amend --reset-author."
+      - "El job test (macos-latest) hizo timeout a los 25 min en 'Test .NET' (hang de infraestructura del runner, no un test roto — Ubuntu/Windows verdes, sin cambios .NET); resuelto con rerun (pasó en 1m8s)."
+      - "El --force-with-lease al fork falló con 'stale info' (la ref de tracking no se refrescó con fetch a FETCH_HEAD); resuelto con --force directo (rama de autoría única)."
+    wins:
+      - "La revisión de completitud atrapó 3 sitios idénticos ANTES de enviar un fix de clase incompleto (2 de 5). El PR upstream arregla la clase entera de una — más honesto y mergeable."
+      - "El fuzz de regresión probó empíricamente que alcanza el residual: seed [255,255,255,122] → RSS ~553 MB (vs ~34 MB baseline), error limpio (exit 0, sin abort) en glibc. Mitiga R2 del Charter con evidencia medida, no argumentación."
+      - "El PR enmarca el fix como 'terminar la migración try_reserve que yrs mismo empezó en b234ef4e' → alta probabilidad de merge; ofrece explícitamente la alternativa simétrica (From<CollectionAllocErr>) para dejar la decisión de API al maintainer."
+      - "Identidad del commit del PR externo calibrada al contexto: sin trailer de coautoría (rechazable en muchos repos) + disclosure honesto de uso de IA con responsabilidad humana; trailer conservado en el commit interno (convención de este repo)."
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: "La regla 'revisar más ancho que el cambio' (barrer la clase completa en el crate, no solo las funciones reportadas) probó su valor concreto aquí (2→5 sitios) y merecería ser un ítem explícito de §Pre-trabajo o §Verification para Charters que envían fixes upstream o tocan una clase de bug repetida."
