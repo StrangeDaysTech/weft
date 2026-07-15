@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using Weft;
 using Weft.Versioning;
 using Weft.Versioning.Blobs;
@@ -92,6 +94,114 @@ public sealed class DeterminismTests
             }
         }
     }
+
+    // ── Paridad cross-implementación vs Yjs JS (FU-012/CHARTER-09, research R13, P-III) ──────────
+    // El export v1 de yrs sobre el corpus compartido debe ser BYTE-IDÉNTICO al de Yjs JS — es decir,
+    // el determinismo de Weft es "por formato" (encoding v1 de Yjs/yrs), no un accidente de esta
+    // versión de yrs. Requiere client-ids deterministas (YrsEngine.CreateDoc(clientId), FU-012). El
+    // hash golden de Yjs vive en tests/determinism-yjs/golden.json; el harness Node lo regenera y
+    // self-checkea en release.yml (caza drift de Yjs). Esta aserción es el gate BLOQUEANTE per-PR.
+
+    [Theory]
+    [InlineData("corpus.json", "ascii")]
+    [InlineData("corpus-unicode.json", "unicode")]
+    public void Yrs_export_matches_yjs_golden(string corpusFile, string goldenKey)
+    {
+        string dir = DeterminismCorpusDir();
+        CorpusSpec corpus = LoadCorpus(Path.Combine(dir, corpusFile));
+        string golden = GoldenHash(Path.Combine(dir, "golden.json"), goldenKey);
+
+        ICrdtDoc[] replicas = [.. corpus.ClientIds.Select(id => YrsEngine.Instance.CreateDoc((ulong)id))];
+        try
+        {
+            // Aplicar cada op a su réplica (sin guard de longitud: paridad exacta con apply.mjs).
+            foreach (CorpusOp step in corpus.Ops)
+            {
+                ICrdtDoc doc = replicas[step.Replica];
+                if (step.Op == "ins")
+                {
+                    doc.InsertText(corpus.Type, step.Index, step.Text!);
+                }
+                else if (step.Op == "del")
+                {
+                    doc.DeleteText(corpus.Type, step.Index, step.Len);
+                }
+                else
+                {
+                    throw new InvalidOperationException($"op desconocida: {step.Op}");
+                }
+            }
+
+            // Sincronizar todos-contra-todos hasta converger (mismo esquema que apply.mjs).
+            for (int pass = 0; pass < corpus.SyncPasses; pass++)
+            {
+                foreach (ICrdtDoc target in replicas)
+                {
+                    byte[] sv = target.ExportStateVector();
+                    foreach (ICrdtDoc source in replicas)
+                    {
+                        if (!ReferenceEquals(source, target))
+                        {
+                            target.ApplyUpdate(source.ExportUpdateSince(sv));
+                        }
+                    }
+                }
+            }
+
+            byte[] export = replicas[0].ExportState();
+            string yrsHash = Convert.ToHexStringLower(SHA256.HashData(export));
+
+            Assert.Equal(golden, yrsHash);
+        }
+        finally
+        {
+            foreach (ICrdtDoc r in replicas)
+            {
+                r.Dispose();
+            }
+        }
+    }
+
+    // Localiza tests/determinism-yjs/ subiendo desde el binario del test hasta la raíz del repo.
+    private static string DeterminismCorpusDir()
+    {
+        for (DirectoryInfo? d = new(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        {
+            string candidate = Path.Combine(d.FullName, "tests", "determinism-yjs");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new DirectoryNotFoundException("No se encontró tests/determinism-yjs/ desde el binario del test.");
+    }
+
+    private static CorpusSpec LoadCorpus(string path) =>
+        JsonSerializer.Deserialize<CorpusSpec>(File.ReadAllText(path), CorpusJson)
+        ?? throw new InvalidOperationException($"corpus vacío: {path}");
+
+    private static string GoldenHash(string path, string key)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        return doc.RootElement.GetProperty(key).GetString()
+            ?? throw new InvalidOperationException($"golden[{key}] ausente en {path}");
+    }
+
+    private static readonly JsonSerializerOptions CorpusJson = new(JsonSerializerDefaults.Web);
+
+    private sealed record CorpusSpec(
+        string Type,
+        int[] ClientIds,
+        int SyncPasses,
+        CorpusOp[] Ops);
+
+    private sealed record CorpusOp(
+        int Replica,
+        string Op,
+        int Index,
+        string? Text,
+        int Len);
 
     // El encoding es estable: cargar un blob y re-exportar es byte-idéntico, indefinidamente
     // (la propiedad que hace que un VersionId sea citable cross-plataforma).

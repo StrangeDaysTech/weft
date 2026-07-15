@@ -1,9 +1,9 @@
 ---
-last_scan: 2026-07-14
+last_scan: 2026-07-15
 schema_version: v1
 total_open: 4
 total_promoted: 0
-total_closed_in_session: 11
+total_closed_in_session: 12
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -16,6 +16,7 @@ fully_extracted_ailogs:
   - AILOG-2026-07-10-001
   - AILOG-2026-07-10-002
   - AILOG-2026-07-14-002
+  - AILOG-2026-07-15-001
 ---
 
 # Follow-ups Backlog
@@ -95,6 +96,15 @@ fully_extracted_ailogs:
 
 ## Bucket: charter-triggered
 
+### FU-016 — promover la siembra de client-id a capacidad cross-engine (Loro peer_id)
+- **Origin**: AILOG-2026-07-15-001 §Follow-ups · CHARTER-09 (alcance yrs-only)
+- **Source-hash**: 346b9c62a979
+- **Status**: open
+- **Trigger**: when se requiera paridad determinista para el motor Loro (gate Loro↔referencia)
+- **Destination**: mini-charter
+- **Cost**: M
+- **Notes**: CHARTER-09 expuso la siembra de client-id como capacidad **concreta de `YrsEngine`** (`CreateDoc(ulong)`), no en `ICrdtEngine`, porque el gate `determinism-yjs` es yrs↔Yjs (misma familia de formato). Para un gate de determinismo de Loro: promover a capacidad cross-engine — `CreateDoc(clientId)` en `ICrdtEngine` (o una interfaz opcional tipo `INativeVersioning`) + `weft_loro_doc_new_with_peer_id` en `weft-loro-ffi` (Loro vía `set_peer_id`). Ningún gate depende hoy.
+
 ### FU-015 — adopción del fix de R6 vía bump de yrs (protocolo R16)
 - **Origin**: AILOG-2026-07-14-002 §Follow-ups · CHARTER-08 (d) · PR upstream y-crdt/y-crdt#639
 - **Source-hash**: 72ad54b51cf2
@@ -139,11 +149,11 @@ fully_extracted_ailogs:
 
 ### FU-012 — determinism-yjs: exponer client-id determinista + promover a gate de paridad cross-impl
 - **Origin**: CHARTER-07 §Scope (T058) · AILOG-2026-07-13-003 · tests/determinism-yjs/README.md (registro hand-add + recount, §13)
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when se quiera promover el determinismo cross-implementación de informativo a gate bloqueante (o antes del primer bump de motor con impacto de encoding, R16)
 - **Destination**: mini-charter
 - **Cost**: M
-- **Notes**: El harness `tests/determinism-yjs/` (T058) aplica el corpus compartido con Yjs y emite el SHA-256 del export, pero la paridad byte-idéntica con yrs está **gated en client-ids deterministas**: `ICrdtEngine.CreateDoc()` no toma parámetro y el shim FFI (`weft-yrs-ffi`) no expone fijar `client_id`, así que yrs asigna uno no controlable y su export no es reproducible cross-impl. Promover: (1) añadir `weft_doc_new_with_client_id` al FFI + `CreateDoc(ulong clientId)` al binding (aísla el bump, P-IV); (2) emitir el hash golden de yrs para el corpus; (3) pasar `WEFT_GOLDEN_HASH` al job y promoverlo a comparación con aserción; (4) añadir la variante unicode del corpus (índices UTF-16, R6). Hoy no-bloqueante; ningún gate depende.
+- **Notes**: El harness `tests/determinism-yjs/` (T058) aplica el corpus compartido con Yjs y emite el SHA-256 del export, pero la paridad byte-idéntica con yrs está **gated en client-ids deterministas**: `ICrdtEngine.CreateDoc()` no toma parámetro y el shim FFI (`weft-yrs-ffi`) no expone fijar `client_id`, así que yrs asigna uno no controlable y su export no es reproducible cross-impl. Promover: (1) añadir `weft_doc_new_with_client_id` al FFI + `CreateDoc(ulong clientId)` al binding (aísla el bump, P-IV); (2) emitir el hash golden de yrs para el corpus; (3) pasar `WEFT_GOLDEN_HASH` al job y promoverlo a comparación con aserción; (4) añadir la variante unicode del corpus (índices UTF-16, R6). Hoy no-bloqueante; ningún gate depende. **CERRADO 2026-07-15 (CHARTER-09, AILOG-2026-07-15-001)**: entregadas las 4 partes — `weft_doc_new_with_client_id` (ABI v2, guard < 2^53) + `YrsEngine.CreateDoc(clientId)`; golden de Yjs comprometido (`golden.json` ascii+unicode); aserción de paridad **per-PR bloqueante** en `Weft.Determinism.Tests` (`Yrs_export_matches_yjs_golden`, 2/2 verde — **R1 se cumple: yrs == Yjs byte-idéntico**); corpus unicode + `apply.mjs` parametrizado + self-check del golden en `release.yml`. Loro diferido a FU-016.
 
 ### FU-013 — bump de GitHub Actions fuera de Node 20 (deprecado)
 - **Origin**: CHARTER-07 (dry-run release.yml run 29307786498, annotations) · AILOG-2026-07-13-003 (registro hand-add + recount, §13)

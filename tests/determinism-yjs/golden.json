@@ -1,0 +1,5 @@
+{
+  "_comment": "Hashes golden de Yjs (SHA-256 del export v1 de la réplica 0 convergida) para el corpus compartido, producidos por apply.mjs (CHARTER-09/FU-012). Fuente de verdad de la paridad cross-implementación: Weft.Determinism.Tests asierta que yrs produce EXACTAMENTE estos hashes (per-PR, bloqueante de facto); el job Node en release.yml recomputa el hash de Yjs y verifica que sigue igualando estos valores (caza drift de Yjs). Regenerar con: node apply.mjs corpus.json && node apply.mjs corpus-unicode.json.",
+  "ascii": "27a8487564ee087569bb47bd07ddb49aa5db29a419a489902600bc3a62513243",
+  "unicode": "afd15f9c246102b98dbe084f182b1af8396342a97aa45f365b2f2676f3ff9e02"
+}

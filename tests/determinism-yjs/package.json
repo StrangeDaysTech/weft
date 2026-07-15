@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Gate de determinismo cross-implementación (CHARTER-07/T058, research R13): aplica el corpus compartido con Yjs JS y emite el SHA-256 del export, para comparar contra el de yrs. No-bloqueante, promovible a gate.",
   "scripts": {
-    "test": "node apply.mjs"
+    "test": "node apply.mjs corpus.json && node apply.mjs corpus-unicode.json"
   },
   "dependencies": {
     "yjs": "^13.6.27"

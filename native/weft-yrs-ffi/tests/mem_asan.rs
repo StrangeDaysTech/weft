@@ -190,7 +190,7 @@ fn stress_all_functions_2000_iterations() {
             weft_doc_free(reloaded);
             weft_doc_free(doc);
         }
-        assert_eq!(weft_abi_version(), 1);
+        assert_eq!(weft_abi_version(), 2); // ABI v2: + weft_doc_new_with_client_id (CHARTER-09)
     }
 }
 
@@ -224,6 +224,53 @@ fn malformed_update_with_huge_declared_length_decodes_cleanly() {
 /// (assertion en `block.rs`) NO debe cruzar la frontera — `catch_unwind` lo contiene como código
 /// de error. Verifica el contrato P-I con panic=unwind (igual que producción; el fuzz de CI corre
 /// con un hook silenciado para ejercitar este mismo camino).
+/// Siembra de client_id (FU-012/CHARTER-09): dos docs con el MISMO client_id + las mismas ops
+/// exportan bytes idénticos (base de la paridad cross-impl); el guard de 53 bits rechaza en la
+/// frontera; el borde superior válido (2^53 - 1) se acepta.
+#[test]
+fn seed_client_id_is_deterministic_and_bounded() {
+    unsafe {
+        let field = b"body";
+        let text = b"hola";
+
+        // Mismo client_id + mismas ops → export byte-idéntico.
+        let mut a: *mut Doc = ptr::null_mut();
+        let mut b: *mut Doc = ptr::null_mut();
+        assert_eq!(weft_doc_new_with_client_id(42, &mut a), WEFT_OK);
+        assert_eq!(weft_doc_new_with_client_id(42, &mut b), WEFT_OK);
+        weft_text_insert(a, field.as_ptr(), field.len(), 0, text.as_ptr(), text.len());
+        weft_text_insert(b, field.as_ptr(), field.len(), 0, text.as_ptr(), text.len());
+
+        let (mut pa, mut la) = (ptr::null_mut(), 0usize);
+        let (mut pb, mut lb) = (ptr::null_mut(), 0usize);
+        assert_eq!(weft_doc_export_state(a, &mut pa, &mut la), WEFT_OK);
+        assert_eq!(weft_doc_export_state(b, &mut pb, &mut lb), WEFT_OK);
+        assert_eq!(la, lb);
+        assert_eq!(
+            std::slice::from_raw_parts(pa, la),
+            std::slice::from_raw_parts(pb, lb),
+            "misma siembra + mismas ops debe exportar bytes idénticos"
+        );
+        weft_buf_free(pa, la);
+        weft_buf_free(pb, lb);
+        weft_doc_free(a);
+        weft_doc_free(b);
+
+        // Guard de 53 bits: 2^53 se rechaza, 2^53 - 1 se acepta.
+        let mut over: *mut Doc = ptr::null_mut();
+        assert_eq!(
+            weft_doc_new_with_client_id(1u64 << 53, &mut over),
+            WEFT_ERR_OUT_OF_BOUNDS
+        );
+        assert!(over.is_null());
+
+        let mut edge: *mut Doc = ptr::null_mut();
+        assert_eq!(weft_doc_new_with_client_id((1u64 << 53) - 1, &mut edge), WEFT_OK);
+        assert!(!edge.is_null());
+        weft_doc_free(edge);
+    }
+}
+
 #[test]
 fn malformed_update_that_panics_yrs_is_contained_not_ub() {
     unsafe {

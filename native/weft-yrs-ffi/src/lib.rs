@@ -26,7 +26,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use yrs::updates::decoder::Decode;
 use yrs::updates::encoder::Encode;
-use yrs::{Doc, GetString, OffsetKind, Options, ReadTxn, StateVector, Text, Transact, Update};
+use yrs::{ClientID, Doc, GetString, OffsetKind, Options, ReadTxn, StateVector, Text, Transact, Update};
 
 /// Crea un `Doc` con índices en **UTF-16 code units** (no el default de yrs, que es bytes UTF-8).
 /// Consistente con `string` de .NET y con Yjs (clientes de editor); crítico para que
@@ -39,6 +39,23 @@ fn new_doc() -> Doc {
     Doc::with_options(opts)
 }
 
+/// Como [`new_doc`] pero con un `client_id` FIJO (siembra determinista para paridad
+/// cross-implementación; FU-012/CHARTER-09). Mismo `OffsetKind::Utf16`.
+fn new_doc_with_client_id(client_id: u64) -> Doc {
+    // El guard `< 2^53` en la frontera (CLIENT_ID_MAX_EXCLUSIVE) garantiza que `ClientID::new`
+    // no dispare su `debug_assert!(value & MASK == 0)` ni corrompa el id en release.
+    let opts = Options {
+        client_id: ClientID::new(client_id),
+        offset_kind: OffsetKind::Utf16,
+        ..Options::default()
+    };
+    Doc::with_options(opts)
+}
+
+/// Cota superior (exclusiva) del `client_id`: yrs 0.26+ codifica los client IDs en **53 bits**
+/// (antes 64). Un id `>= 2^53` no round-trippea por el encoding → se rechaza en la frontera.
+const CLIENT_ID_MAX_EXCLUSIVE: u64 = 1 << 53;
+
 // ── Códigos de estado (deben coincidir con weft_ffi.h y el mapeo de excepciones en C#) ──
 pub const WEFT_OK: i32 = 0;
 pub const WEFT_ERR_NULL_ARG: i32 = -1;
@@ -50,7 +67,7 @@ pub const WEFT_ERR_PANIC: i32 = -127;
 
 /// Versión de la ABI. Se incrementa ante CUALQUIER cambio de firma o semántica; `Weft.Core` la
 /// verifica al cargar el cdylib y lanza si no coincide con la esperada.
-const WEFT_ABI_VERSION: u32 = 1;
+const WEFT_ABI_VERSION: u32 = 2;
 
 // ── Helpers internos (no expuestos por la C-ABI) ────────────────────────────────────────────
 
@@ -134,6 +151,27 @@ pub unsafe extern "C" fn weft_doc_new(out_doc: *mut *mut Doc) -> i32 {
             return WEFT_ERR_NULL_ARG;
         }
         *out_doc = Box::into_raw(Box::new(new_doc()));
+        WEFT_OK
+    })
+}
+
+/// Crea un documento CRDT nuevo con un `client_id` **fijo** (siembra determinista para paridad
+/// cross-implementación con Yjs; FU-012). Idéntico a [`weft_doc_new`] salvo por el id controlado.
+/// `client_id` debe caber en **53 bits** (encoding de yrs 0.26+): `client_id >= 2^53` →
+/// `WEFT_ERR_OUT_OF_BOUNDS`. Liberar SOLO con `weft_doc_free`.
+///
+/// # Safety
+/// `out_doc` debe ser un puntero escribible no nulo.
+#[no_mangle]
+pub unsafe extern "C" fn weft_doc_new_with_client_id(client_id: u64, out_doc: *mut *mut Doc) -> i32 {
+    guard(|| {
+        if out_doc.is_null() {
+            return WEFT_ERR_NULL_ARG;
+        }
+        if client_id >= CLIENT_ID_MAX_EXCLUSIVE {
+            return WEFT_ERR_OUT_OF_BOUNDS;
+        }
+        *out_doc = Box::into_raw(Box::new(new_doc_with_client_id(client_id)));
         WEFT_OK
     })
 }

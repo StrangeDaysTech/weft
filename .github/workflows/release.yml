@@ -215,7 +215,10 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Yjs export hash del corpus compartido
+      # Emite el hash de Yjs de ambos corpus (ascii + unicode) y self-checkea contra golden.json:
+      # caza drift de Yjs (bump con impacto de encoding). La aserción BLOQUEANTE de paridad yrs↔Yjs
+      # vive en Weft.Determinism.Tests (job `test`, per-PR); este job es informativo (FU-012/CHARTER-09).
+      - name: Yjs export hash del corpus compartido (ascii + unicode, self-check golden)
         working-directory: tests/determinism-yjs
         run: |
           npm install

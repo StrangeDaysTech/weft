@@ -22,6 +22,17 @@ internal sealed class YrsDoc : ICrdtDoc
         return new YrsDoc(new DocHandle(raw));
     }
 
+    /// <summary>
+    /// Crea un doc con un <paramref name="clientId"/> FIJO (siembra determinista para paridad
+    /// cross-implementación con Yjs; FU-012). Debe caber en 53 bits (encoding de yrs 0.26+);
+    /// un valor mayor lanza vía <c>WEFT_ERR_OUT_OF_BOUNDS</c>.
+    /// </summary>
+    internal static YrsDoc Create(ulong clientId)
+    {
+        FfiStatus.ThrowIfError(NativeMethods.weft_doc_new_with_client_id(clientId, out nint raw));
+        return new YrsDoc(new DocHandle(raw));
+    }
+
     internal static YrsDoc Load(ReadOnlySpan<byte> blob)
     {
         FfiStatus.ThrowIfError(NativeMethods.weft_doc_load(blob, (nuint)blob.Length, out nint raw));

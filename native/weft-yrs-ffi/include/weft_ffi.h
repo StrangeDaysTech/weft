@@ -47,6 +47,9 @@ typedef struct WeftDoc WeftDoc;
 
 /* ── Ciclo de vida del documento ──────────────────────────────────────────────────────── */
 int32_t weft_doc_new(WeftDoc** out_doc);
+/* Doc nuevo con client_id FIJO (siembra determinista, FU-012). client_id debe caber en 53 bits
+ * (encoding de yrs 0.26+): client_id >= 2^53 -> WEFT_ERR_OUT_OF_BOUNDS. ABI v2. */
+int32_t weft_doc_new_with_client_id(uint64_t client_id, WeftDoc** out_doc);
 int32_t weft_doc_load(const uint8_t* blob, size_t blob_len, WeftDoc** out_doc);
 void    weft_doc_free(WeftDoc* doc);
 
