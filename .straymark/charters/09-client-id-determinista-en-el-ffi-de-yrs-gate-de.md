@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-09-client-id-determinista-en-el-ffi-de-yrs-gate-de
-status: in-progress
+status: closed
+closed_at: 2026-07-15
 effort_estimate: M
 trigger: "FU-012 (backlog, charter-triggered): promover el determinismo cross-implementación (harness determinism-yjs, T058/CHARTER-07) de informativo a gate con aserción. Disparado por decisión del operador (2026-07-15) de cerrar FU-012 tras CHARTER-08; antes del primer bump de motor con impacto de encoding (R16). Alcance yrs-only decidido (Loro diferido)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Client-id determinista en el FFI de yrs + gate de paridad cross-impl (determinism-yjs)
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: M.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: M.
 >
 > **Origin:** Follow-up **FU-012**, sobre la spec 001 (constitución **P-III** determinismo / **P-IV** abstracción
 > de motor viva). Cierra el gating del harness `determinism-yjs` (T058) sobre client-ids deterministas, para el

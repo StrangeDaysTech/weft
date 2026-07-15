@@ -1,0 +1,93 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Storage path:  .straymark/charters/CHARTER-09.telemetry.yaml
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-09"
+  charter_title: "Client-id determinista en el FFI de yrs + gate de paridad cross-impl (determinism-yjs)"
+  closed_at: "2026-07-15"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-15-001"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución. El Charter se originó de FU-012 (CHARTER-07 §Scope T058); la reconnaissance de declaración fue precisa (todas las rutas leídas) y completa — sin undercount de sitios como en CHARTER-08."
+
+  trigger:
+    declared_kind: "event_trigger"
+    declared_description: "FU-012 (charter-triggered): promover el gate determinism-yjs de informativo a aserción. Decisión del operador (2026-07-15) de cerrar FU-012 tras CHARTER-08."
+    fired_at: "2026-07-15"
+    fire_clarity: "manually_decided"
+    fire_clarity_notes: "El operador eligió ejecutar FU-012 ahora y decidió ex-ante las dos formas de alcance (yrs-only + aserción per-PR) vía AskUserQuestion al declarar."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "high"
+    pre_work_notes: "Reconnaissance leyó todas las superficies antes de declarar (weft_doc_new/new_doc/Options, weft_ffi.h, ExpectedAbiVersion=1, YrsDoc/YrsEngine, ICrdtDoc text API, corpus.json/apply.mjs/README/release.yml). Validación --include-charters verde (23 docs). Sin paths asumidos."
+
+  # ---------- Planning session (if any) ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-15"
+    finished_at: "2026-07-15"
+    estimated_effort: "M (~1.5h)"
+    actual_effort: "M (~2h)"
+    estimation_drift_factor: 1.3
+    estimation_drift_reason: "Sin sorpresas de alcance. El leve drift lo aportaron dos fricciones menores resueltas en línea: yrs expone client_id como newtype ClientID (no u64 crudo → ClientID::new); y un cargo build sin test-hooks sobrescribió la lib local del test de panic. Ninguna cambió el diseño. El riesgo central R1 (paridad) resolvió POSITIVO al primer intento."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 0
+    skill_prompts_used: ["straymark-charter-new"]
+
+  # ---------- External audit ----------
+  # No aplica: Charter que no cierra hito (promoción de un gate informativo) → sin auditoría externa.
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1 (drift reconciliado en §Closing notes): +native/weft-yrs-ffi/tests/mem_asan.rs (assert ABI 1→2 + test de la siembra) y +tests/determinism-yjs/package.json (script npm de ambos corpus) — no declarados al inicio, añadidos a §Files to modify. F2 (FP): tests/determinism-yjs/apply.mjs SÍ declarado pero el parser de drift #354 no matchea .mjs (corroborado aquí). Los 7 entregables se completaron como se planeó; R1 resolvió positivo (gate bloqueante, no fue necesario el plan B informativo)."
+    new_followups_generated: 1
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M3"
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points:
+      - "yrs expone client_id como newtype `ClientID(CID)` con `ClientID::new(u64)` (no un u64 crudo en Options) — E0308 al asignar; resuelto importando yrs::ClientID. El guard < 2^53 de la frontera alinea con el `debug_assert!(value & MASK == 0)` de ClientID::new (en release corrompería sin él)."
+      - "Un `cargo build --release` sin `--features test-hooks` sobrescribió la lib nativa local quitando `weft_test_panic` -> EntryPointNotFoundException en el test de panic (falso local, no regresión; en CI el shim se construye con test-hooks). Reconstruir con la feature."
+      - "El parser de charter drift #354 no matchea `.mjs` (apply.mjs declarado, marcado como no declarado) — 5a+ ocurrencia de la clase, ahora extendida a .mjs. Refuerza la propuesta de no filtrar por extensión."
+      - "El job `test (windows-latest)` hizo timeout a los 25m00s en 'Test .NET' (hang de infraestructura del runner, no un test roto — Ubuntu/macOS/determinism verdes con el mismo código); resuelto con rerun. Misma flakiness que CHARTER-08 (macOS)."
+    wins:
+      - "R1 (paridad byte-idéntica yrs-Yjs) SE CUMPLE al primer intento, ASCII Y unicode — el gate quedó bloqueante, sin plan B informativo. El determinismo de Weft queda demostrado POR FORMATO, no por versión de yrs."
+      - "La variante unicode (BMP acentuado + CJK + astrales/emoji con surrogate pairs) pasa la aserción -> confirma la paridad de índices UTF-16 (R5/R6) con evidencia medida, no argumentación."
+      - "El gate bloqueante se ubicó donde es barato (test .NET en el job `test` existente, costo ~0) en vez de un job Node aparte; el job Node queda como self-check informativo del golden (caza drift de Yjs). Un solo golden sirve a ambos lados."
+      - "Alcance yrs-only honesto: siembra como capacidad concreta de YrsEngine (no un método que lanza NotSupported en ICrdtEngine) -> no tensa P-IV; Loro diferido limpio a FU-016."
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: "El parser de drift #354 debería reconocer .mjs (y en general no filtrar por extensión) — 5a+ ocurrencia de la clase, ahora en un ecosistema Node/JS. Ya rastreado en straymark#354; esta corrida lo extiende a .mjs."
