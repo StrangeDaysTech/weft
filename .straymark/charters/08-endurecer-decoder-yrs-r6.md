@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-08-endurecer-decoder-yrs-r6
-status: in-progress
+status: closed
+closed_at: 2026-07-15
 effort_estimate: M
 trigger: "FU-014 (registrado 2026-07-14): el job `fuzz` de CHARTER-07 confirmó que el decoder de yrs amplifica memoria (R6) en la ruta CRUDA del FFI, NO capeada por FU-002 (relay). Investigación upstream (2026-07-14, ver [[yrs-decoder-r6-upstream]]): `Update::decode` YA usa `try_reserve`, pero `id_set.rs:91` (delete sets) y `state_vector.rs:120` (state vectors) siguen con `with_capacity` sin acotar — presente en 0.27.2 Y en la última 0.27.3. Decisión del operador: FU-014 = charter propio + colaboración upstream (PR de `try_reserve`)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Endurecer el decoder de yrs contra amplificación de memoria (R6)
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: M.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: M.
 >
 > **Origin:** Follow-up **FU-014**, sobre la spec 001 (constitución **P-I/P-II**: frontera nativa segura /
 > memoria verificada). Endurece la ruta **directa del FFI** ante la amplificación R6 que FU-002 (cerrado)
