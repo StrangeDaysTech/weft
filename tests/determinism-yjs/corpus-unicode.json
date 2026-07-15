@@ -1,0 +1,14 @@
+{
+  "_comment": "Variante unicode del corpus determinista (CHARTER-09/FU-012). Texto no-ASCII que ejercita los índices en UTF-16 code units (OffsetKind::Utf16 en yrs, clientID de .NET string). Incluye BMP acentuado, CJK y astrales (emoji, surrogate pairs → 2 code units UTF-16). Los índices de las ops están en UTF-16 code units, consistentes con Yjs. client IDs FIJOS → export byte-idéntico entre implementaciones.",
+  "type": "body",
+  "clientIds": [1, 2, 3],
+  "syncPasses": 2,
+  "ops": [
+    { "replica": 0, "op": "ins", "index": 0, "text": "Ĉaŭ mondo " },
+    { "replica": 1, "op": "ins", "index": 0, "text": "日本語 " },
+    { "replica": 2, "op": "ins", "index": 0, "text": "🦀🧵 " },
+    { "replica": 0, "op": "ins", "index": 4, "text": "árbol " },
+    { "replica": 1, "op": "ins", "index": 0, "text": "café " },
+    { "replica": 2, "op": "del", "index": 0, "len": 2 }
+  ]
+}

@@ -11,7 +11,8 @@ namespace Weft.Yrs;
 /// </summary>
 internal static class NativeLibraryResolver
 {
-    private const uint ExpectedAbiVersion = 1;
+    // ABI v2 (CHARTER-09): añade weft_doc_new_with_client_id (siembra determinista, FU-012).
+    private const uint ExpectedAbiVersion = 2;
     private static int _registered;
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(

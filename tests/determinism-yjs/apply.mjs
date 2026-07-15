@@ -12,12 +12,18 @@
 
 import * as Y from 'yjs';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const corpus = JSON.parse(readFileSync(join(here, 'corpus.json'), 'utf8'));
+
+// Corpus por argumento (`node apply.mjs [corpus-unicode.json]`), default corpus.json (FU-012).
+const corpusFile = process.argv[2] ?? 'corpus.json';
+const corpus = JSON.parse(readFileSync(join(here, corpusFile), 'utf8'));
+
+// Clave del golden por corpus: corpus.json → "ascii", corpus-unicode.json → "unicode".
+const goldenKey = basename(corpusFile) === 'corpus-unicode.json' ? 'unicode' : 'ascii';
 
 // Una réplica = un Y.Doc con clientID fijo del corpus.
 const replicas = corpus.clientIds.map((id) => {
@@ -55,18 +61,26 @@ const update = Y.encodeStateAsUpdate(replicas[0]);
 const hash = createHash('sha256').update(Buffer.from(update)).digest('hex');
 
 const finalText = replicas[0].getText(corpus.type).toString();
+console.log(`Yjs  corpus:           ${corpusFile}`);
 console.log(`Yjs  texto convergido: "${finalText}"`);
 console.log(`Yjs  export SHA-256:   ${hash}`);
 
-const golden = process.env.WEFT_GOLDEN_HASH;
+// Self-check contra el golden comprometido (golden.json[goldenKey]). Caza drift de Yjs: si Yjs
+// bumpea y cambia el encoding, el hash emitido deja de coincidir con el golden. La aserción
+// BLOQUEANTE real de paridad yrs↔Yjs vive en Weft.Determinism.Tests (per-PR); este job es
+// informativo (`continue-on-error` en release.yml). WEFT_GOLDEN_HASH sigue soportado como override.
+const goldenPath = join(here, 'golden.json');
+const override = process.env.WEFT_GOLDEN_HASH;
+const golden = override
+  ?? (existsSync(goldenPath) ? JSON.parse(readFileSync(goldenPath, 'utf8'))[goldenKey] : undefined);
 if (golden) {
   if (golden === hash) {
-    console.log('✓ PARIDAD cross-implementación: el hash de Yjs coincide con el de yrs.');
+    console.log(`✓ El hash de Yjs coincide con el golden comprometido (${goldenKey}).`);
   } else {
-    console.log('⚠ DIVERGENCIA (no-bloqueante): Yjs vs yrs difieren.');
-    console.log(`   yrs (golden): ${golden}`);
-    console.log('   Insumo para R16 (bump del motor) / promoción del gate. Ver README.');
+    console.log(`⚠ DIVERGENCIA (no-bloqueante): Yjs difiere del golden (${goldenKey}).`);
+    console.log(`   golden: ${golden}`);
+    console.log('   Posible drift de Yjs (bump con impacto de encoding). Regenerar golden. Ver README.');
   }
 } else {
-  console.log('ℹ Sin WEFT_GOLDEN_HASH (hash de yrs): harness informativo. Paridad con yrs = paso promovible.');
+  console.log('ℹ Sin golden.json ni WEFT_GOLDEN_HASH: harness informativo (solo emite el hash de Yjs).');
 }
