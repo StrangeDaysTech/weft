@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-10-superficie-inativeversioning-de-loro-probes
-status: in-progress
+status: closed
+closed_at: 2026-07-15
 effort_estimate: M
 trigger: "FU-006 (backlog, charter-triggered): implementar la superficie opcional INativeVersioning de Loro (probes nativos), diferida en CHARTER-02 (auditoría G1). Disparado por decisión del operador (2026-07-15) de despacharla tras CHARTER-09. Cierra G1: LoroEngine.NativeVersioning pasa de null a una implementación real."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Superficie INativeVersioning de Loro — probes nativos diff/fork/shallow (cierra G1)
 
-> **Status (mirrored from frontmatter — source of truth is above):** declared. Effort: M.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: M.
 >
 > **Origin:** Follow-up **FU-006** (auditoría externa CHARTER-02, hallazgo **G1**), sobre la spec 001
 > (constitución **P-IV** abstracción de motor viva). Materializa la capacidad **opcional** `INativeVersioning`
