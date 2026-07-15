@@ -3,7 +3,7 @@ last_scan: 2026-07-15
 schema_version: v1
 total_open: 4
 total_promoted: 0
-total_closed_in_session: 12
+total_closed_in_session: 13
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -17,6 +17,7 @@ fully_extracted_ailogs:
   - AILOG-2026-07-10-002
   - AILOG-2026-07-14-002
   - AILOG-2026-07-15-001
+  - AILOG-2026-07-15-002
 ---
 
 # Follow-ups Backlog
@@ -92,6 +93,15 @@ fully_extracted_ailogs:
 - **Cost**: XS
 - **Notes**: Corregido a `ExportMode::all_updates()` + AIDEC-2026-07-10-001 (aprobado). No es follow-up pendiente.
 
+### FU-017 — test de paridad header↔binding para el shim Loro
+- **Origin**: AILOG-2026-07-15-002 §Follow-ups · CHARTER-10 (se creó el header, sin test de paridad)
+- **Source-hash**: be38c88a4e9c
+- **Status**: open
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: S
+- **Notes**: CHARTER-10 creó `native/weft-loro-ffi/include/weft_loro_ffi.h`, pero ningún test automatizado verifica que las declaraciones `[LibraryImport]` de `Weft.Loro/Interop/NativeMethods.cs` coincidan con él. El shim yrs SÍ lo tiene (`weft_ffi.h` ↔ `Weft.Core`). Replicar ese test para Loro (paridad de firmas / regenerable con csbindgen). Mejora de robustez; ningún gate depende.
+
 ## Bucket: time-triggered
 
 ## Bucket: charter-triggered
@@ -125,11 +135,11 @@ fully_extracted_ailogs:
 
 ### FU-006 — G1: implementar la superficie `INativeVersioning` de Loro (diferida)
 - **Origin**: AILOG-2026-07-10-002 §Follow-ups (auditoría G1, gpt-5-5 + qwen3-7-max) · review.md §4 · Charter-02 Closing notes
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when se requiera versionado nativo de Loro (probes de paridad)
 - **Destination**: mini-charter
 - **Cost**: M
-- **Notes**: Diferido en CHARTER-02. Implementar probes `native_diff`/`native_branch`/`shallow_snapshot` en `weft-loro-ffi` + header `include/weft_loro_ffi.h` + `LoroNativeVersioning.cs` (`LoroEngine.NativeVersioning` pasaría de `null` a la implementación). Capacidad opcional; ningún gate depende. Reconciliar quickstart §US5 al implementarlo.
+- **Notes**: Diferido en CHARTER-02. Implementar probes `native_diff`/`native_branch`/`shallow_snapshot` en `weft-loro-ffi` + header `include/weft_loro_ffi.h` + `LoroNativeVersioning.cs` (`LoroEngine.NativeVersioning` pasaría de `null` a la implementación). Capacidad opcional; ningún gate depende. Reconciliar quickstart §US5 al implementarlo. **CERRADO 2026-07-15 (CHARTER-10, AILOG-2026-07-15-002)**: los 3 probes en `weft-loro-ffi` (ABI v2) + header `weft_loro_ffi.h` (creado) + binding + `LoroNativeVersioning` (cast+delega) + `LoroEngine.NativeVersioning` no-nulo + `LoroNativeVersioningTests` (5/5). Probes demostrativos (no content-addressing). Quickstart §US5 reconciliado. FU-017 registrado (test de paridad header↔binding del shim Loro).
 
 ### FU-010 — endurecimiento de durabilidad del relay: persist-before-broadcast (opcional)
 - **Origin**: AIDEC-2026-07-13-001 §5 (CHARTER-05) · review.md F3 (auditoría gpt-5-5 + glm-5-2)

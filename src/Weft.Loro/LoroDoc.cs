@@ -93,6 +93,38 @@ internal sealed class LoroDoc : ICrdtDoc
         FfiStatus.ThrowIfError(NativeMethods.weft_loro_doc_apply_update(lease.Ptr, update, (nuint)update.Length));
     }
 
+    // ── Versionado nativo (INativeVersioning vía LoroNativeVersioning — CHARTER-10/FU-006) ──
+    // Probes DEMOSTRATIVOS de la capacidad nativa de Loro. Su salida NO es determinista y NO alimenta
+    // VersionId (usar ExportState para eso). No mutan este documento (el branch/merge forkea aparte).
+
+    internal byte[] ShallowSnapshotNative()
+    {
+        ThrowIfDisposed();
+        using var lease = new HandleLease(_handle);
+        FfiStatus.ThrowIfError(NativeMethods.weft_loro_shallow_snapshot(lease.Ptr, out nint ptr, out nuint len));
+        return TakeOwnedBuffer(ptr, len);
+    }
+
+    internal string NativeDiffProbeJson(string field)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(field);
+        ThrowIfDisposed();
+        byte[] f = Encoding.UTF8.GetBytes(field);
+        using var lease = new HandleLease(_handle);
+        FfiStatus.ThrowIfError(NativeMethods.weft_loro_native_diff_probe(lease.Ptr, f, (nuint)f.Length, out nint ptr, out nuint len));
+        return Encoding.UTF8.GetString(TakeOwnedBuffer(ptr, len));
+    }
+
+    internal string NativeBranchMergeProbeJson(string field)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(field);
+        ThrowIfDisposed();
+        byte[] f = Encoding.UTF8.GetBytes(field);
+        using var lease = new HandleLease(_handle);
+        FfiStatus.ThrowIfError(NativeMethods.weft_loro_native_branch_merge_probe(lease.Ptr, f, (nuint)f.Length, out nint ptr, out nuint len));
+        return Encoding.UTF8.GetString(TakeOwnedBuffer(ptr, len));
+    }
+
     public void Dispose() => _handle.Dispose();
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_handle.IsClosed, this);

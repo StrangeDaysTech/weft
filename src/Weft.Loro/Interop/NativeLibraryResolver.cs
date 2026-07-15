@@ -7,7 +7,8 @@ namespace Weft.Loro.Interop;
 /// <summary>Resuelve el cdylib <c>weft_loro_ffi</c> por RID y verifica su ABI (igual que Weft.Yrs).</summary>
 internal static class NativeLibraryResolver
 {
-    private const uint ExpectedAbiVersion = 1;
+    // ABI v2 (CHARTER-10): + probes de versionado nativo (INativeVersioning, FU-006).
+    private const uint ExpectedAbiVersion = 2;
     private static int _registered;
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
