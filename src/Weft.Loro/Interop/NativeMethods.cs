@@ -42,6 +42,18 @@ internal static partial class NativeMethods
     [LibraryImport(Lib)]
     internal static partial int weft_loro_doc_apply_update(nint doc, ReadOnlySpan<byte> update, nuint updateLen);
 
+    // ── Versionado nativo (INativeVersioning, capacidad opcional — CHARTER-10/FU-006) ──
+    [LibraryImport(Lib)]
+    internal static partial int weft_loro_shallow_snapshot(nint doc, out nint outPtr, out nuint outLen);
+
+    [LibraryImport(Lib)]
+    internal static partial int weft_loro_native_diff_probe(
+        nint doc, ReadOnlySpan<byte> field, nuint fieldLen, out nint outPtr, out nuint outLen);
+
+    [LibraryImport(Lib)]
+    internal static partial int weft_loro_native_branch_merge_probe(
+        nint doc, ReadOnlySpan<byte> field, nuint fieldLen, out nint outPtr, out nuint outLen);
+
     [LibraryImport(Lib)]
     internal static partial void weft_loro_buf_free(nint ptr, nuint len);
 

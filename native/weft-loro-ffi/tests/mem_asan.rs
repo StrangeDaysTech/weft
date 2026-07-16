@@ -174,7 +174,62 @@ fn stress_all_functions_2000_iterations() {
             weft_loro_doc_free(reloaded);
             weft_loro_doc_free(doc);
         }
-        assert_eq!(weft_loro_abi_version(), 1);
+        assert_eq!(weft_loro_abi_version(), 2); // ABI v2: + probes de versionado nativo (CHARTER-10)
+    }
+}
+
+/// Probes nativos (INativeVersioning, FU-006): reachability + sin fugas (ASan) + sin mutar el caller.
+#[test]
+fn native_versioning_probes_reachable_and_nonleaking() {
+    unsafe {
+        let field = b"body";
+        let text = "hola".as_bytes();
+
+        let mut doc: *mut LoroDoc = ptr::null_mut();
+        assert_eq!(weft_loro_doc_new(&mut doc), WEFT_OK);
+        weft_loro_text_insert(doc, field.as_ptr(), field.len(), 0, text.as_ptr(), text.len());
+
+        // Shallow snapshot: no vacío, recargable.
+        let (mut sp, mut sl) = (ptr::null_mut(), 0usize);
+        assert_eq!(weft_loro_shallow_snapshot(doc, &mut sp, &mut sl), WEFT_OK);
+        assert!(sl > 0);
+        let mut reloaded: *mut LoroDoc = ptr::null_mut();
+        assert_eq!(
+            weft_loro_doc_load(sp, sl, &mut reloaded),
+            WEFT_OK,
+            "el shallow snapshot debe ser recargable"
+        );
+        weft_loro_doc_free(reloaded);
+        weft_loro_buf_free(sp, sl);
+
+        // Diff probe: JSON con el campo y el conteo.
+        let (mut dp, mut dl) = (ptr::null_mut(), 0usize);
+        assert_eq!(
+            weft_loro_native_diff_probe(doc, field.as_ptr(), field.len(), &mut dp, &mut dl),
+            WEFT_OK
+        );
+        let diff_json = std::str::from_utf8(std::slice::from_raw_parts(dp, dl)).unwrap();
+        assert!(diff_json.contains("\"containers_changed\""));
+        weft_loro_buf_free(dp, dl);
+
+        // Branch/merge probe: reporta convergencia y NO muta el doc del caller.
+        let (mut bp, mut bl) = (ptr::null_mut(), 0usize);
+        assert_eq!(
+            weft_loro_native_branch_merge_probe(doc, field.as_ptr(), field.len(), &mut bp, &mut bl),
+            WEFT_OK
+        );
+        let branch_json = std::str::from_utf8(std::slice::from_raw_parts(bp, bl)).unwrap();
+        assert!(branch_json.contains("\"converged\":true"), "el merge nativo debe converger");
+        weft_loro_buf_free(bp, bl);
+
+        // El texto del caller sigue intacto (el probe forkea, no muta el original).
+        let (mut rp, mut rl) = (ptr::null_mut(), 0usize);
+        weft_loro_text_read(doc, field.as_ptr(), field.len(), &mut rp, &mut rl);
+        let caller_text = std::str::from_utf8(std::slice::from_raw_parts(rp, rl)).unwrap();
+        assert_eq!(caller_text, "hola", "el probe no debe mutar el doc del caller");
+        weft_loro_buf_free(rp, rl);
+
+        weft_loro_doc_free(doc);
     }
 }
 

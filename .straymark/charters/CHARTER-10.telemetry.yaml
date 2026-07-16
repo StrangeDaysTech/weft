@@ -1,0 +1,92 @@
+# StrayMark Charter telemetry — fill at Charter close.
+#
+# Schema:        .straymark/schemas/charter-telemetry.schema.v0.json
+# Storage path:  .straymark/charters/CHARTER-10.telemetry.yaml
+
+charter_telemetry:
+  # ---------- Identification ----------
+  charter_id: "CHARTER-10"
+  charter_title: "Superficie INativeVersioning de Loro — probes nativos diff/fork/shallow (cierra G1)"
+  closed_at: "2026-07-15"
+
+  # ---------- Origin & activation ----------
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-15-002"
+      still_relevant_at_execution: true
+      relevance_notes: "AILOG de ejecución. El Charter se originó de FU-006 (hallazgo G1 de la auditoría externa CHARTER-02, diferido a post-M0). La reconnaissance de declaración fue precisa y completa (todas las rutas + la API de loro 1.13.6 leídas antes de declarar)."
+
+  trigger:
+    declared_kind: "event_trigger"
+    declared_description: "FU-006 (charter-triggered, G1): materializar la superficie opcional INativeVersioning de Loro. Decisión del operador (2026-07-15) de despacharla tras CHARTER-09."
+    fired_at: "2026-07-15"
+    fire_clarity: "manually_decided"
+    fire_clarity_notes: "El operador eligió despachar FU-006 ahora (siguiente en la secuencia de mini-charters) y autorizó ejecución continua."
+
+  # ---------- Pre-work ----------
+  pre_work:
+    items_declared: 0
+    items_completed_before_planning: 0
+    items_skipped: 0
+    items_discovered_during_planning: 0
+    pre_work_quality: "high"
+    pre_work_notes: "Reconnaissance leyó el shim loro (lib.rs, hand_out_buffer, doc_ref, HandleLease), la ausencia de header, INativeVersioning (3 firmas), LoroEngine/LoroDoc/NativeMethods/resolver, y la API de loro 1.13.6 en el registry (fork/fork_at/diff/export/state_frontiers/ExportMode::shallow_snapshot). Sin paths asumidos; validate --include-charters verde (26 docs)."
+
+  # ---------- Planning session (if any) ----------
+  planning_session:
+    occurred: false
+    duration_minutes: 0
+    participants: 0
+    decisions_made: 0
+    decisions_deferred: 0
+    notes: ""
+
+  # ---------- Effort ----------
+  effort:
+    started_at: "2026-07-15"
+    finished_at: "2026-07-15"
+    estimated_effort: "M (~2h)"
+    actual_effort: "M (~2h)"
+    estimation_drift_factor: 1.0
+    estimation_drift_reason: "Sin sorpresas. Los 3 probes compilaron al primer intento (la reconnaissance de la API de loro fue precisa); el ABI bump + el header + el binding + los tests fueron mecánicos. El único ajuste (esperado) fue el assert de ABI en mem_asan.rs, idéntico al patrón de CHARTER-09."
+
+  # ---------- Agent quality during execution ----------
+  agent_quality:
+    sessions_count: 1
+    hallucinations_caught: 0
+    hallucination_categories: []
+    decisions_contradicting_prior_adrs: 0
+    contradiction_notes: ""
+    context_loaded_was_sufficient: true
+    additional_context_loaded_manually: 0
+    r_n_plus_one_emergent_count: 0
+    skill_prompts_used: ["straymark-charter-new"]
+
+  # ---------- External audit ----------
+  # No aplica: capacidad opcional, no cierra hito → sin auditoría externa.
+  external_audit: []
+
+  # ---------- Outcome & follow-ups ----------
+  outcome:
+    completed_as_planned: true
+    scope_changes: "menor"
+    scope_change_notes: "F1 (drift reconciliado en §Closing notes): +native/weft-loro-ffi/tests/mem_asan.rs (assert ABI 1->2 + test de los 3 probes bajo ASan) — consecuencia mecánica del ABI bump, no declarada al inicio, añadida a §Files to modify. Los 8 entregables se completaron como se planeó; ningún probe fue inexpresable (R1 resuelto)."
+    new_followups_generated: 1
+    new_charters_created: 0
+    charters_invalidated: 0
+    associated_stage_id: "M3"
+
+  # ---------- Qualitative (where insight usually lives) ----------
+  qualitative:
+    format_iteration: "v4"
+    friction_points:
+      - "El shim Loro NO tenía header C (a diferencia de yrs), ni test de paridad header<->binding. Se creó el header en este Charter; el test automatizado de paridad quedó como FU-017 (deuda de simetría entre los dos shims que la reconnaissance destapó)."
+      - "El assert de ABI en mem_asan.rs (== 1) rompe con el bump a 2 — 2a vez del mismo patrón (idéntico a CHARTER-09 en el shim yrs). Consecuencia esperada, resuelta en línea."
+      - "loro expone `ExportMode::shallow_snapshot` desde loro-internal (re-export), no directamente en la raíz — la reconnaissance tuvo que seguir el re-export; sin impacto (se resolvió antes de escribir)."
+    wins:
+      - "Los 3 probes compilaron y pasaron al primer intento (reconnaissance de la API de loro 1.13.6 precisa: fork/diff/export/shallow_snapshot). R1 (API difiere) resuelto sin fricción."
+      - "El branch/merge probe NO muta el doc del caller (forkea DOS veces: branch para editar + target para mergear) — verificado por test .NET y por el test ASan del shim. Evita el anti-patrón de un probe con efecto secundario."
+      - "Alcance honesto: probes DEMOSTRATIVOS, no content-addressing (documentado en docstrings/header/quickstart/AIDEC). Cierra G1 sin prometer determinismo que Loro no da sobre el shallow snapshot."
+      - "JSON armado a mano con json_escape en vez de añadir serde_json al shim — mantiene mínima la superficie de la frontera nativa por una salida trivial (3-4 campos)."
+    overall_satisfaction: 5
+    would_repeat_format: true
+    proposed_format_changes: "Ninguno nuevo. El patrón 'reconnaissance de la API del crate nativo en el registry antes de declarar' probó su valor otra vez (0 sorpresas de API). La deuda de simetría entre shims (header/test de paridad) sugiere un checklist de 'paridad yrs<->loro' al tocar cualquiera de los dos."

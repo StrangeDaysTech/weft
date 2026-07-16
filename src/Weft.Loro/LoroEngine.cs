@@ -20,11 +20,12 @@ public sealed class LoroEngine : ICrdtEngine
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Loro ofrece versionado nativo (diff/branch/shallow-snapshot); esas capacidades se exponen como
-    /// <see cref="INativeVersioning"/> opcional en una iteración posterior. El versionado del núcleo
-    /// (content-addressed, engine-agnóstico) no depende de ellas.
+    /// Loro ofrece versionado nativo (diff/branch/shallow-snapshot); expuesto como
+    /// <see cref="INativeVersioning"/> opcional vía probes demostrativos (CHARTER-10/FU-006). El
+    /// versionado del núcleo (content-addressed, engine-agnóstico) NO depende de estos probes; su salida
+    /// no es determinista y no alimenta <c>VersionId</c>.
     /// </remarks>
-    public INativeVersioning? NativeVersioning => null;
+    public INativeVersioning? NativeVersioning => LoroNativeVersioning.Instance;
 
     /// <inheritdoc/>
     public ICrdtDoc CreateDoc() => LoroDoc.Create();

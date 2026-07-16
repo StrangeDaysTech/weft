@@ -8,7 +8,7 @@
 use std::os::raw::c_uchar;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use loro::{ExportMode, LoroDoc, VersionVector};
+use loro::{ExportMode, Frontiers, LoroDoc, VersionVector};
 
 // ── Códigos de estado (idénticos a weft-yrs-ffi) ──
 pub const WEFT_OK: i32 = 0;
@@ -19,7 +19,7 @@ pub const WEFT_ERR_UTF8: i32 = -4;
 pub const WEFT_ERR_OUT_OF_BOUNDS: i32 = -5;
 pub const WEFT_ERR_PANIC: i32 = -127;
 
-const WEFT_ABI_VERSION: u32 = 1;
+const WEFT_ABI_VERSION: u32 = 2;
 
 fn guard<F: FnOnce() -> i32>(f: F) -> i32 {
     match catch_unwind(AssertUnwindSafe(f)) {
@@ -306,6 +306,140 @@ pub unsafe extern "C" fn weft_loro_doc_apply_update(
             Ok(_) => WEFT_OK,
             Err(_) => WEFT_ERR_DECODE,
         }
+    })
+}
+
+// ── Versionado nativo (INativeVersioning, capacidad opcional — CHARTER-10/FU-006) ──
+//
+// Probes DEMOSTRATIVOS de la capacidad de versionado nativo de Loro (diff/fork/shallow snapshot) que
+// yrs no tiene. NO son content-addressing: su salida NO es byte-determinista entre réplicas (el shallow
+// snapshot y los frontiers llevan metadata de réplica) y NO alimenta VersionId (que usa export_state /
+// all_updates). Exhiben que Loro PUEDE versionar nativamente; el JSON se arma a mano (sin serde).
+
+/// Escapa una cadena para incrustarla como valor JSON (comillas, backslash y controles).
+fn json_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Snapshot **shallow** (GC'd al estado actual) del documento. Bytes opacos, NO deterministas —
+/// probe de la capacidad nativa, no un blob citable. Liberar con `weft_loro_buf_free`.
+///
+/// # Safety
+/// `out_ptr`/`out_len` escribibles no nulos; `doc` válido.
+#[no_mangle]
+pub unsafe extern "C" fn weft_loro_shallow_snapshot(
+    doc: *mut LoroDoc,
+    out_ptr: *mut *mut c_uchar,
+    out_len: *mut usize,
+) -> i32 {
+    guard(|| {
+        let Some(doc) = doc_ref(doc) else {
+            return WEFT_ERR_NULL_ARG;
+        };
+        doc.commit();
+        match doc.export(ExportMode::shallow_snapshot(&doc.state_frontiers())) {
+            Ok(bytes) => hand_out_buffer(bytes, out_ptr, out_len),
+            Err(_) => WEFT_ERR_APPLY,
+        }
+    })
+}
+
+/// Probe del **diff nativo**: describe (JSON) el diff de Loro entre frontiers vacíos y el estado
+/// actual para el campo dado (nº de containers cambiados + longitud del texto). Demostrativo.
+///
+/// # Safety
+/// Punteros válidos por sus longitudes; `doc` válido.
+#[no_mangle]
+pub unsafe extern "C" fn weft_loro_native_diff_probe(
+    doc: *mut LoroDoc,
+    field: *const c_uchar,
+    field_len: usize,
+    out_ptr: *mut *mut c_uchar,
+    out_len: *mut usize,
+) -> i32 {
+    guard(|| {
+        let Some(doc) = doc_ref(doc) else {
+            return WEFT_ERR_NULL_ARG;
+        };
+        let Some(field) = borrow_str(field, field_len) else {
+            return WEFT_ERR_UTF8;
+        };
+        doc.commit();
+        let batch = match doc.diff(&Frontiers::default(), &doc.state_frontiers()) {
+            Ok(b) => b,
+            Err(_) => return WEFT_ERR_APPLY,
+        };
+        let containers_changed = batch.iter().count();
+        let text_len_utf16 = doc.get_text(field).len_utf16();
+        let json = format!(
+            "{{\"field\":\"{}\",\"containers_changed\":{},\"text_len_utf16\":{}}}",
+            json_escape(field),
+            containers_changed,
+            text_len_utf16
+        );
+        hand_out_buffer(json.into_bytes(), out_ptr, out_len)
+    })
+}
+
+/// Probe de **fork/merge nativo**: forkea el doc, edita el fork, y lo mergea (import) en una copia
+/// aparte — SIN mutar el `doc` del caller — reportando (JSON) si el merge convergió. Demostrativo.
+///
+/// # Safety
+/// Punteros válidos por sus longitudes; `doc` válido.
+#[no_mangle]
+pub unsafe extern "C" fn weft_loro_native_branch_merge_probe(
+    doc: *mut LoroDoc,
+    field: *const c_uchar,
+    field_len: usize,
+    out_ptr: *mut *mut c_uchar,
+    out_len: *mut usize,
+) -> i32 {
+    guard(|| {
+        let Some(doc) = doc_ref(doc) else {
+            return WEFT_ERR_NULL_ARG;
+        };
+        let Some(field) = borrow_str(field, field_len) else {
+            return WEFT_ERR_UTF8;
+        };
+        doc.commit();
+
+        // Branch: fork + edición local (marcador ① fuera del texto del caller).
+        const MARK: &str = "\u{2460}";
+        let branch = doc.fork();
+        if branch.get_text(field).insert_utf16(0, MARK).is_err() {
+            return WEFT_ERR_APPLY;
+        }
+        branch.commit();
+
+        // Merge: importar la edición del branch en una copia independiente del doc (no toca al caller).
+        let target = doc.fork();
+        let Ok(update) = branch.export(ExportMode::all_updates()) else {
+            return WEFT_ERR_APPLY;
+        };
+        if target.import(&update).is_err() {
+            return WEFT_ERR_APPLY;
+        }
+        target.commit();
+
+        let converged = target.get_text(field).to_string().contains(MARK);
+        let json = format!(
+            "{{\"field\":\"{}\",\"forked\":true,\"merged\":true,\"converged\":{}}}",
+            json_escape(field),
+            converged
+        );
+        hand_out_buffer(json.into_bytes(), out_ptr, out_len)
     })
 }
 
