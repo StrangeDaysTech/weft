@@ -151,9 +151,9 @@
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T061 [P] Architecture doc `docs/architecture.md` (módulos, frontera FFI, flujo de sync, decisiones→research.md) + doc público del contrato de ownership
-- [ ] T062 Delta-size benchmark in `tests/Weft.Core.Tests/DeltaSizeBenchmark.cs`: medir escenario de referencia y asertar reducción ≥90 % vs estado completo (SC-004; referencia 523 B→29 B)
-- [ ] T063 Full quickstart validation pass (quickstart.md US1–US5 + gates) y actualizar `specs/001-weft-crdt-versioning/checklists/requirements.md` con evidencia de cierre
+- [X] T061 [P] Architecture doc `docs/architecture.md` (módulos, frontera FFI, flujo de sync, decisiones→research.md) + doc público del contrato de ownership — CHARTER-11 (enlazado desde `README.md` §Arquitectura y `docs/api/README.md`; incluye §Límites conocidos con R6)
+- [X] T062 Delta-size benchmark in `tests/Weft.Core.Tests/DeltaSizeBenchmark.cs`: medir escenario de referencia y asertar reducción ≥90 % vs estado completo (SC-004; referencia 523 B→29 B) — CHARTER-11. El escenario de referencia **no existía como definición** (523→29 sale de una celda "Rough perf" de un spike desechable); el benchmark lo define (reconexión: par al día + 1 edición) y aserta el ratio, no los absolutos. **Medido: 479 B → 26 B = 94,6 %** (la referencia histórica era 94,5 %)
+- [X] T063 Full quickstart validation pass (quickstart.md US1–US5 + gates) y actualizar `specs/001-weft-crdt-versioning/checklists/requirements.md` con evidencia de cierre — CHARTER-11. Pase completo con evidencia de 3 estados (ejecutado / CI / no-ejecutado). Destapó **8 gaps de deriva del runbook**, todos corregidos atómicamente; el más grave: el filtro `Category=Concurrency` de US2 no casaba con ningún test → pasaba en verde ejecutando 0 (ahora 9)
 
 ---
 

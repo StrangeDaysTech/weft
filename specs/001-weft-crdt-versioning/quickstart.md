@@ -15,12 +15,17 @@ CI protegen la constitución. No contiene implementación; las rutas siguen la e
 ## Build local
 
 ```bash
-# 1. Shim nativo (yrs) y copia al árbol de runtimes
-cargo build --release --manifest-path native/weft-yrs-ffi/Cargo.toml
-cp native/weft-yrs-ffi/target/release/libweft_yrs_ffi.so \
-   src/Weft.Core/runtimes/linux-x64/native/          # (.dll/.dylib según plataforma)
+# 1. Shims nativos (yrs + loro). `native/` es un workspace cargo: un solo build cubre ambos
+#    y deja los artefactos en native/target/release/ (NO en native/<crate>/target/).
+#    `--features test-hooks` exporta `weft_test_panic`, que la suite de panic-safety (SC-009)
+#    necesita; sin él, PanicSafetyTests falla con EntryPointNotFoundException. Es lo mismo que
+#    hace el CI. El símbolo NUNCA viaja en release: el pipeline de release compila sin la feature
+#    y el gate `pack-smoke` verifica su ausencia en los binarios empaquetados.
+cargo build --release --features test-hooks --manifest-path native/Cargo.toml
 
-# 2. Solución .NET
+# 2. Solución .NET. No hace falta copiar el .so a mano: los .csproj de test lo copian desde
+#    native/target/release/, y el pack lo toma de native/target/<triple>/release/ (ver
+#    build/Weft.Native.targets).
 dotnet build Weft.sln -c Release
 ```
 
@@ -54,9 +59,16 @@ uso tras dispose → `ObjectDisposedException`; nunca corrupción (SC-006).
 
 ```bash
 dotnet test tests/Weft.Server.Tests -c Release        # protocolo + 2 clientes simulados
-# Manual con editor real:
-dotnet run --project samples/Weft.Sample.Server       # relay en :5000 + FileSystemDocumentStore
-cd samples/tiptap-client && npm install && npm run dev # 2 pestañas → mismo doc
+
+# Relay real (:5199 por defecto; override con WEFT_SAMPLE_URLS) + FileSystemDocumentStore:
+dotnet run --project samples/Weft.Sample.Server
+
+# Smoke headless de compat del wire: 2 clientes Yjs reales vía y-websocket contra el relay.
+# Valida convergencia sin navegador — es el check ejecutable en CI/servidor sin display.
+cd samples/tiptap-client && npm install && npm run check
+
+# Manual con editor real (exigido por el criterio de cierre de M2):
+npm run dev                                           # 2 pestañas → mismo doc
 ```
 
 **Esperado** (postcondiciones de [server-api.md](./contracts/server-api.md)): convergencia en
@@ -79,7 +91,7 @@ coincide (si no, excepción clara al cargar); ejemplo mínimo verde al primer in
 ### US5 (P5 · dual-path) — Motor reemplazable
 
 ```bash
-cargo build --release --manifest-path native/weft-loro-ffi/Cargo.toml
+# El shim de Loro ya está construido por el paso 1 de «Build local» (workspace cargo).
 dotnet test tests/Weft.Versioning.Tests -c Release    # theory: YrsEngine Y LoroEngine
 ```
 
@@ -91,16 +103,21 @@ dotnet test tests/Weft.Versioning.Tests -c Release    # theory: YrsEngine Y Loro
 salida no es determinista y no alimenta `VersionId` (que usa `ExportState`); ningún gate depende de ellos.
 `YrsEngine.NativeVersioning == null` permanente (yrs no tiene versionado nativo).
 
-## Gates de CI (constitución — un rojo bloquea merge)
+## Gates de CI (constitución)
+
+Un rojo bloquea merge, **con dos excepciones** que conviene conocer antes de fiarse de la columna:
+`fuzz` bloquea sólo a medias (si los targets no compilan, rojo; si encuentran un crash, sólo
+`::warning`) y el `pack-smoke` real **no corre por PR** — vive en `release.yml`
+(`workflow_dispatch`). Ambas están detalladas en su fila.
 
 | Gate | Job | Comando (esencia) | Principio |
 |---|---|---|---|
 | Build+tests multiplataforma | `test-{linux,win,mac}` | `dotnet test Weft.sln` + `cargo test` | P-VI |
 | Memoria | `asan` (linux, nightly) | `RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target x86_64-unknown-linux-gnu` en ambos shims → 0 fugas/0 double-free | P-II |
-| Determinismo | `determinism` | `dotnet test tests/Weft.Determinism.Tests` cross-RID; job Node compara blobs vs Yjs JS (no-bloqueante al inicio, promovible — research R13) | P-III |
+| Determinismo | `determinism` | `dotnet test tests/Weft.Determinism.Tests` cross-RID. La paridad yrs↔Yjs es **bloqueante** y vive aquí (`Yrs_export_matches_yjs_golden`, contra `tests/determinism-yjs/golden.json`) desde CHARTER-09/FU-012 — la promoción que research R13 anticipaba ya ocurrió. El job Node `determinism-yjs` (`release.yml`, `continue-on-error`) es **informativo**: regenera el hash de Yjs para cazar drift del upstream, no es la aserción de paridad | P-III |
 | Dual-engine | `dual-engine` | suite Versioning con ambos motores | P-IV |
-| Fuzzing | `fuzz` (acotado por tiempo en PR; extendido nightly) | `cargo fuzz run doc_load` / `apply_update`; CsCheck convergencia | P-I/P-II |
-| Empaquetado | `pack-smoke` | matriz: pack + instalar + hello-Weft por RID | P-VI |
+| Fuzzing | `fuzz` (smoke 60 s/target en PR; extendido nightly) — **bloquea a medias** | `cargo fuzz run doc_load` / `apply_update`; CsCheck convergencia. Un fallo de **compilación** de los targets pone el job rojo (deliberado); un **crash encontrado** sólo emite `::warning` — es un `\|\| echo` por paso, **no** `continue-on-error` en el job. Razón: los targets **reproducen R6 hoy** (un input de ~4 B hace que el decoder de yrs reserve sin cota → `handle_alloc_error`, que `catch_unwind` no puede contener). El shim es correcto (contiene panics, sin UB); el fix vive upstream ([y-crdt#639](https://github.com/y-crdt/y-crdt/pull/639), aprobado) y se adopta vía bump (FU-015). Caveat de la ruta directa en `GOVERNANCE.md` §Seguridad (CHARTER-08) | P-I/P-II |
+| Empaquetado | `pack-smoke` — **no corre por PR** | El job `pack-smoke` de `ci.yml` es un **marcador** (sólo hace `echo`): no empaqueta ni valida nada. La matriz real (pack + instalar + hello-Weft por RID, SC-007) vive en `release.yml`, que es `workflow_dispatch` únicamente porque la matriz cross-compile es cara → se valida en el **dry-run del release**, no en cada PR. La verificación de que `weft_test_panic` no está exportado (SC-009) la hace el job **`native`** de ese mismo workflow, con `nm` sobre los cdylibs antes del pack | P-VI |
 
 ## Criterio de cierre por hito
 

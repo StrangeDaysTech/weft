@@ -10,6 +10,12 @@ namespace Weft.Core.Tests;
 /// semántica de dispose. Los casos de serialización/fallo usan un motor de prueba que instrumenta la
 /// concurrencia; los de ciclo de vida usan el motor yrs real.
 /// </summary>
+/// <remarks>
+/// El <c>Category=Concurrency</c> es el que selecciona el comando de US2 en <c>quickstart.md</c>;
+/// sin él ese filtro no casaba con ningún test y el paso del runbook pasaba en verde ejecutando
+/// cero tests (detectado en el pase de validación de T063, CHARTER-11).
+/// </remarks>
+[Trait("Category", "Concurrency")]
 public sealed class DocumentBrokerTests
 {
     // -- Serialización (Acceptance Scenario 1): nunca dos operaciones simultáneas del mismo documento --
