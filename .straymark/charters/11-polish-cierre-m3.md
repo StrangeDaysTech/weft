@@ -58,7 +58,7 @@ El patrón ya cobró su primera pieza **antes de empezar**: el reconocimiento pr
 | `README.md` | Enlace al doc de arquitectura |
 | `docs/api/README.md` | Enlace al doc de arquitectura (relación overview-por-paquete ↔ arquitectura) |
 | `.straymark/follow-ups-backlog.md` | Follow-ups nuevos que el pase destape (triage, no remediación) |
-| `.straymark/07-ai-audit/agent-logs/AILOG-2026-07-16-NNN.md` | New, `risk_level: low` |
+| `.straymark/07-ai-audit/agent-logs/AILOG-2026-07-15-003-charter-11-polish-cierre-m3.md` | New, `risk_level: low` |
 
 ## Verification
 
@@ -146,6 +146,14 @@ Al cerrar este Charter:
 4. **Status frontmatter** `in-progress` → `closed` + `closed_at`. ✔
 5. **Retrospectivo del patrón de Polish** (paso 4 del walkthrough): ver §Retrospectivo. ✔
 6. **No borrar** este archivo.
+
+## Closing notes
+
+- `.straymark/07-ai-audit/agent-logs/AILOG-2026-07-16-NNN.md` → renombrado a
+  `AILOG-2026-07-15-003-charter-11-polish-cierre-m3.md`. La declaración usaba un placeholder con fecha
+  estimada (`2026-07-16`) y sin slug; el Charter se ejecutó entero el 2026-07-15. Corregido
+  atómicamente en el mismo PR. Único drift del Charter: los otros 10 archivos declarados se tocaron
+  tal cual, sin omisiones ni expansión de scope.
 
 ## Retrospectivo (patrón de Polish, paso 4)
 
