@@ -110,6 +110,13 @@ weft/
 └── .github/workflows/          # CI: build multi-RID, tests, ASan, fuzzing, determinismo
 ```
 
+## Arquitectura
+
+[**docs/architecture.md**](docs/architecture.md) explica cómo encaja todo: mapa de módulos, la
+frontera FFI y su **contrato de ownership de memoria**, el flujo de sync, el modelo de versionado
+content-addressed y los límites conocidos. Es la lectura recomendada antes de integrar Weft o de
+tocar el shim. La referencia por paquete está en [docs/api/](docs/api/README.md).
+
 ## Desarrollo
 
 Spec-driven, con [GitHub Spec Kit](https://github.com/github/spec-kit): **Spec → Plan → Tasks → Implement**. El diseño (`/specify`, `/plan`) y las tandas de implementación (`/tasks`, `/implement`) se realizan en Claude Code. Ver el **brief de diseño** en `docs/weft-design-brief.md`.

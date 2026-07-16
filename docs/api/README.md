@@ -5,6 +5,10 @@
 Weft se distribuye como varios paquetes NuGet en capas. Referencia solo los que necesites; las dependencias
 van **hacia el core**, nunca al revés.
 
+> Esta página es la referencia **por paquete**: qué instalar y qué tipos usar. Para cómo encajan entre
+> sí —frontera FFI, contrato de ownership de memoria, flujo de sync, modelo de versionado— ver
+> [**Arquitectura de Weft**](../architecture.md).
+
 | Paquete | Depende de | Para qué |
 |---|---|---|
 | **Weft.Core** | — (trae el motor nativo `yrs`) | Binding seguro + abstracciones + broker de concurrencia |

@@ -1,7 +1,7 @@
 ---
 last_scan: 2026-07-15
 schema_version: v1
-total_open: 4
+total_open: 7
 total_promoted: 0
 total_closed_in_session: 13
 total_phase_blocked: 0
@@ -18,6 +18,7 @@ fully_extracted_ailogs:
   - AILOG-2026-07-14-002
   - AILOG-2026-07-15-001
   - AILOG-2026-07-15-002
+  - AILOG-2026-07-15-003
 ---
 
 # Follow-ups Backlog
@@ -102,6 +103,32 @@ fully_extracted_ailogs:
 - **Cost**: S
 - **Notes**: CHARTER-10 creó `native/weft-loro-ffi/include/weft_loro_ffi.h`, pero ningún test automatizado verifica que las declaraciones `[LibraryImport]` de `Weft.Loro/Interop/NativeMethods.cs` coincidan con él. El shim yrs SÍ lo tiene (`weft_ffi.h` ↔ `Weft.Core`). Replicar ese test para Loro (paridad de firmas / regenerable con csbindgen). Mejora de robustez; ningún gate depende.
 
+### FU-018 — **Comentario obsoleto en `.github/workflows/ci.yml:76-81`** — **dos afirmaciones falsas**, y ya
+- **Origin**: AILOG-2026-07-15-003 §Follow-ups
+- **Source-hash**: 26789333fd7e
+- **Status**: open
+- **Trigger**: TBD
+- **Destination**: TBD
+- **Cost**: TBD
+- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-15.
+
+### FU-019 — **Footgun de pack local contaminado con `test-hooks`**: el pack lee de
+- **Origin**: AILOG-2026-07-15-003 §Follow-ups
+- **Source-hash**: d0e84c351361
+- **Status**: open
+- **Trigger**: TBD
+- **Destination**: TBD
+- **Cost**: TBD
+- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-15.
+
+### FU-020 — **Guards de CI para las sub-clases del anti-patrón** (paso 5 del walkthrough del patrón de Polish). El
+- **Origin**: AILOG-2026-07-15-003 §Follow-ups
+- **Source-hash**: fc2f384b719f
+- **Status**: open
+- **Trigger**: TBD
+- **Destination**: TBD
+- **Cost**: TBD
+- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-15.
 ## Bucket: time-triggered
 
 ## Bucket: charter-triggered
