@@ -34,7 +34,9 @@ dotnet build Weft.sln -c Release
 ### US1 (P1 · M0) — Editar y versionar desde .NET
 
 ```bash
-dotnet test tests/Weft.Core.Tests tests/Weft.Versioning.Tests -c Release
+# `dotnet test` acepta UN proyecto por invocación (dos rutas → MSBUILD MSB1008), así que uno por línea:
+dotnet test tests/Weft.Core.Tests -c Release
+dotnet test tests/Weft.Versioning.Tests -c Release
 dotnet run --project samples/Weft.Sample.Versioning   # escenario ejecutable de la historia
 ```
 

@@ -2,8 +2,11 @@
  * weft_loro_ffi.h — contrato C-ABI del shim `weft-loro-ffi` (Weft, Apache-2.0).
  *
  * Réplica de la ABI de `weft-yrs-ffi` con prefijo `weft_loro_`, mapeada sobre `loro`. Fuente de
- * verdad del contrato de ownership. La ABI es propia y estable: un bump de `loro` cambia lib.rs,
- * jamás este header sin incrementar weft_loro_abi_version().
+ * verdad del contrato de ownership. `HeaderBindingParityTests` valida que las declaraciones
+ * `[LibraryImport]` de Weft.Loro coinciden con este header (paridad sintáctica: conjunto de
+ * funciones, aridad, orden y tipos). Se mantiene A MANO: no hay csbindgen en el repo. La ABI es
+ * propia y estable: un bump de `loro` cambia lib.rs, jamás este header sin incrementar
+ * weft_loro_abi_version().
  *
  * ── Reglas transversales (no negociables) ──────────────────────────────────────────────
  *  1. Panics: cada función envuelve su cuerpo en catch_unwind; un panic retorna
@@ -76,8 +79,18 @@ int32_t weft_loro_native_branch_merge_probe(WeftLoroDoc* doc, const uint8_t* fie
 /* ── Memoria ──────────────────────────────────────────────────────────────────────────── */
 void    weft_loro_buf_free(uint8_t* ptr, size_t len);
 
-/* ── Diagnóstico ──────────────────────────────────────────────────────────────────────── */
+/* ── Diagnóstico ──────────────────────────────────────────────────────────────────────────
+ * Versión de ESTA ABI. Hoy: v2 (v1→v2 añadió los tres probes de versionado nativo, CHARTER-10).
+ * El resolver del binding la verifica al cargar y rechaza un shim con versión distinta. */
 uint32_t weft_loro_abi_version(void);
+
+/* ── Test hooks (SOLO en builds con la feature de Cargo `test-hooks`) ─────────────────────
+ * Provoca un panic interno deliberado para verificar catch_unwind end-to-end (SC-009).
+ * NUNCA presente en binarios de release: el job `native` de release.yml verifica con `nm` que el
+ * símbolo no está exportado en los cdylibs antes de empaquetarlos. */
+#ifdef WEFT_TEST_HOOKS
+int32_t weft_loro_test_panic(void);   /* retorna WEFT_ERR_PANIC si el shim es correcto */
+#endif
 
 #ifdef __cplusplus
 }

@@ -5,7 +5,9 @@ namespace Weft.Yrs;
 /// <summary>
 /// Declaraciones P/Invoke sobre la C-ABI del shim <c>weft-yrs-ffi</c>, generadas por el source
 /// generator <see cref="LibraryImportAttribute"/> (marshalling en compilación, sin stubs IL).
-/// Deben coincidir con <c>native/weft-yrs-ffi/include/weft_ffi.h</c> (un test de CI lo valida).
+/// Deben coincidir con <c>native/weft-yrs-ffi/include/weft_ffi.h</c>, que es la fuente de verdad del
+/// contrato; <c>HeaderBindingParityTests</c> lo valida (paridad sintáctica: conjunto de funciones,
+/// aridad, orden y tipos — no la semántica ni el ownership, que cubren ASan y los round-trips).
 /// </summary>
 /// <remarks>
 /// Convenciones de marshalling: bytes de ENTRADA como <see cref="ReadOnlySpan{Byte}"/> (pin

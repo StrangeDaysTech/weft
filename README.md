@@ -85,27 +85,27 @@ Recorrido end-to-end (editar → publicar → servir → cliente Tiptap) en
 - **Cliente de editor recomendado:** [Tiptap](https://tiptap.dev) (sobre ProseMirror) + `y-prosemirror`, conectado al servidor relay de Weft.
 - **Dual-path:** [Loro](https://github.com/loro-dev/loro) queda como alternativa viva tras la abstracción; cambiar de motor = cambiar el adaptador, no la capa de versionado.
 
-## Estructura del repo (propuesta)
+## Estructura del repo
 
 ```
 weft/
 ├── LICENSE                     # Apache-2.0
 ├── README.md
-├── NOTICE
-├── .gitignore
-├── native/
-│   └── weft-ffi/               # crate Rust cdylib: shim C-ABI sobre yrs (+ contrato de ownership)
-│       ├── Cargo.toml          # yrs pinneado (=X.Y.Z)
-│       ├── src/lib.rs
-│       ├── include/weft_ffi.h  # header C (contrato)
-│       └── tests/mem_asan.rs   # harness de memoria (ASan/LSan)
+├── native/                     # workspace cargo (un solo build cubre ambos shims)
+│   ├── weft-yrs-ffi/           # cdylib: shim C-ABI sobre yrs (motor por defecto)
+│   │   ├── src/lib.rs          # Cargo.toml pinnea yrs = "=X.Y.Z"
+│   │   ├── include/weft_ffi.h  # header C (contrato de ownership; fuente de verdad)
+│   │   └── tests/mem_asan.rs   # harness de memoria (ASan/LSan)
+│   └── weft-loro-ffi/          # cdylib: shim C-ABI sobre Loro (dual-path)
 ├── src/
-│   ├── Weft.Core/              # ICrdtEngine/ICrdtDoc, P/Invoke [LibraryImport], SafeHandle
+│   ├── Weft.Core/              # ICrdtEngine/ICrdtDoc, P/Invoke [LibraryImport], SafeHandle, broker
 │   ├── Weft.Versioning/        # publish/diff/branch/merge/compact (content-addressed)
 │   ├── Weft.Server/            # relay WebSocket, awareness, persistencia
+│   ├── Weft.Server.Persistence.EFCore/   # adaptador IDocumentStore sobre EF Core
+│   ├── Weft.Server.Persistence.Redis/    # adaptador IDocumentStore sobre Redis/Valkey
 │   └── Weft.Loro/              # adaptador opcional (INativeVersioning) — dual-path
 ├── tests/
-├── docs/                       # briefs, ICrdtEngine, decisiones
+├── docs/                       # architecture.md, api/, spikes/
 ├── .specify/                   # GitHub Spec Kit (spec/plan/tasks)
 └── .github/workflows/          # CI: build multi-RID, tests, ASan, fuzzing, determinismo
 ```
@@ -119,7 +119,7 @@ tocar el shim. La referencia por paquete está en [docs/api/](docs/api/README.md
 
 ## Desarrollo
 
-Spec-driven, con [GitHub Spec Kit](https://github.com/github/spec-kit): **Spec → Plan → Tasks → Implement**. El diseño (`/specify`, `/plan`) y las tandas de implementación (`/tasks`, `/implement`) se realizan en Claude Code. Ver el **brief de diseño** en `docs/weft-design-brief.md`.
+Spec-driven, con [GitHub Spec Kit](https://github.com/github/spec-kit): **Spec → Plan → Tasks → Implement**. El diseño (`/specify`, `/plan`) y las tandas de implementación (`/tasks`, `/implement`) se realizan en Claude Code. Ver el **brief de diseño** en `weft-design-brief.md`.
 
 Toolchain: Rust (con `yrs` pinneado) · .NET SDK 10 (LTS) · empaquetado nativo por RID (Linux/Windows/macOS, x64/arm64).
 
