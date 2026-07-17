@@ -1,10 +1,12 @@
 /*
  * weft_ffi.h — contrato C-ABI del shim `weft-yrs-ffi` (Weft, Apache-2.0).
  *
- * Fuente de verdad del contrato de ownership. Un test de CI valida que las declaraciones
- * `[LibraryImport]` de Weft.Core coinciden con este header (regenerables con csbindgen como
- * verificación cruzada, research R1). La ABI es propia y estable: un bump de `yrs` cambia
- * lib.rs, jamás este header sin incrementar weft_abi_version().
+ * Fuente de verdad del contrato de ownership. `HeaderBindingParityTests` valida que las
+ * declaraciones `[LibraryImport]` de Weft.Core coinciden con este header (paridad sintáctica:
+ * conjunto de funciones, aridad, orden y tipos). Este header se mantiene A MANO: no hay csbindgen
+ * en el repo — la mención en research R1 era una verificación cruzada opcional que nunca se
+ * implementó. La ABI es propia y estable: un bump de `yrs` cambia lib.rs, jamás este header sin
+ * incrementar weft_abi_version().
  *
  * ── Reglas transversales (no negociables) ──────────────────────────────────────────────
  *  1. Panics: cada función envuelve su cuerpo en catch_unwind; un panic retorna
@@ -76,7 +78,8 @@ uint32_t weft_abi_version(void);
 
 /* ── Test hooks (SOLO en builds con la feature de Cargo `test-hooks`) ─────────────────────
  * Provoca un panic interno deliberado para verificar catch_unwind end-to-end (SC-009).
- * NUNCA presente en binarios de release; pack-smoke (US4) verifica la ausencia del símbolo. */
+ * NUNCA presente en binarios de release: el job `native` de release.yml verifica con `nm` que el
+ * símbolo no está exportado en los cdylibs antes de empaquetarlos. */
 #ifdef WEFT_TEST_HOOKS
 int32_t weft_test_panic(void);   /* retorna WEFT_ERR_PANIC si el shim es correcto */
 #endif

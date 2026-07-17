@@ -29,6 +29,13 @@ dotnet build Weft.sln -c Release
 dotnet test  Weft.sln -c Release        # el test de Redis se salta sin WEFT_TEST_REDIS (Valkey/Redis local)
 ```
 
+> **No empaquetes (`dotnet pack`) desde un árbol compilado con `--features test-hooks`.** El pack lee
+> el cdylib de `native/target/<triple>/release/`; si lo construiste con la feature (p. ej. tras
+> `cargo build --release --target <triple> --features test-hooks`), el `.nupkg` incluiría el símbolo
+> `weft_test_panic`/`weft_loro_test_panic`. El gate SC-009 que verifica su ausencia solo corre en el
+> pipeline de `release.yml`, **no** en un pack local. Para publicar, compila el nativo **sin** la
+> feature (FU-019).
+
 ## Gates (constitución)
 
 La constitución del proyecto (`.specify/memory/constitution.md`) fija 6 principios **vinculantes**, cada uno
@@ -38,7 +45,7 @@ con su gate de CI. Un PR no se mergea sin ellos en verde:
 |---|---|
 | **P-I** FFI segura | ningún panic cruza la frontera C (`catch_unwind` en cada entrada) |
 | **P-II** Memoria verificada | ASan/LSan sobre los tests Rust de ambos shims — 0 fugas / 0 double-free |
-| **P-III** Determinismo | encoding reproducible cross-RID (+ cross-impl vs Yjs, no-bloqueante) |
+| **P-III** Determinismo | encoding reproducible cross-RID + paridad byte-idéntica cross-impl vs Yjs (**bloqueante** desde CHARTER-09) |
 | **P-IV** Motor reemplazable | la suite de versionado corre idéntica sobre `yrs` **y** Loro (dual-engine) |
 | **P-V** Concurrencia por doc | acceso a `ICrdtDoc` serializado; el broker usa actor/canal single-reader |
 | **P-VI** Portabilidad por RID | *pack-smoke* del paquete en cada RID soportado — "soportado" = ejercitado |
@@ -66,7 +73,7 @@ Las versiones de los motores están **pinneadas exactas** (`yrs = "=0.27.2"`, `l
 
 Spec-driven con [GitHub Spec Kit](https://github.com/github/spec-kit) (spec → plan → tasks → implement) y
 gobernanza documental con [StrayMark](https://github.com/StrangeDaysTech/straymark) (Charters + AILOG/AIDEC).
-Ver [`GOVERNANCE.md`](./GOVERNANCE.md). Las decisiones ✅ CERRADO del brief (`docs/weft-design-brief.md`) no se
+Ver [`GOVERNANCE.md`](./GOVERNANCE.md). Las decisiones ✅ CERRADO del brief (`weft-design-brief.md`) no se
 re-litigan.
 
 ## Reportar bugs / proponer cambios

@@ -88,25 +88,53 @@ jobs:
           # Quedarnos solo con el cdylib (descartar .d/.rlib/.pdb/.lib/.exp).
           find out -type f ! -name '*.so' ! -name '*.dll' ! -name '*.dylib' -delete
           ls -la out
-      - name: Verify weft_test_panic NOT exported (SC-009)
+      # SC-009: los test-hooks NUNCA viajan en release. Dos correcciones de CHARTER-12:
+      #  (a) el patrón era `weft_test_panic`, que NO casa con `weft_loro_test_panic` (no es
+      #      substring) → el shim de Loro quedaba fuera del gate. Ahora se buscan ambos.
+      #  (b) el gate pasaba en verde si la herramienta faltaba: `nm ... 2>/dev/null | grep -q` no
+      #      distingue «no está el símbolo» de «no está nm». Un gate que no sabe fallar es la
+      #      verificación fantasma que este Charter cierra, y estaba dentro del propio gate.
+      #      Ahora: la herramienta debe existir, y debe demostrar que ve un símbolo de control que
+      #      SÍ está en el binario (weft_abi_version) antes de creerle una ausencia.
+      - name: Verify test hooks NOT exported (SC-009)
         working-directory: native
         shell: bash
         run: |
           set -euo pipefail
+
+          symbols() {   # $1 = archivo → lista de símbolos, o falla si no hay herramienta
+            case "$1" in
+              *.so|*.dylib) nm -D "$1" 2>/dev/null || nm "$1" ;;
+              *.dll)        strings "$1" ;;
+            esac
+          }
+
+          case "$RUNNER_OS" in
+            Windows) command -v strings >/dev/null || { echo "::error::falta 'strings': el gate SC-009 no puede verificar nada"; exit 1; } ;;
+            *)       command -v nm      >/dev/null || { echo "::error::falta 'nm': el gate SC-009 no puede verificar nada"; exit 1; } ;;
+          esac
+
           fail=0
           for f in out/*; do
-            case "$f" in
-              *.so|*.dylib)
-                if nm -D "$f" 2>/dev/null | grep -q weft_test_panic \
-                   || nm "$f" 2>/dev/null | grep -q weft_test_panic; then
-                  echo "✗ $f exporta weft_test_panic (test-hooks filtrado en release)"; fail=1
-                else echo "✓ $f sin weft_test_panic"; fi ;;
-              *.dll)
-                # En Windows/bash usamos strings como verificación débil (test-hooks no compilado en release).
-                if strings "$f" 2>/dev/null | grep -q weft_test_panic; then
-                  echo "✗ $f contiene weft_test_panic"; fail=1
-                else echo "✓ $f sin weft_test_panic"; fi ;;
-            esac
+            [ -f "$f" ] || continue
+            syms="$(symbols "$f")"
+
+            # Control positivo: si no vemos un símbolo que SÍ está, la ausencia de otro no prueba
+            # nada. Se busca `abi_version` (substring de weft_abi_version Y weft_loro_abi_version):
+            # buscar `weft_abi_version` fallaría en el cdylib de Loro por el mismo motivo de
+            # substring que dejaba fuera a `weft_loro_test_panic`.
+            if ! printf '%s' "$syms" | grep -q abi_version; then
+              echo "::error::$f — la herramienta no encuentra ni *abi_version: el gate está ciego, no limpio"
+              fail=1; continue
+            fi
+
+            found=0
+            for hook in weft_test_panic weft_loro_test_panic; do
+              if printf '%s' "$syms" | grep -q "$hook"; then
+                echo "✗ $f expone $hook (test-hooks filtrado en release)"; found=1; fail=1
+              fi
+            done
+            [ "$found" -eq 0 ] && echo "✓ $f sin test hooks (control positivo: weft_abi_version visible)"
           done
           exit $fail
       - name: Upload native artifacts

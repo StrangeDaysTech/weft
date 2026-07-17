@@ -38,7 +38,8 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       # El shim se compila CON test-hooks para la suite de panic-safety (SC-009); el binario de
-      # release empaquetado (US4) se compila SIN la feature — pack-smoke verifica la ausencia.
+      # release empaquetado (US4) se compila SIN la feature — el job `native` de release.yml
+      # verifica con `nm` que los símbolos de test no están exportados en los cdylibs.
       - name: Build shim (test-hooks)
         working-directory: native
         run: cargo build --release --features test-hooks
@@ -62,7 +63,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
-      # Matriz de sanitizers sobre AMBOS shims (T035): sin -p corre todo el workspace nativo.
+      # AddressSanitizer + LeakSanitizer sobre AMBOS shims (T035): sin -p corre todo el workspace.
       - name: cargo test bajo AddressSanitizer + LeakSanitizer (yrs + loro)
         working-directory: native
         env:
@@ -73,15 +74,16 @@ jobs:
           --target x86_64-unknown-linux-gnu
 
   # ── Fuzzing de la frontera FFI (research R14): smoke de 60 s por target en cada PR ─────────
-  # INFORMATIVO en M0 (continue-on-error): el fuzz destapó un DoS por amplificación de memoria en el
-  # decoder de yrs (upstream) — un update malformado de pocos bytes declara una longitud gigante y
-  # yrs hace `with_capacity(N)` sin cota; en un entorno con memoria limitada la asignación falla y
-  # Rust aborta (`handle_alloc_error`, NO capturable por catch_unwind). El shim FFI es correcto
-  # (contiene panics, sin UB). La mitigación real (validar el update / límite de recursos) llega en
-  # M2, donde entra input de red no confiable — ver AILOG-2026-07-10-001 §R6 y el follow-up. El job
-  # sigue corriendo y reportando en los logs, sin bloquear el cierre de M0.
+  # El job BLOQUEA A MEDIAS, y es deliberado: un fallo de COMPILACIÓN de los targets (o de instalar
+  # cargo-fuzz) pone el job rojo; un CRASH ENCONTRADO solo emite `::warning` (los `|| echo` de los
+  # steps `fuzz run`). NO hay `continue-on-error` en el job. La razón del trato informativo del
+  # crash es R6: el decoder de yrs amplifica memoria sobre un update malformado de pocos bytes
+  # (`with_capacity(N)` sin cota → `handle_alloc_error`, que catch_unwind no puede contener). El shim
+  # es correcto (contiene panics, sin UB); el fallo está aguas abajo, en yrs. La mitigación llegó en
+  # CHARTER-08 (PR upstream y-crdt#639 + caveat en GOVERNANCE.md §Seguridad); lo que resta es
+  # adoptar el fix vía bump (FU-015). Ver AILOG-2026-07-10-001 §R6.
   fuzz:
-    name: fuzz (smoke, informativo)
+    name: fuzz (smoke; crash informativo)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -105,33 +107,35 @@ jobs:
       # El objetivo del smoke es que ningún input adversarial cause panic-through / UB / crash en
       # NUESTRO shim (research R14). Dos características del decoder de yrs sobre input malformado
       # obligan a configurar el harness para que mida eso y no artefactos de yrs (ver AILOG §R6):
-      #  1. `-s none` (sin ASan): yrs hace `with_capacity(N)` según una longitud declarada sin cota;
-      #     glibc reserva esa memoria VIRTUAL (nunca se llena → RSS real ~150 MB) y yrs falla el
-      #     decode → WEFT_ERR_DECODE. El allocator de ASan, en cambio, aborta reservas gigantes.
-      #     La memory-safety la cubre el job `asan` sobre la suite determinista.
+      #  1. `-s none` (sin ASan): en las rutas de yrs que aún usan `with_capacity(N)` según una
+      #     longitud declarada sin cota (el residual es id_set/state_vector vía export_since;
+      #     Update::decode ya usa try_reserve en 0.27.2), glibc reserva esa memoria VIRTUAL (nunca se
+      #     llena → RSS real ~150 MB) y yrs falla el decode → WEFT_ERR_DECODE. El allocator de ASan,
+      #     en cambio, aborta reservas gigantes. La memory-safety la cubre el job `asan`.
       #  2. Hook de panic silenciado en el harness (fuzz_targets/*.rs): yrs usa `assert!` en algunos
       #     updates malformados; el shim los contiene con `catch_unwind` → WEFT_ERR_PANIC (verificado
       #     en tests). libfuzzer-sys aborta en su panic hook antes de que catch_unwind actúe, así que
       #     el harness lo silencia para ejercitar el mismo camino que producción. Un SIGSEGV/UB real
       #     no pasa por el hook y sigue detectándose.
-      # La resistencia a amplificación con input no confiable se endurece en la capa de servidor
-      # (M2, límites de tamaño de mensaje + recursos del proceso).
-      # Informativo (R6): un crash del fuzz sobre la amplificación de memoria del decoder de yrs no
-      # bloquea M0. El comando captura ese crash y emite una ANOTACIÓN de warning visible en el PR;
-      # el step sale con éxito (check verde, no rojo). Un fallo de infraestructura (compilación de
-      # los targets, instalación) rompe el job en los steps anteriores. La mitigación real va en M2.
+      # La resistencia a amplificación con input de red no confiable ya está en la capa de servidor
+      # (FU-002 cerrado: cap de tamaño de mensaje + límites de recursos por conexión, ver
+      # WeftServerOptions). Para la RUTA DIRECTA del FFI, el caveat está en GOVERNANCE.md §Seguridad.
+      # Crash informativo (R6): un crash del fuzz sobre la amplificación del decoder de yrs no rompe
+      # el job. El `|| echo` captura ese crash y emite una ANOTACIÓN de warning visible en el PR; el
+      # step sale con éxito (check verde). Un fallo de infraestructura (compilar los targets,
+      # instalar cargo-fuzz) rompe el job en los steps anteriores, que NO llevan `|| echo`.
       - name: Fuzz weft_doc_load (60 s)
         working-directory: native/weft-yrs-ffi
         run: >-
           cargo +nightly fuzz run -s none doc_load --
           -max_total_time=60 -rss_limit_mb=0 -max_len=8192
-          || echo "::warning title=fuzz informativo (R6)::doc_load halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
+          || echo "::warning title=fuzz informativo (R6)::doc_load halló un crash por amplificación de memoria del decoder de yrs — no rompe el job; fix upstream y-crdt#639, adopción vía FU-015"
       - name: Fuzz weft_doc_apply_update (60 s)
         working-directory: native/weft-yrs-ffi
         run: >-
           cargo +nightly fuzz run -s none apply_update --
           -max_total_time=60 -rss_limit_mb=0 -max_len=8192
-          || echo "::warning title=fuzz informativo (R6)::apply_update halló un crash por amplificación de memoria del decoder de yrs — no bloquea M0; mitigación en M2 (ver AILOG R6)"
+          || echo "::warning title=fuzz informativo::apply_update halló un crash — no rompe el job. Nota: Update::decode ya usa try_reserve en yrs 0.27.2, así que un crash aquí probablemente NO sea amplificación R6; revisar el artefacto"
       # Regresión R6 (CHARTER-08): ruta RESIDUAL state_vector::decode vía weft_doc_export_since — el
       # único sitio de yrs que aún usa with_capacity sin acotar (id_set/state_vector; Update::decode ya
       # usa try_reserve). Informativo hasta adoptar el fix upstream (FU-015); prueba el fix al bumpear.
@@ -147,15 +151,14 @@ jobs:
         run: >-
           cargo +nightly fuzz run -s none loro_doc_load --
           -max_total_time=60 -rss_limit_mb=0 -max_len=8192
-          || echo "::warning title=fuzz informativo (loro)::loro_doc_load halló un crash — no bloquea M0 (ver AILOG)"
+          || echo "::warning title=fuzz informativo (loro)::loro_doc_load halló un crash — no rompe el job (ver AILOG)"
       - name: Fuzz loro_apply_update (60 s)
         working-directory: native/weft-loro-ffi
         run: >-
           cargo +nightly fuzz run -s none loro_apply_update --
           -max_total_time=60 -rss_limit_mb=0 -max_len=8192
-          || echo "::warning title=fuzz informativo (loro)::loro_apply_update halló un crash — no bloquea M0 (ver AILOG)"
+          || echo "::warning title=fuzz informativo (loro)::loro_apply_update halló un crash — no rompe el job (ver AILOG)"
 
-  # ── Gates que se activan en fases posteriores (jobs nombrados, T004) ──────────────────────
   # ── Gate P-III: determinismo del encoding (bloqueante desde US1) ──────────────────────────
   determinism:
     name: determinism
@@ -175,7 +178,10 @@ jobs:
         run: cargo build --release --features test-hooks
       - name: Determinism gate
         run: dotnet test tests/Weft.Determinism.Tests/ --configuration Release
-      # El cross-implementación vs Yjs JS (mismo hash en todos los RIDs) se añade en US4 (T058).
+      # La paridad cross-implementación yrs↔Yjs es BLOQUEANTE y vive AQUÍ, en Weft.Determinism.Tests
+      # (`Yrs_export_matches_yjs_golden` contra tests/determinism-yjs/golden.json) — se promovió en
+      # CHARTER-09/FU-012. El job Node `determinism-yjs` de release.yml es solo informativo (regenera
+      # el hash de Yjs para cazar drift del upstream), no la aserción de paridad.
 
   # ── Gate P-IV: suite de versionado sobre yrs Y Loro (bloqueante desde US5, SC-008) ────────
   dual-engine:
@@ -231,10 +237,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # El pack-smoke multi-RID real (SC-007/P-VI) + la verificación de ausencia de weft_test_panic
-      # (SC-009) viven en `release.yml` (CHARTER-07/T057): la matriz cross-compile es cara, así que
-      # corre por `workflow_dispatch` (dry-run), NO en cada PR. Este job por-PR queda como marcador.
+      # El pack-smoke multi-RID real (SC-007/P-VI) + la verificación de ausencia de los símbolos de
+      # test (SC-009) viven en `release.yml` (CHARTER-07/T057): la matriz cross-compile es cara, así
+      # que corre por `workflow_dispatch` (dry-run), NO en cada PR. Este job por-PR queda como
+      # marcador — y así se documenta con honestidad, en vez de fingir que valida el empaquetado.
       - run: echo "pack-smoke multi-RID vive en release.yml (workflow_dispatch, dry_run) — CHARTER-07 T057."
+
+  # ── Guard contra «verificaciones fantasma» de la clase filtro-de-test (FU-020, CHARTER-12) ────
+  # BLOQUEANTE. Un `dotnet test --filter X` que no casa con ningún test pasa en verde ejecutando
+  # cero — su síntoma es idéntico al del éxito. Este guard exige que cada filtro documentado/en CI
+  # case con ≥1 test. Solo necesita .NET (usa --list-tests, no ejecuta la suite); ~1 min.
+  test-filters:
+    name: test-filters (guard fantasma)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - name: Cada --filter documentado casa con ≥1 test
+        run: bash .github/scripts/check-test-filters.sh
 
   # ── Gate M1 (P-V, SC-006): prueba de carga de concurrencia ────────────────────────────────
   # Nightly (schedule) + manual (workflow_dispatch): NO corre en PR (no lo bloquea), pero es

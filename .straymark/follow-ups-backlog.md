@@ -1,9 +1,9 @@
 ---
 last_scan: 2026-07-15
 schema_version: v1
-total_open: 7
+total_open: 3
 total_promoted: 0
-total_closed_in_session: 13
+total_closed_in_session: 17
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -97,38 +97,38 @@ fully_extracted_ailogs:
 ### FU-017 — test de paridad header↔binding para el shim Loro
 - **Origin**: AILOG-2026-07-15-002 §Follow-ups · CHARTER-10 (se creó el header, sin test de paridad)
 - **Source-hash**: be38c88a4e9c
-- **Status**: open
+- **Status**: closed
 - **Trigger**: ready
 - **Destination**: chore
 - **Cost**: S
-- **Notes**: CHARTER-10 creó `native/weft-loro-ffi/include/weft_loro_ffi.h`, pero ningún test automatizado verifica que las declaraciones `[LibraryImport]` de `Weft.Loro/Interop/NativeMethods.cs` coincidan con él. El shim yrs SÍ lo tiene (`weft_ffi.h` ↔ `Weft.Core`). Replicar ese test para Loro (paridad de firmas / regenerable con csbindgen). Mejora de robustez; ningún gate depende.
+- **Notes**: CHARTER-10 creó `native/weft-loro-ffi/include/weft_loro_ffi.h`, pero ningún test automatizado verifica que las declaraciones `[LibraryImport]` de `Weft.Loro/Interop/NativeMethods.cs` coincidan con él. El shim yrs SÍ lo tiene (`weft_ffi.h` ↔ `Weft.Core`). Replicar ese test para Loro (paridad de firmas / regenerable con csbindgen). Mejora de robustez; ningún gate depende. **CERRADO 2026-07-16 (CHARTER-12, AILOG-2026-07-16-001)**: la premisa era FALSA — el test de yrs **no existía** (dos comentarios lo afirmaban sin implementación). `HeaderBindingParityTests` se creó por primera vez, para AMBOS shims, probado contra mutaciones reales del header; los dos comentarios que mentían quedaron corregidos.
 
 ### FU-018 — **Comentario obsoleto en `.github/workflows/ci.yml:76-81`** — **dos afirmaciones falsas**, y ya
 - **Origin**: AILOG-2026-07-15-003 §Follow-ups
 - **Source-hash**: 26789333fd7e
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-15.
+- **Status**: closed
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: M
+- **Notes**: Comentarios falsos/obsoletos en workflows y docs. **CERRADO 2026-07-16 (CHARTER-12, AILOG-2026-07-16-001)**: ~10 corregidos —cabecera del job `fuzz` (falso `continue-on-error` + obsoleto «M2»), warnings de steps, `with_capacity` genérico, «matriz de sanitizers», nombre del job, «gates posteriores», cross-impl «se añade en US4», `CONTRIBUTING.md:41` paridad Yjs «no-bloqueante», `README.md` (`NOTICE`/`native/weft-ffi/`/ruta del brief)— todos anclados a HEAD + pase adversarial (R4 no se materializó).
 
 ### FU-019 — **Footgun de pack local contaminado con `test-hooks`**: el pack lee de
 - **Origin**: AILOG-2026-07-15-003 §Follow-ups
 - **Source-hash**: d0e84c351361
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-15.
+- **Status**: closed
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: S
+- **Notes**: El pack lee de `native/target/<triple>/release/`; compilar con `--features test-hooks` y empaquetar en local metería el símbolo de test en el `.nupkg` (el gate SC-009 solo corre en `release.yml`). **CERRADO 2026-07-16 (CHARTER-12, AILOG-2026-07-16-001)**: documentado como aviso en `CONTRIBUTING.md` (§Construir y probar). Severidad baja; el gate de release es la red de seguridad real.
 
 ### FU-020 — **Guards de CI para las sub-clases del anti-patrón** (paso 5 del walkthrough del patrón de Polish). El
 - **Origin**: AILOG-2026-07-15-003 §Follow-ups
 - **Source-hash**: fc2f384b719f
-- **Status**: open
-- **Trigger**: TBD
-- **Destination**: TBD
-- **Cost**: TBD
-- **Notes**: Auto-appended by `straymark followups drift --apply` 2026-07-15.
+- **Status**: closed
+- **Trigger**: ready
+- **Destination**: chore
+- **Cost**: M
+- **Notes**: Guard mecánico contra «verificaciones fantasma». **CERRADO 2026-07-16 (CHARTER-12, AILOG-2026-07-16-001)**: `.github/scripts/check-test-filters.sh` + job bloqueante `test-filters`, para la sub-clase que este repo sí sufre (filtros de test que no casan → verde con 0 tests). Cubre el fantasma vivo `FullyQualifiedName~RedisDocumentStoreContractTests`. Probado: pasa con los 2 filtros reales, falla con uno inyectado. Las otras sub-clases del patrón (env-vars, instrumentos, rutas HTML) no aplican a Weft.
 ## Bucket: time-triggered
 
 ## Bucket: charter-triggered
