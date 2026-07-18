@@ -90,6 +90,28 @@ public sealed class DocumentSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Aplica un update y DEVUELVE su delta en el mismo turno del actor. Pensado para el relay con
+    /// persist-before-broadcast (FU-010): el delta se captura como valor de retorno —race-free frente a
+    /// varias conexiones concurrentes del mismo documento— para difundirlo tras persistir, en vez de
+    /// depender del evento <see cref="UpdateApplied"/> (que se dispara dentro del turno, antes de
+    /// persistir). El delta es vacío si el update no aportó cambios nuevos (idempotente).
+    /// </summary>
+    public ValueTask<byte[]> ApplyAndCaptureDeltaAsync(ReadOnlyMemory<byte> update, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        byte[] u = update.ToArray(); // copia defensiva (ver ExportUpdateSinceAsync)
+        return _actor.EnqueueAsync(
+            doc =>
+            {
+                byte[] before = doc.ExportStateVector();
+                doc.ApplyUpdate(u);
+                return doc.ExportUpdateSince(before);
+            },
+            mutating: true,
+            ct);
+    }
+
+    /// <summary>
     /// Ejecuta un delegado como turno atómico respecto a las demás operaciones del mismo documento
     /// (transacción lógica). El <see cref="ICrdtDoc"/> recibido NO debe capturarse ni usarse fuera del
     /// delegado: solo es válido durante la ejecución del turno.

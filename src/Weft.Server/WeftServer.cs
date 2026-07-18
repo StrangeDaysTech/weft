@@ -99,7 +99,7 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
             if (!_hubs.TryGetValue(docId, out DocumentHub? hub))
             {
                 DocumentSession session = await _broker.OpenAsync(docId, LoadDocStateAsync, ct).ConfigureAwait(false);
-                hub = new DocumentHub(docId, session, _store);
+                hub = new DocumentHub(docId, session, _store, _options.Durability);
                 _hubs[docId] = hub;
             }
 

@@ -30,4 +30,32 @@ public sealed class WeftServerOptions
     /// límite); el cliente reconecta y re-sincroniza. Por defecto 256 mensajes.
     /// </summary>
     public int MaxSendQueuePerConnection { get; set; } = 256;
+
+    /// <summary>
+    /// Orden entre persistir un update y difundirlo a los pares (FU-010). Por defecto
+    /// <see cref="DurabilityMode.PersistThenBroadcast"/>: ningún par observa un update que el store no haya
+    /// aceptado. Ver <see cref="DurabilityMode"/> para el trade-off con la latencia de broadcast.
+    /// </summary>
+    public DurabilityMode Durability { get; set; } = DurabilityMode.PersistThenBroadcast;
+}
+
+/// <summary>Orden entre persistir un update en el <see cref="Persistence.IDocumentStore"/> y difundirlo (FU-010).</summary>
+public enum DurabilityMode
+{
+    /// <summary>
+    /// Persistir ANTES de difundir (default). Garantiza que ningún par observa estado que el servidor no haya
+    /// aceptado de forma durable. Un fallo del append cierra las conexiones del documento (1011): reconectan y el
+    /// servidor autoritativo reenvía el estado. El coste es que el broadcast se retrasa la latencia del append (que
+    /// el emisor ya paga hoy en el receive loop). Nota: y-protocols no tiene ack de aplicación para <c>Update</c>,
+    /// así que el emisor nunca sabe si su update se persistió — la garantía es sobre lo que OBSERVAN los pares.
+    /// </summary>
+    PersistThenBroadcast,
+
+    /// <summary>
+    /// Difundir ANTES de persistir (comportamiento heredado, CHARTER-05). Menor latencia de broadcast a costa de
+    /// una ventana en la que los pares tienen un update que el store aún no aceptó; en single-node la auto-sanación
+    /// CRDT lo recupera en la reconexión. Válvula de escape para deployments sensibles a la latencia sobre un store
+    /// rápido o en memoria.
+    /// </summary>
+    BroadcastThenPersist,
 }

@@ -47,7 +47,11 @@ public sealed class RelayTests
         }
     }
 
-    private static async Task<IHost> BuildHostAsync(WeftAccess access, IDocumentStore store, IBlobStore? blobs = null)
+    private static async Task<IHost> BuildHostAsync(
+        WeftAccess access,
+        IDocumentStore store,
+        IBlobStore? blobs = null,
+        DurabilityMode durability = DurabilityMode.PersistThenBroadcast)
     {
         IHostBuilder builder = new HostBuilder().ConfigureWebHost(web =>
         {
@@ -56,7 +60,10 @@ public sealed class RelayTests
             {
                 services.AddRouting();
                 services.AddWeftServer(o =>
-                    o.Broker = new DocumentBrokerOptions { IdleSweepInterval = TimeSpan.FromMilliseconds(50) });
+                {
+                    o.Broker = new DocumentBrokerOptions { IdleSweepInterval = TimeSpan.FromMilliseconds(50) };
+                    o.Durability = durability;
+                });
                 services.AddSingleton<IWeftAuthorizer>(new FixedAuthorizer(access));
                 services.AddSingleton<IDocumentStore>(store);
                 if (blobs is not null)
@@ -93,8 +100,12 @@ public sealed class RelayTests
         }
     }
 
-    private static async Task<RelayHost> StartRelayAsync(WeftAccess access, IDocumentStore store, IBlobStore? blobs = null)
-        => new RelayHost(await BuildHostAsync(access, store, blobs));
+    private static async Task<RelayHost> StartRelayAsync(
+        WeftAccess access,
+        IDocumentStore store,
+        IBlobStore? blobs = null,
+        DurabilityMode durability = DurabilityMode.PersistThenBroadcast)
+        => new RelayHost(await BuildHostAsync(access, store, blobs, durability));
 
     // El timeout es una cota SUPERIOR generosa para absorber la contención del runner de CI (p. ej. macOS
     // lento), NO el objetivo de latencia de convergencia de US3 (SC-005 <1 s); la convergencia real es
@@ -521,5 +532,155 @@ public sealed class RelayTests
         catch (MalformedMessageException) { }
 
         return false;
+    }
+
+    // ---------- Durabilidad del relay (FU-010, CHARTER-14) ----------
+
+    /// <summary>
+    /// Store de control para los tests de durabilidad. Cada conexión dispara un append en el handshake
+    /// (SyncStep2), así que fallar/bloquear por número de llamada es frágil; en su lugar se «arma» el
+    /// próximo append cuando el test lo decide (tras conectar los clientes), para que solo la edición de
+    /// interés falle o se bloquee.
+    /// </summary>
+    private sealed class ControllableAppendStore(IDocumentStore inner) : IDocumentStore
+    {
+        private int _failNext;
+        private TaskCompletionSource? _gate;
+        private int _appends;
+
+        public int AppendCount => Volatile.Read(ref _appends);
+
+        /// <summary>El PRÓXIMO append lanzará una vez.</summary>
+        public void ArmFailure() => Interlocked.Exchange(ref _failNext, 1);
+
+        /// <summary>Los appends a partir de ahora se bloquean hasta <see cref="Release"/>.</summary>
+        public void ArmGate() => _gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _gate?.TrySetResult();
+
+        public ValueTask<byte[]?> LoadAsync(string docId, CancellationToken ct = default)
+            => inner.LoadAsync(docId, ct);
+
+        public async ValueTask AppendUpdateAsync(string docId, ReadOnlyMemory<byte> update, CancellationToken ct = default)
+        {
+            Interlocked.Increment(ref _appends);
+
+            if (Interlocked.Exchange(ref _failNext, 0) == 1)
+            {
+                throw new IOException("fallo de append inyectado (test)");
+            }
+
+            TaskCompletionSource? gate = _gate;
+            if (gate is not null)
+            {
+                await gate.Task.WaitAsync(ct).ConfigureAwait(false);
+            }
+
+            await inner.AppendUpdateAsync(docId, update, ct).ConfigureAwait(false);
+        }
+
+        public ValueTask SaveSnapshotAsync(string docId, ReadOnlyMemory<byte> state, CancellationToken ct = default)
+            => inner.SaveSnapshotAsync(docId, state, ct);
+    }
+
+    // Espera a que los appends del handshake de las conexiones se asienten (dejen de crecer) antes de armar.
+    private static async Task SettleAsync(ControllableAppendStore store)
+    {
+        int last = -1;
+        while (last != store.AppendCount)
+        {
+            last = store.AppendCount;
+            await Task.Delay(120);
+        }
+    }
+
+    [Fact]
+    public async Task PersistThenBroadcast_un_append_fallido_no_lo_observan_los_pares_y_cierra_la_conexion()
+    {
+        var store = new ControllableAppendStore(new InMemoryDocumentStore());
+        await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, store);
+        TestServer server = relay.Server;
+        await using YClient a = await YClient.ConnectAsync(server, "doc");
+        await using YClient b = await YClient.ConnectAsync(server, "doc");
+
+        await SettleAsync(store);
+        store.ArmFailure(); // el próximo append (la edición de a) falla
+        await a.EditAsync(0, "no debe verse");
+
+        // El par b NUNCA recibe el delta (persist-before-broadcast: el broadcast no ocurrió), y la conexión
+        // emisora se cierra con 1011 InternalError.
+        bool aClosed = await WaitUntilAsync(
+            () => a.CloseStatus == WebSocketCloseStatus.InternalServerError, TimeSpan.FromSeconds(5));
+        Assert.True(aClosed, $"a.CloseStatus={a.CloseStatus}");
+        Assert.NotEqual("no debe verse", b.Text());
+    }
+
+    [Fact]
+    public async Task PersistThenBroadcast_reconexion_tras_fallo_resincroniza_el_estado_vivo()
+    {
+        var store = new ControllableAppendStore(new InMemoryDocumentStore());
+        await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, store);
+        TestServer server = relay.Server;
+
+        // El primer cliente edita; su append falla → la edición queda en el doc vivo del servidor pero no
+        // se difundió, y su conexión se cerró.
+        await using (YClient a = await YClient.ConnectAsync(server, "doc"))
+        {
+            await SettleAsync(store);
+            store.ArmFailure();
+            await a.EditAsync(0, "vivo");
+            await WaitUntilAsync(() => a.CloseStatus is not null, TimeSpan.FromSeconds(5));
+        }
+
+        // Un cliente que reconecta recibe el estado vivo del servidor (autoritativo) vía el handshake.
+        await using YClient c = await YClient.ConnectAsync(server, "doc");
+        bool resynced = await WaitUntilAsync(() => c.Text() == "vivo", TimeSpan.FromSeconds(5));
+        Assert.True(resynced, $"c='{c.Text()}'");
+    }
+
+    [Fact]
+    public async Task BroadcastThenPersist_difunde_antes_de_que_el_append_confirme()
+    {
+        // El modo heredado difunde SIN esperar al append: con el append bloqueado, el par recibe la edición
+        // antes de liberar la persistencia.
+        var store = new ControllableAppendStore(new InMemoryDocumentStore());
+        await using RelayHost relay = await StartRelayAsync(
+            WeftAccess.ReadWrite, store, durability: DurabilityMode.BroadcastThenPersist);
+        TestServer server = relay.Server;
+        await using YClient a = await YClient.ConnectAsync(server, "doc");
+        await using YClient b = await YClient.ConnectAsync(server, "doc");
+
+        await SettleAsync(store);
+        store.ArmGate(); // el próximo append (la edición) se bloquea
+        await a.EditAsync(0, "rápido");
+
+        bool sawBeforePersist = await WaitUntilAsync(() => b.Text() == "rápido", TimeSpan.FromSeconds(5));
+        store.Release();
+
+        Assert.True(sawBeforePersist, $"b='{b.Text()}' — el modo heredado difunde antes de persistir");
+    }
+
+    [Fact]
+    public async Task PersistThenBroadcast_no_difunde_hasta_que_el_append_confirme()
+    {
+        // Testigo de orden del default: con el append bloqueado, el par NO ve la edición hasta liberarlo.
+        var store = new ControllableAppendStore(new InMemoryDocumentStore());
+        await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, store);
+        TestServer server = relay.Server;
+        await using YClient a = await YClient.ConnectAsync(server, "doc");
+        await using YClient b = await YClient.ConnectAsync(server, "doc");
+
+        await SettleAsync(store);
+        store.ArmGate();
+        await a.EditAsync(0, "durable");
+
+        // Mientras el append está bloqueado, el par no debe ver nada.
+        bool leakedEarly = await WaitUntilAsync(() => b.Text() == "durable", TimeSpan.FromMilliseconds(400));
+        Assert.False(leakedEarly, "persist-before-broadcast NO debe difundir antes de que el append confirme");
+
+        // Al liberar el append, converge.
+        store.Release();
+        bool converged = await WaitUntilAsync(() => b.Text() == "durable", TimeSpan.FromSeconds(5));
+        Assert.True(converged, $"b='{b.Text()}'");
     }
 }

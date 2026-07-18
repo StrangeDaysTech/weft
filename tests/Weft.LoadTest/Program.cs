@@ -1,7 +1,15 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Weft.Concurrency;
+using Weft.LoadTest;
 using Weft.Yrs;
+
+// Modo relay (FU-010/CHARTER-14): mide la latencia de broadcast del relay real en ambos modos de
+// durabilidad. Distinto de la carga de US2 de abajo (que conduce el broker directamente, ciega al relay).
+if (Array.IndexOf(args, "--relay") >= 0)
+{
+    return await RelayLoad.RunAsync(ArgInt(args, "--edits", 200));
+}
 
 // Prueba de carga de US2/M1 (SC-006): cientos de documentos y muchas tareas concurrentes editando al
 // azar durante un período sostenido. Verifica (a) consistencia final de cada documento y (b) memoria

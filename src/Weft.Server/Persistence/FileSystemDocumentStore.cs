@@ -195,10 +195,38 @@ public sealed class FileSystemDocumentStore : IDocumentStore
             tmpPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, FileOptions.None))
         {
             await fs.WriteAsync(bytes, ct).ConfigureAwait(false);
-            await fs.FlushAsync(ct).ConfigureAwait(false);
+            // Durabilidad (FU-010): FlushAsync solo vacía al page cache del SO; Flush(flushToDisk: true)
+            // fuerza el fsync a disco. No hay variante async de fsync en .NET, así que este Flush es
+            // síncrono (bloquea el hilo durante el fsync; el append ya está fuera del turno del actor).
+            fs.Flush(flushToDisk: true);
         }
 
         File.Move(tmpPath, finalPath, overwrite: true);
+
+        // Un rename es durable solo si el directorio que lo contiene también se sincroniza (POSIX). En
+        // Windows no hay handle de directorio equivalente; se omite (NTFS ordena metadata de forma que el
+        // rename no precede al contenido ya sincronizado arriba).
+        FsyncDirectory(Path.GetDirectoryName(finalPath));
+    }
+
+    private static void FsyncDirectory(string? dir)
+    {
+        if (string.IsNullOrEmpty(dir) || OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        // Abrir el directorio y fsync-earlo: hace durable la entrada del rename. Best-effort: si el SO no
+        // permite abrir un directorio como archivo, la durabilidad del contenido (arriba) es lo esencial.
+        try
+        {
+            using var dirHandle = File.OpenHandle(dir, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            RandomAccess.FlushToDisk(dirHandle);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[FileSystemDocumentStore] fsync de directorio '{dir}' omitido: {ex.Message}");
+        }
     }
 
     private static string HashDocId(string docId)
