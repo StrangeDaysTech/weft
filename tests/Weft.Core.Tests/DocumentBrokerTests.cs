@@ -245,6 +245,7 @@ public sealed class DocumentBrokerTests
         public List<TrackingDoc> Docs { get; } = [];
         public string Name => "tracking";
         public INativeVersioning? NativeVersioning => null;
+        public IDeterministicSeeding? DeterministicSeeding => null;
 
         public ICrdtDoc CreateDoc()
         {

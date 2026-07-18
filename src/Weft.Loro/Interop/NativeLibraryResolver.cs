@@ -8,7 +8,7 @@ namespace Weft.Loro.Interop;
 internal static class NativeLibraryResolver
 {
     // ABI v2 (CHARTER-10): + probes de versionado nativo (INativeVersioning, FU-006).
-    private const uint ExpectedAbiVersion = 2;
+    private const uint ExpectedAbiVersion = 3;
     private static int _registered;
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(

@@ -28,6 +28,9 @@ public sealed class LoroEngine : ICrdtEngine
     public INativeVersioning? NativeVersioning => LoroNativeVersioning.Instance;
 
     /// <inheritdoc/>
+    public IDeterministicSeeding? DeterministicSeeding => LoroDeterministicSeeding.Instance;
+
+    /// <inheritdoc/>
     public ICrdtDoc CreateDoc() => LoroDoc.Create();
 
     /// <inheritdoc/>

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Weft;
+using Weft.Loro;
 using Weft.Versioning;
 using Weft.Versioning.Blobs;
 using Weft.Yrs;
@@ -152,6 +153,91 @@ public sealed class DeterminismTests
             string yrsHash = Convert.ToHexStringLower(SHA256.HashData(export));
 
             Assert.Equal(golden, yrsHash);
+        }
+        finally
+        {
+            foreach (ICrdtDoc r in replicas)
+            {
+                r.Dispose();
+            }
+        }
+    }
+
+    // ── Auto-determinismo de Loro con peer_id sembrado (FU-016/CHARTER-13, research R13(a), P-III) ──
+    // A diferencia del gate de yrs (paridad vs Yjs, una implementación INDEPENDIENTE), Loro NO tiene
+    // contraparte independiente: loro-crdt de npm es un build wasm del MISMO core Rust, así que un
+    // "gate Loro↔referencia" sería tautológico. Lo que este gate fija es más modesto y honesto: con un
+    // peer_id sembrado, el export de Loro sobre el corpus compartido es ESTABLE cross-run y cross-RID.
+    // El golden es un TESTIGO DE REGRESIÓN, no una prueba de paridad: su valor es cazar un cambio de
+    // encoding al bumpear `loro` (R16). Lo habilita que record_timestamp sea false por defecto en loro
+    // 1.13.6 (verificado); si eso cambiara, este gate lo detectaría al regenerar el golden.
+    [Theory]
+    [InlineData("corpus.json", "ascii")]
+    [InlineData("corpus-unicode.json", "unicode")]
+    public void Loro_seeded_export_matches_golden(string corpusFile, string goldenKey)
+    {
+        string dir = DeterminismCorpusDir();
+        CorpusSpec corpus = LoadCorpus(Path.Combine(dir, corpusFile));
+        string golden = GoldenHash(Path.Combine(dir, "golden-loro.json"), goldenKey);
+
+        string hash = LoroSeededExportHash(corpus);
+        Assert.Equal(golden, hash);
+    }
+
+    [Theory]
+    [InlineData("corpus.json")]
+    [InlineData("corpus-unicode.json")]
+    public void Loro_seeded_export_is_stable_across_runs(string corpusFile)
+    {
+        // El auto-determinismo es la premisa del golden: sin él, fijar un hash no tendría sentido.
+        CorpusSpec corpus = LoadCorpus(Path.Combine(DeterminismCorpusDir(), corpusFile));
+        Assert.Equal(LoroSeededExportHash(corpus), LoroSeededExportHash(corpus));
+    }
+
+    // Aplica el corpus compartido a réplicas de Loro sembradas con los ClientIds como peer_ids (los
+    // ClientIds del corpus son int pequeños, válidos para ambos motores), sincroniza a convergencia y
+    // devuelve el SHA-256 del export de la réplica 0 — mismo esquema que el gate de yrs.
+    private static string LoroSeededExportHash(CorpusSpec corpus)
+    {
+        IDeterministicSeeding seeding = LoroEngine.Instance.DeterministicSeeding
+            ?? throw new InvalidOperationException("LoroEngine.DeterministicSeeding no debe ser null (FU-016).");
+
+        ICrdtDoc[] replicas = [.. corpus.ClientIds.Select(id => seeding.CreateDoc((ulong)id))];
+        try
+        {
+            foreach (CorpusOp step in corpus.Ops)
+            {
+                ICrdtDoc doc = replicas[step.Replica];
+                if (step.Op == "ins")
+                {
+                    doc.InsertText(corpus.Type, step.Index, step.Text!);
+                }
+                else if (step.Op == "del")
+                {
+                    doc.DeleteText(corpus.Type, step.Index, step.Len);
+                }
+                else
+                {
+                    throw new InvalidOperationException($"op desconocida: {step.Op}");
+                }
+            }
+
+            for (int pass = 0; pass < corpus.SyncPasses; pass++)
+            {
+                foreach (ICrdtDoc target in replicas)
+                {
+                    byte[] sv = target.ExportStateVector();
+                    foreach (ICrdtDoc source in replicas)
+                    {
+                        if (!ReferenceEquals(source, target))
+                        {
+                            target.ApplyUpdate(source.ExportUpdateSince(sv));
+                        }
+                    }
+                }
+            }
+
+            return Convert.ToHexStringLower(SHA256.HashData(replicas[0].ExportState()));
         }
         finally
         {
