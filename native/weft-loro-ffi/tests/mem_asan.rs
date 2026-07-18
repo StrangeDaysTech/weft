@@ -174,7 +174,38 @@ fn stress_all_functions_2000_iterations() {
             weft_loro_doc_free(reloaded);
             weft_loro_doc_free(doc);
         }
-        assert_eq!(weft_loro_abi_version(), 2); // ABI v2: + probes de versionado nativo (CHARTER-10)
+        assert_eq!(weft_loro_abi_version(), 3); // ABI v3: + weft_loro_doc_new_with_peer_id (CHARTER-13)
+    }
+}
+
+/// Siembra de peer_id (FU-016): reachability, guard del valor reservado y sin fugas (ASan/LSan).
+#[test]
+fn seeded_peer_id_reachable_guarded_and_nonleaking() {
+    unsafe {
+        // Camino feliz: peer_id fijo → doc válido, editable, liberable sin fugas.
+        let mut doc: *mut LoroDoc = ptr::null_mut();
+        assert_eq!(weft_loro_doc_new_with_peer_id(42, &mut doc), WEFT_OK);
+        assert!(!doc.is_null());
+        let field = b"body";
+        assert_eq!(
+            weft_loro_text_insert(doc, field.as_ptr(), field.len(), 0, b"hola".as_ptr(), 4),
+            WEFT_OK
+        );
+        weft_loro_doc_free(doc);
+
+        // Valor reservado (u64::MAX) → OUT_OF_BOUNDS, sin asignar doc (out queda intacto).
+        let mut reserved: *mut LoroDoc = ptr::null_mut();
+        assert_eq!(
+            weft_loro_doc_new_with_peer_id(u64::MAX, &mut reserved),
+            WEFT_ERR_OUT_OF_BOUNDS
+        );
+        assert!(reserved.is_null());
+
+        // out_doc nulo → NULL_ARG.
+        assert_eq!(
+            weft_loro_doc_new_with_peer_id(1, ptr::null_mut()),
+            WEFT_ERR_NULL_ARG
+        );
     }
 }
 

@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Weft.Versioning/Weft.Versioning.csproj" />
+    <ProjectReference Include="../../src/Weft.Loro/Weft.Loro.csproj" />
   </ItemGroup>
 
   <Target Name="CopyWeftNativeForTests" AfterTargets="Build">

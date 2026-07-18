@@ -22,14 +22,17 @@ public sealed class YrsEngine : ICrdtEngine
     public INativeVersioning? NativeVersioning => null;
 
     /// <inheritdoc/>
+    public IDeterministicSeeding? DeterministicSeeding => YrsDeterministicSeeding.Instance;
+
+    /// <inheritdoc/>
     public ICrdtDoc CreateDoc() => YrsDoc.Create();
 
     /// <summary>
-    /// Crea un documento con un <paramref name="clientId"/> FIJO. Capacidad <b>yrs-específica</b>
-    /// (no parte de <see cref="ICrdtEngine"/>): habilita la paridad byte-idéntica cross-implementación
-    /// con Yjs (gate <c>determinism-yjs</c>, FU-012), que exige client-ids deterministas. El id debe
-    /// caber en 53 bits (encoding de yrs 0.26+). La promoción a capacidad cross-engine (Loro vía
-    /// <c>set_peer_id</c>) se difiere a un follow-up.
+    /// Crea un documento con un <paramref name="clientId"/> FIJO. Habilita la paridad byte-idéntica
+    /// cross-implementación con Yjs (gate <c>determinism-yjs</c>, FU-012), que exige client-ids
+    /// deterministas. El id debe caber en 53 bits (encoding de yrs 0.26+). Este método concreto se
+    /// conserva; la capacidad cross-engine equivalente vive en <see cref="DeterministicSeeding"/>
+    /// (CHARTER-13/FU-016), que Loro también implementa vía <c>set_peer_id</c>.
     /// </summary>
     public ICrdtDoc CreateDoc(ulong clientId) => YrsDoc.Create(clientId);
 

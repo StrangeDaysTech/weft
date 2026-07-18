@@ -11,6 +11,9 @@ internal static partial class NativeMethods
     internal static partial int weft_loro_doc_new(out nint outDoc);
 
     [LibraryImport(Lib)]
+    internal static partial int weft_loro_doc_new_with_peer_id(ulong peerId, out nint outDoc);
+
+    [LibraryImport(Lib)]
     internal static partial int weft_loro_doc_load(ReadOnlySpan<byte> blob, nuint blobLen, out nint outDoc);
 
     [LibraryImport(Lib)]

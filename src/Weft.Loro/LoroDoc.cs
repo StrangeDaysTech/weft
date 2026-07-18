@@ -19,6 +19,12 @@ internal sealed class LoroDoc : ICrdtDoc
         return new LoroDoc(new DocHandle(raw));
     }
 
+    internal static LoroDoc Create(ulong peerId)
+    {
+        FfiStatus.ThrowIfError(NativeMethods.weft_loro_doc_new_with_peer_id(peerId, out nint raw));
+        return new LoroDoc(new DocHandle(raw));
+    }
+
     internal static LoroDoc Load(ReadOnlySpan<byte> blob)
     {
         FfiStatus.ThrowIfError(NativeMethods.weft_loro_doc_load(blob, (nuint)blob.Length, out nint raw));

@@ -1,9 +1,9 @@
 ---
 last_scan: 2026-07-15
 schema_version: v1
-total_open: 3
+total_open: 2
 total_promoted: 0
-total_closed_in_session: 17
+total_closed_in_session: 18
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -136,11 +136,11 @@ fully_extracted_ailogs:
 ### FU-016 — promover la siembra de client-id a capacidad cross-engine (Loro peer_id)
 - **Origin**: AILOG-2026-07-15-001 §Follow-ups · CHARTER-09 (alcance yrs-only)
 - **Source-hash**: 346b9c62a979
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when se requiera paridad determinista para el motor Loro (gate Loro↔referencia)
 - **Destination**: mini-charter
 - **Cost**: M
-- **Notes**: CHARTER-09 expuso la siembra de client-id como capacidad **concreta de `YrsEngine`** (`CreateDoc(ulong)`), no en `ICrdtEngine`, porque el gate `determinism-yjs` es yrs↔Yjs (misma familia de formato). Para un gate de determinismo de Loro: promover a capacidad cross-engine — `CreateDoc(clientId)` en `ICrdtEngine` (o una interfaz opcional tipo `INativeVersioning`) + `weft_loro_doc_new_with_peer_id` en `weft-loro-ffi` (Loro vía `set_peer_id`). Ningún gate depende hoy.
+- **Notes**: CHARTER-09 expuso la siembra de client-id como capacidad **concreta de `YrsEngine`** (`CreateDoc(ulong)`), no en `ICrdtEngine`, porque el gate `determinism-yjs` es yrs↔Yjs (misma familia de formato). Para un gate de determinismo de Loro: promover a capacidad cross-engine — `CreateDoc(clientId)` en `ICrdtEngine` (o una interfaz opcional tipo `INativeVersioning`) + `weft_loro_doc_new_with_peer_id` en `weft-loro-ffi` (Loro vía `set_peer_id`). Ningún gate depende hoy. **CERRADO 2026-07-16 (CHARTER-13, AILOG-2026-07-16-002)**: dos correcciones de premisa. (1) NO se puso `CreateDoc(ulong)` en `ICrdtEngine` sino una **capacidad opcional** `IDeterministicSeeding` (`ICrdtEngine.DeterministicSeeding`), por la asimetría de dominios (yrs `<2^53`, Loro todo `u64` salvo `MAX`) que un método único no puede contratar sin filtrar P-IV. (2) El «gate Loro↔referencia» **no es construible** (loro-crdt npm = wasm del mismo core Rust); se implementó un gate de **auto-determinismo** (cross-run/cross-RID con peer_id fijo, testigo de regresión). Shim `weft_loro_doc_new_with_peer_id` (ABI v2→v3); `golden-loro.json`; 151/151 tests, ASan sin fugas.
 
 ### FU-015 — adopción del fix de R6 vía bump de yrs (protocolo R16)
 - **Origin**: AILOG-2026-07-14-002 §Follow-ups · CHARTER-08 (d) · PR upstream y-crdt/y-crdt#639

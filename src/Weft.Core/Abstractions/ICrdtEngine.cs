@@ -16,4 +16,10 @@ public interface ICrdtEngine
 
     /// <summary>Capacidad opcional de versionado nativo; <c>null</c> si el motor no la ofrece.</summary>
     INativeVersioning? NativeVersioning { get; }
+
+    /// <summary>
+    /// Capacidad opcional para sembrar la identidad de réplica (determinismo de test/corpus);
+    /// <c>null</c> si el motor no la ofrece.
+    /// </summary>
+    IDeterministicSeeding? DeterministicSeeding { get; }
 }

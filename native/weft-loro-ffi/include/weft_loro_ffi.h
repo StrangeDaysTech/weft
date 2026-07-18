@@ -49,6 +49,10 @@ typedef struct WeftLoroDoc WeftLoroDoc;
 
 /* ── Ciclo de vida del documento ──────────────────────────────────────────────────────── */
 int32_t weft_loro_doc_new(WeftLoroDoc** out_doc);
+/* Doc nuevo con peer_id FIJO (siembra determinista, FU-016). peer_id == u64::MAX está reservado por
+ * Loro -> WEFT_ERR_OUT_OF_BOUNDS. Para uso determinista de test/corpus (reusar un peer_id entre
+ * escritores concurrentes corrompe el doc). ABI v3. */
+int32_t weft_loro_doc_new_with_peer_id(uint64_t peer_id, WeftLoroDoc** out_doc);
 int32_t weft_loro_doc_load(const uint8_t* blob, size_t blob_len, WeftLoroDoc** out_doc);
 void    weft_loro_doc_free(WeftLoroDoc* doc);
 
@@ -80,7 +84,8 @@ int32_t weft_loro_native_branch_merge_probe(WeftLoroDoc* doc, const uint8_t* fie
 void    weft_loro_buf_free(uint8_t* ptr, size_t len);
 
 /* ── Diagnóstico ──────────────────────────────────────────────────────────────────────────
- * Versión de ESTA ABI. Hoy: v2 (v1→v2 añadió los tres probes de versionado nativo, CHARTER-10).
+ * Versión de ESTA ABI. Hoy: v3 (v2→v3 añadió weft_loro_doc_new_with_peer_id, CHARTER-13/FU-016;
+ * v1→v2 añadió los tres probes de versionado nativo, CHARTER-10).
  * El resolver del binding la verifica al cargar y rechaza un shim con versión distinta. */
 uint32_t weft_loro_abi_version(void);
 

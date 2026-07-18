@@ -19,7 +19,11 @@ pub const WEFT_ERR_UTF8: i32 = -4;
 pub const WEFT_ERR_OUT_OF_BOUNDS: i32 = -5;
 pub const WEFT_ERR_PANIC: i32 = -127;
 
-const WEFT_ABI_VERSION: u32 = 2;
+const WEFT_ABI_VERSION: u32 = 3;
+
+/// PeerID reservado por Loro (`loro-internal/src/loro.rs`: `set_peer_id(u64::MAX)` →
+/// `LoroError::InvalidPeerID`). Se rechaza en la frontera para no depender del error interno.
+const PEER_ID_RESERVED: u64 = u64::MAX;
 
 fn guard<F: FnOnce() -> i32>(f: F) -> i32 {
     match catch_unwind(AssertUnwindSafe(f)) {
@@ -87,6 +91,38 @@ pub unsafe extern "C" fn weft_loro_doc_new(out_doc: *mut *mut LoroDoc) -> i32 {
             return WEFT_ERR_NULL_ARG;
         }
         *out_doc = Box::into_raw(Box::new(LoroDoc::new()));
+        WEFT_OK
+    })
+}
+
+/// Doc nuevo con `peer_id` FIJO (siembra determinista, FU-016; capacidad `IDeterministicSeeding`).
+/// Habilita exports reproducibles cross-run/cross-RID (un `LoroDoc` normal recibe un `peer_id`
+/// aleatorio). `peer_id == u64::MAX` está reservado por Loro → `WEFT_ERR_OUT_OF_BOUNDS`. ABI v3.
+///
+/// AVISO: reusar un `peer_id` entre escritores concurrentes corrompe el documento (Loro). Esta
+/// función es para uso determinista de test/corpus, no para identidad por usuario/dispositivo.
+///
+/// # Safety
+/// `out_doc` debe ser un puntero escribible no nulo.
+#[no_mangle]
+pub unsafe extern "C" fn weft_loro_doc_new_with_peer_id(
+    peer_id: u64,
+    out_doc: *mut *mut LoroDoc,
+) -> i32 {
+    guard(|| {
+        if out_doc.is_null() {
+            return WEFT_ERR_NULL_ARG;
+        }
+        if peer_id == PEER_ID_RESERVED {
+            return WEFT_ERR_OUT_OF_BOUNDS;
+        }
+        let doc = LoroDoc::new();
+        if doc.set_peer_id(peer_id).is_err() {
+            // No debería ocurrir: el único fallo documentado de set_peer_id es el valor reservado,
+            // ya filtrado arriba. Se mapea defensivamente en vez de entrar en pánico.
+            return WEFT_ERR_APPLY;
+        }
+        *out_doc = Box::into_raw(Box::new(doc));
         WEFT_OK
     })
 }

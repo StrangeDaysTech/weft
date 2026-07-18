@@ -1,0 +1,5 @@
+{
+  "_comment": "Hashes golden de LORO (SHA-256 del export de la réplica 0 convergida) para el corpus compartido, con peer_id sembrado (= ClientIds del corpus). TESTIGO DE REGRESIÓN, NO prueba de paridad: a diferencia del golden de Yjs (golden.json), Loro no tiene una implementación independiente contra la que comparar (loro-crdt de npm es wasm del mismo core Rust), así que esto solo fija que el encoding de Loro es estable cross-run/cross-RID. Su valor es cazar un cambio de encoding al bumpear `loro` (R16). Weft.Determinism.Tests.Loro_seeded_export_matches_golden lo asierta (CHARTER-13/FU-016). Regenerar si el bump de loro es intencional; un cambio inesperado es una regresión a investigar.",
+  "ascii": "33ecf0ee4a9e3d3a24445e41b87c37f219029c9b2937901f8188e93394f7d515",
+  "unicode": "0d8e511272675a9423df37b435736afeeff3fb83ef15c6e4a6ff910668d1f819"
+}
