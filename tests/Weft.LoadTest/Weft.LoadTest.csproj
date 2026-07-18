@@ -10,6 +10,13 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Weft.Core/Weft.Core.csproj" />
+    <!-- Modo relay (FU-010): carga del relay real vía TestServer contra FileSystemDocumentStore. -->
+    <ProjectReference Include="../../src/Weft.Server/Weft.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
   </ItemGroup>
 
   <!--

@@ -1,9 +1,9 @@
 ---
 last_scan: 2026-07-15
 schema_version: v1
-total_open: 2
+total_open: 1
 total_promoted: 0
-total_closed_in_session: 18
+total_closed_in_session: 19
 total_phase_blocked: 0
 total_suspected_closed: 0
 buckets:
@@ -170,11 +170,11 @@ fully_extracted_ailogs:
 
 ### FU-010 — endurecimiento de durabilidad del relay: persist-before-broadcast (opcional)
 - **Origin**: AIDEC-2026-07-13-001 §5 (CHARTER-05) · review.md F3 (auditoría gpt-5-5 + glm-5-2)
-- **Status**: open
+- **Status**: closed
 - **Trigger**: when se requieran garantías de durabilidad duras (relay multi-nodo, o SLA de no-pérdida sin depender de la reconexión)
 - **Destination**: charter-replanning
 - **Cost**: M
-- **Notes**: El relay hace **broadcast-then-persist** (AIDEC §5): aplica el update dentro del turno del actor (difunde a los pares) y persiste `IDocumentStore.AppendUpdate` **después**, fuera del turno. Un fallo del append + crash antes del snapshot pierde ese update del store; en v1 (single-node) la auto-sanación CRDT (re-sync en reconexión) lo recupera. Endurecer SOLO si se requieren semánticas duras: persist-before-broadcast (reestructurar el orden) o manejar el fallo de append cerrando la conexión + test de crash mid-operation. **Ningún gate depende hoy**; decisión consciente documentada, no un bug.
+- **Notes**: El relay hace **broadcast-then-persist** (AIDEC §5): aplica el update dentro del turno del actor (difunde a los pares) y persiste `IDocumentStore.AppendUpdate` **después**, fuera del turno. Un fallo del append + crash antes del snapshot pierde ese update del store; en v1 (single-node) la auto-sanación CRDT (re-sync en reconexión) lo recupera. Endurecer SOLO si se requieren semánticas duras: persist-before-broadcast (reestructurar el orden) o manejar el fallo de append cerrando la conexión + test de crash mid-operation. **Ningún gate depende hoy**; decisión consciente documentada, no un bug. **CERRADO 2026-07-16 (CHARTER-14, AILOG-2026-07-16-003, AIDEC-2026-07-16-001 que supersede §5)**: implementado. `WeftServerOptions.Durability` con default **PersistThenBroadcast**; fallo de append → `DisconnectAll` + cierre 1011 + reconexión resincroniza; fsync de archivo+directorio en `FileSystemDocumentStore`; cobertura de carga del relay (`--relay`) que midió el coste del orden seguro ~0 en p50/p99. `BroadcastThenPersist` queda como válvula de escape opt-in. Contrato de `IDocumentStore` sin cambios.
 
 ### FU-011 — reponer la cobertura del adaptador Redis en CI (job Linux-only con service container)
 - **Origin**: CHARTER-06 §Scope/§Out of scope / R4 · AILOG-2026-07-13-002 §Decisions #4 (registro hand-add + recount, vía §13; el follow-up nace en tiempo de declaración de Charter, sin sección extraíble — cf. issue straymark #360)

@@ -107,6 +107,33 @@ internal sealed class WeftConnection
         }
     }
 
+    // Aplica+persiste+difunde un update; si la PERSISTENCIA falla, cierra esta conexión con 1011. En
+    // persist-before-broadcast el hub ya cerró todas las conexiones del documento (DisconnectAll) para
+    // forzar el re-sync autoritativo; aquí solo se traduce el fallo a un cierre limpio. Cancelación y
+    // socket cortado se dejan propagar (los maneja RunAsync como cierre normal).
+    private async Task<bool> ApplyOrCloseAsync(DocumentHub hub, byte[] payload, CancellationToken ct)
+    {
+        try
+        {
+            await hub.ApplyAndPersistAsync(payload, ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (WebSocketException)
+        {
+            throw;
+        }
+        catch
+        {
+            await CloseAsync(WebSocketCloseStatus.InternalServerError, "persist failed", ct) // 1011
+                .ConfigureAwait(false);
+            return false;
+        }
+    }
+
     private async Task<bool> DispatchAsync(DocumentHub hub, byte[] frame, CancellationToken ct)
     {
         // SyncMessage es un ref struct (span sobre el frame): se extraen tipo+payload a locales ANTES de await.
@@ -142,7 +169,7 @@ internal sealed class WeftConnection
                 // es solo para Update en vivo, FR-019).
                 if (Access == WeftAccess.ReadWrite)
                 {
-                    await hub.ApplyAndPersistAsync(payload, ct).ConfigureAwait(false);
+                    return await ApplyOrCloseAsync(hub, payload, ct).ConfigureAwait(false);
                 }
 
                 return true;
@@ -155,8 +182,7 @@ internal sealed class WeftConnection
                     return false;
                 }
 
-                await hub.ApplyAndPersistAsync(payload, ct).ConfigureAwait(false); // dispara UpdateApplied → broadcast
-                return true;
+                return await ApplyOrCloseAsync(hub, payload, ct).ConfigureAwait(false);
 
             case MessageType.Awareness:
                 AwarenessProtocol.TrackClients(payload, _awarenessClients);
