@@ -88,6 +88,11 @@ jobs:
           # Quedarnos solo con el cdylib (descartar .d/.rlib/.pdb/.lib/.exp).
           find out -type f ! -name '*.so' ! -name '*.dll' ! -name '*.dylib' -delete
           ls -la out
+      # On Windows, `strings` cannot reliably read a PE export table (it missed even the positive
+      # control), so the SC-009 gate uses `dumpbin -exports`; this puts it on PATH for the bash step.
+      - name: Setup MSVC tools (dumpbin) for SC-009
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
       # SC-009: los test-hooks NUNCA viajan en release. Dos correcciones de CHARTER-12:
       #  (a) el patrón era `weft_test_panic`, que NO casa con `weft_loro_test_panic` (no es
       #      substring) → el shim de Loro quedaba fuera del gate. Ahora se buscan ambos.
@@ -102,15 +107,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          symbols() {   # $1 = archivo → lista de símbolos, o falla si no hay herramienta
+          symbols() {   # $1 = archivo → lista de símbolos exportados, o falla si no hay herramienta
             case "$1" in
               *.so|*.dylib) nm -D "$1" 2>/dev/null || nm "$1" ;;
-              *.dll)        strings "$1" ;;
+              *.dll)        dumpbin -exports "$1" ;;   # reads the PE export table (strings is unreliable)
             esac
           }
 
           case "$RUNNER_OS" in
-            Windows) command -v strings >/dev/null || { echo "::error::falta 'strings': el gate SC-009 no puede verificar nada"; exit 1; } ;;
+            Windows) command -v dumpbin >/dev/null || { echo "::error::falta 'dumpbin': el gate SC-009 no puede verificar nada"; exit 1; } ;;
             *)       command -v nm      >/dev/null || { echo "::error::falta 'nm': el gate SC-009 no puede verificar nada"; exit 1; } ;;
           esac
 
