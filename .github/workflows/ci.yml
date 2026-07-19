@@ -259,6 +259,41 @@ jobs:
       - name: Cada --filter documentado casa con ≥1 test
         run: bash .github/scripts/check-test-filters.sh
 
+  # ── License gate: third-party notices for the redistributed native binaries ───────────────
+  # BLOCKING. The NuGet packages ship the cdylibs, which statically link Rust crates — so their
+  # licenses are redistributed too. This job regenerates THIRD-PARTY-NOTICES.md with cargo-about
+  # and fails if (a) a dependency introduces a license not in `accepted` (native/about.toml), or
+  # (b) the committed notice is stale. Keeps the attribution honest as the dependency tree moves
+  # (e.g. a yrs/Loro bump, FU-015). cargo-about is pinned for reproducible output.
+  third-party-notices:
+    name: third-party-notices (license gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: Install cargo-about (pinned)
+        run: |
+          VER=0.9.1
+          curl -sL "https://github.com/EmbarkStudios/cargo-about/releases/download/${VER}/cargo-about-${VER}-x86_64-unknown-linux-musl.tar.gz" | tar xz -C /tmp
+          find /tmp -name cargo-about -type f -executable | head -1 | xargs -I{} sudo mv {} /usr/local/bin/cargo-about
+          cargo-about --version
+      # Fails here if a dependency's license is not in `accepted` (native/about.toml).
+      - name: Regenerate THIRD-PARTY-NOTICES.md
+        run: cargo about generate --manifest-path native/Cargo.toml native/about.hbs -o THIRD-PARTY-NOTICES.md
+      # Fails here if the committed notice does not match what was just regenerated.
+      - name: Verify committed notice is up to date
+        run: |
+          if ! git diff --quiet -- THIRD-PARTY-NOTICES.md; then
+            echo "::error::THIRD-PARTY-NOTICES.md is stale. Regenerate with the command in native/about.toml and commit the result."
+            git diff --stat -- THIRD-PARTY-NOTICES.md
+            exit 1
+          fi
+          echo "THIRD-PARTY-NOTICES.md is up to date."
+
   # ── Gate M1 (P-V, SC-006): prueba de carga de concurrencia ────────────────────────────────
   # Nightly (schedule) + manual (workflow_dispatch): NO corre en PR (no lo bloquea), pero es
   # BLOQUEANTE para el cierre de M1 — el nightly debe estar verde. El harness sale con código ≠ 0

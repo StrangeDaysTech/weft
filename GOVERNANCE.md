@@ -58,5 +58,12 @@ target tracks the residual.
 
 ## License
 
-[Apache-2.0](./LICENSE) — permissive, with an explicit patent grant. Reciprocal with the MIT engines it
-builds on (`yrs`, Loro).
+[Apache-2.0](./LICENSE) — permissive, with an explicit patent grant, fit for open-source and proprietary
+use alike. Reciprocal with the MIT engines it builds on (`yrs`, Loro).
+
+The distributed native binaries statically link third-party Rust crates; their licenses are reproduced in
+[`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md), regenerated and license-gated in CI (the
+`third-party-notices` job fails if a dependency introduces a non-permissive license or the notice drifts).
+Everything is permissive except three **MPL-2.0** components reached only through the optional Loro engine —
+the default `yrs` path is fully permissive. MPL-2.0 is compatible with proprietary use; only attribution is
+required, and the notice file provides it.

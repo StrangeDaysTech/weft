@@ -90,8 +90,10 @@ End-to-end walkthrough (edit → publish → serve → Tiptap client) in
 ```text
 weft/
 ├── LICENSE                     # Apache-2.0
+├── THIRD-PARTY-NOTICES.md      # licenses of Rust crates linked into the native binaries (CI-gated)
 ├── README.md
 ├── native/                     # cargo workspace (a single build covers both shims)
+│   ├── about.toml              # cargo-about config: accepted licenses + THIRD-PARTY gen
 │   ├── weft-yrs-ffi/           # cdylib: C-ABI shim over yrs (default engine)
 │   │   ├── src/lib.rs          # Cargo.toml pins yrs = "=X.Y.Z"
 │   │   ├── include/weft_ffi.h  # C header (ownership contract; source of truth)
@@ -156,4 +158,6 @@ reporting: [`SECURITY.md`](./SECURITY.md) and [GOVERNANCE.md § Security](./GOVE
 
 ## License
 
-[Apache-2.0](./LICENSE) © 2026 [Strange Days Tech](https://strangedays.tech/en). A permissive library with an explicit patent grant; reciprocal to the MIT engines it builds on (`yrs`, Loro).
+[Apache-2.0](./LICENSE) © 2026 [Strange Days Tech](https://strangedays.tech/en). A permissive library with an explicit patent grant, comfortable for both open-source and proprietary use.
+
+**Third-party components.** The NuGet packages redistribute native binaries that statically link third-party Rust crates, so their licenses travel too — reproduced in [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md) (regenerated and license-gated in CI). All are permissive **except three weak-copyleft MPL-2.0 components** (`im`, `bitmaps`, `sized-chunks`) that arrive **only via the optional Loro engine** (`Weft.Loro`) — the default `yrs` engine path is fully permissive (MIT/Apache/BSD). MPL-2.0 is file-level copyleft and compatible with proprietary use: you owe only attribution, which the notice file provides.
