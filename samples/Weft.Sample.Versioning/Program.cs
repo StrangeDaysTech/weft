@@ -3,31 +3,31 @@ using Weft.Versioning;
 using Weft.Versioning.Blobs;
 using Weft.Yrs;
 
-// Sample de US1: editar y versionar documentos content-addressed desde .NET (T030).
-// Recorre el user journey completo: publicar → diff → checkout → branch → merge.
+// US1 sample: edit and version content-addressed documents from .NET (T030).
+// Walks the full user journey: publish → diff → checkout → branch → merge.
 
 ICrdtEngine engine = YrsEngine.Instance;
 var store = new VersionStore(engine, new InMemoryBlobStore());
 
-Console.WriteLine($"Motor: {engine.Name}\n");
+Console.WriteLine($"Engine: {engine.Name}\n");
 
-// 1. Crear y editar un documento.
+// 1. Create and edit a document.
 using ICrdtDoc doc = engine.CreateDoc();
-doc.InsertText("titulo", 0, "El veloz murciélago");
+doc.InsertText("title", 0, "The quick brown bat");
 VersionId v1 = await store.PublishAsync(doc);
-Console.WriteLine($"v1 publicada  → {v1}");
-Console.WriteLine($"   titulo: \"{doc.GetText("titulo")}\"\n");
+Console.WriteLine($"v1 published  → {v1}");
+Console.WriteLine($"   title: \"{doc.GetText("title")}\"\n");
 
-// 2. Editar y publicar una segunda versión.
-doc.DeleteText("titulo", 9, 10);           // borra "murciélago"
-doc.InsertText("titulo", 9, "colibrí");
+// 2. Edit and publish a second version.
+doc.DeleteText("title", 10, 9);            // deletes "brown bat"
+doc.InsertText("title", 10, "hummingbird");
 VersionId v2 = await store.PublishAsync(doc);
-Console.WriteLine($"v2 publicada  → {v2}");
-Console.WriteLine($"   titulo: \"{doc.GetText("titulo")}\"\n");
+Console.WriteLine($"v2 published  → {v2}");
+Console.WriteLine($"   title: \"{doc.GetText("title")}\"\n");
 
-// 3. Diff entre versiones (por palabras).
-TextDiff diff = await store.DiffAsync(v1, v2, "titulo");
-Console.WriteLine("Diff v1 → v2 (titulo):");
+// 3. Diff between versions (word level).
+TextDiff diff = await store.DiffAsync(v1, v2, "title");
+Console.WriteLine("Diff v1 → v2 (title):");
 foreach (TextDiffSegment seg in diff.Segments)
 {
     string mark = seg.Op switch { DiffOp.Inserted => "+", DiffOp.Deleted => "-", _ => " " };
@@ -35,18 +35,18 @@ foreach (TextDiffSegment seg in diff.Segments)
 }
 Console.WriteLine();
 
-// 4. Checkout: reconstruir el documento de la v1 (verifica integridad).
+// 4. Checkout: reconstruct the v1 document (verifies integrity).
 using ICrdtDoc restored = await store.CheckoutAsync(v1);
-Console.WriteLine($"Checkout v1   → titulo: \"{restored.GetText("titulo")}\"\n");
+Console.WriteLine($"Checkout v1   → title: \"{restored.GetText("title")}\"\n");
 
-// 5. Branch + merge: dos ramas concurrentes desde v2 que convergen.
+// 5. Branch + merge: two concurrent branches off v2 that converge.
 using ICrdtDoc branchA = await store.BranchAsync(v2);
 using ICrdtDoc branchB = await store.BranchAsync(v2);
-branchA.InsertText("titulo", 0, "[A] ");
-branchB.InsertText("titulo", 0, "[B] ");
+branchA.InsertText("title", 0, "[A] ");
+branchB.InsertText("title", 0, "[B] ");
 store.Merge(branchA, branchB);
 VersionId merged = await store.PublishAsync(branchA);
 Console.WriteLine($"Merge A◁B     → {merged}");
-Console.WriteLine($"   titulo: \"{branchA.GetText("titulo")}\"");
+Console.WriteLine($"   title: \"{branchA.GetText("title")}\"");
 
-Console.WriteLine("\n✓ Journey de versionado completado.");
+Console.WriteLine("\n✓ Versioning journey complete.");

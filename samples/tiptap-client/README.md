@@ -20,7 +20,7 @@ Two real Yjs `Y.Doc`s connect via `y-websocket` and must converge after cross ed
 
 ```bash
 npm run check
-# ✓ convergencia Yjs (y-websocket) ↔ Weft.Server (yrs): "Hello from A. And B too."
+# ✓ convergence Yjs (y-websocket) ↔ Weft.Server (yrs): "Hello from A. And B too."
 ```
 
 Exits 0 if they converge; 1 if they diverge or time out. This is the evidence that yrs updates

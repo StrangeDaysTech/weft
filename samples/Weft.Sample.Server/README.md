@@ -17,7 +17,7 @@ Then it serves:
 ws://127.0.0.1:5199/collab/{docId}
 ```
 
-Wait for the log line `Weft sample relay en http://127.0.0.1:5199 …` before connecting a client.
+Wait for the log line `Weft sample relay on http://127.0.0.1:5199 …` before connecting a client.
 
 ## What it shows
 
