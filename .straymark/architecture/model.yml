@@ -1,0 +1,77 @@
+# StrayMark architecture model (Loom Spec 002) — EXPERIMENTAL.
+# Refined from `straymark architecture generate`: real layers (dependencies point toward the core,
+# mirroring docs/architecture.md), every component assigned, links inferred from the dependency graph.
+version: 0
+layers:
+  - { id: "native-ffi", label: "Native FFI (Rust shims)", order: 0 }
+  - { id: "core", label: "Core", order: 1 }
+  - { id: "domain", label: "Versioning (Domain)", order: 2 }
+  - { id: "engine-adapters", label: "Engine Adapters", order: 3 }
+  - { id: "server", label: "Server (Relay)", order: 4 }
+  - { id: "persistence", label: "Persistence Adapters", order: 5 }
+  - { id: "consumers", label: "Samples", order: 6 }
+  - { id: "verification", label: "Tests", order: 7 }
+components:
+  - id: "native"
+    label: "Native FFI (weft-yrs-ffi / weft-loro-ffi)"
+    layer: "native-ffi"
+    globs: ["native/**"]
+    links: []
+    docs: []
+    external: false
+  - id: "src-weft-core"
+    label: "Weft.Core"
+    layer: "core"
+    globs: ["src/Weft.Core/**"]
+    links: ["native"]
+    docs: []
+    external: false
+  - id: "src-weft-versioning"
+    label: "Weft.Versioning"
+    layer: "domain"
+    globs: ["src/Weft.Versioning/**"]
+    links: ["src-weft-core"]
+    docs: []
+    external: false
+  - id: "src-weft-loro"
+    label: "Weft.Loro"
+    layer: "engine-adapters"
+    globs: ["src/Weft.Loro/**"]
+    links: ["src-weft-core", "native"]
+    docs: []
+    external: false
+  - id: "src-weft-server"
+    label: "Weft.Server"
+    layer: "server"
+    globs: ["src/Weft.Server/**"]
+    links: ["src-weft-core", "src-weft-versioning"]
+    docs: []
+    external: false
+  - id: "src-weft-server-persistence-efcore"
+    label: "Weft.Server.Persistence.EFCore"
+    layer: "persistence"
+    globs: ["src/Weft.Server.Persistence.EFCore/**"]
+    links: ["src-weft-server"]
+    docs: []
+    external: false
+  - id: "src-weft-server-persistence-redis"
+    label: "Weft.Server.Persistence.Redis"
+    layer: "persistence"
+    globs: ["src/Weft.Server.Persistence.Redis/**"]
+    links: ["src-weft-server"]
+    docs: []
+    external: false
+  - id: "samples"
+    label: "Samples"
+    layer: "consumers"
+    globs: ["samples/**"]
+    links: ["src-weft-versioning", "src-weft-server"]
+    docs: []
+    external: false
+  - id: "tests"
+    label: "Tests"
+    layer: "verification"
+    globs: ["tests/**"]
+    links: ["src-weft-core", "src-weft-versioning", "src-weft-server", "src-weft-loro"]
+    docs: []
+    external: false

@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-12-cerrar-declaracion-sin-cableado
-status: in-progress
+status: closed
+closed_at: 2026-07-19
 effort_estimate: L
 trigger: "El operador decide vaciar el backlog de follow-ups ANTES del publish real (T060). El publish es irreversible: lo que quede mal documentado o sin cablear se congela en un paquete público. Los 4 follow-ups accionables (FU-017/018/019/020) resultaron ser la misma clase — el anti-patrón que CHARTER-11 destapó — y la investigación previa encontró que el repo afirma que existen verificaciones que NO existen."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Cerrar la clase «declaración de superficie sin cableado»
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** Despacho del backlog de follow-ups antes de T060. Cierra FU-017, FU-018, FU-019 y FU-020,
 > más los hallazgos adyacentes que la investigación destapó y que ningún follow-up cubría.

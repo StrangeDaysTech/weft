@@ -1,0 +1,20 @@
+# StrayMark Charter telemetry — CHARTER-13.
+# Retroactive minimal close (2026-07-19): the work was implemented and merged (PR #29) but the formal
+# `charter close` was not run at the time. Filled with the facts on record; subjective or unmeasured
+# fields (satisfaction, effort drift, external audit, trigger clarity) are omitted as honest gaps
+# rather than invented — the schema accepts their absence.
+charter_telemetry:
+  charter_id: "CHARTER-13"
+  charter_title: "Siembra de réplica cross-engine — IDeterministicSeeding + peer_id de Loro"
+  closed_at: "2026-07-19"
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-16-002-charter-13-siembra-cross-engine"
+      still_relevant_at_execution: true
+  planning_session:
+    occurred: false
+  effort:
+    estimated_effort: "S"                # bucket declared in the Charter
+    actual_effort: "S"
+  outcome:
+    completed_as_planned: true
+    scope_changes: "ninguno"

@@ -1,0 +1,20 @@
+# StrayMark Charter telemetry — CHARTER-14.
+# Retroactive minimal close (2026-07-19): the work was implemented and merged (PR #30) but the formal
+# `charter close` was not run at the time. Filled with the facts on record; subjective or unmeasured
+# fields (satisfaction, effort drift, external audit, trigger clarity) are omitted as honest gaps
+# rather than invented — the schema accepts their absence.
+charter_telemetry:
+  charter_id: "CHARTER-14"
+  charter_title: "Durabilidad del relay — persist-before-broadcast + fsync"
+  closed_at: "2026-07-19"
+  originating_ailogs:
+    - ailog_id: "AILOG-2026-07-16-003-charter-14-durabilidad-relay"
+      still_relevant_at_execution: true
+  planning_session:
+    occurred: false
+  effort:
+    estimated_effort: "L"                # bucket declared in the Charter
+    actual_effort: "L"
+  outcome:
+    completed_as_planned: true
+    scope_changes: "ninguno"
