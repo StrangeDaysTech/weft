@@ -152,7 +152,7 @@ Toolchain: Rust (with `yrs` pinned) · .NET SDK 10 (LTS) · native packaging per
 The relay (`Weft.Server`) caps untrusted network input. If you ingest **untrusted** CRDT bytes
 **directly** through the API (`weft_doc_load` / `apply_update` / `export_since`) outside the relay, apply
 a size cap and a process memory limit — the `yrs` decoder can amplify memory. Details and vulnerability
-reporting: [`SECURITY.md`](./SECURITY.md) and [GOVERNANCE.md § Security](./GOVERNANCE.md#seguridad).
+reporting: [`SECURITY.md`](./SECURITY.md) and [GOVERNANCE.md § Security](./GOVERNANCE.md#security).
 
 ## License
 

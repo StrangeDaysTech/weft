@@ -310,7 +310,7 @@ Better to state them than to discover them in production:
   ([y-crdt#639](https://github.com/y-crdt/y-crdt/pull/639), approved) and will be adopted via a bump.
   **In the meantime**: the relay already protects itself with a size cap and a memory limit; if you
   use the **direct** FFI path (`LoadDoc`/`ApplyUpdate`) with **untrusted** bytes, protect it the same
-  way. See [`GOVERNANCE.md`](../GOVERNANCE.md#seguridad) (Security section).
+  way. See [`GOVERNANCE.md`](../GOVERNANCE.md#security) (Security section).
 - **Text-by-named-field only in v1.** No maps, arrays, or nested types yet.
 - **Loro's native probes are not content-addressing** (see above). If your code uses them as if they
   were, it converges to non-deterministic results.
