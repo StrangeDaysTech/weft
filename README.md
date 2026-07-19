@@ -90,28 +90,28 @@ End-to-end walkthrough (edit → publish → serve → Tiptap client) in
 ```text
 weft/
 ├── LICENSE                     # Apache-2.0
-├── THIRD-PARTY-NOTICES.md      # licenses of Rust crates linked into the native binaries (CI-gated)
+├── THIRD-PARTY-NOTICES.md      # licenses of the bundled Rust crates (CI-gated)
 ├── README.md
-├── native/                     # cargo workspace (a single build covers both shims)
-│   ├── about.toml              # cargo-about config: accepted licenses + THIRD-PARTY gen
+├── native/                     # cargo workspace (one build covers both shims)
+│   ├── about.toml              # cargo-about config (accepted licenses)
 │   ├── weft-yrs-ffi/           # cdylib: C-ABI shim over yrs (default engine)
 │   │   ├── src/lib.rs          # Cargo.toml pins yrs = "=X.Y.Z"
-│   │   ├── include/weft_ffi.h  # C header (ownership contract; source of truth)
+│   │   ├── include/weft_ffi.h  # C header (ownership contract)
 │   │   └── tests/mem_asan.rs   # memory harness (ASan/LSan)
 │   └── weft-loro-ffi/          # cdylib: C-ABI shim over Loro (dual-path)
 ├── src/
-│   ├── Weft.Core/              # ICrdtEngine/ICrdtDoc, P/Invoke [LibraryImport], SafeHandle, broker
-│   ├── Weft.Versioning/        # publish/diff/branch/merge/compact (content-addressed)
+│   ├── Weft.Core/              # binding, abstractions, SafeHandle, broker
+│   ├── Weft.Versioning/        # publish/diff/branch/merge (content-addressed)
 │   ├── Weft.Server/            # WebSocket relay, awareness, persistence
-│   ├── Weft.Server.Persistence.EFCore/   # IDocumentStore adapter over EF Core
-│   ├── Weft.Server.Persistence.Redis/    # IDocumentStore adapter over Redis/Valkey
-│   └── Weft.Loro/              # optional adapter (INativeVersioning) — dual-path
+│   ├── Weft.Server.Persistence.EFCore/   # IDocumentStore adapter (EF Core)
+│   ├── Weft.Server.Persistence.Redis/    # IDocumentStore adapter (Redis)
+│   └── Weft.Loro/              # optional adapter (INativeVersioning)
 ├── tests/
-├── samples/                    # runnable examples (versioning, relay server, Tiptap client)
+├── samples/                    # runnable examples (versioning, relay, Tiptap)
 ├── docs/                       # architecture.md, api/, spikes/
 ├── .specify/                   # GitHub Spec Kit (constitution, spec/plan/tasks)
-├── .straymark/                 # StrayMark: Charters (scope + telemetry), AILOG/AIDEC/ADR, external audits
-└── .github/workflows/          # CI: multi-RID build, tests, ASan, fuzzing, determinism
+├── .straymark/                 # StrayMark: Charters, decision records, audits
+└── .github/workflows/          # CI: build, tests, ASan, fuzz, determinism
 ```
 
 ## Architecture
