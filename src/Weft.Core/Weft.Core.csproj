@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Weft — binding seguro a yrs vía shim C-ABI propio, abstracciones ICrdtEngine/ICrdtDoc y concurrencia serializada por documento.</Description>
+    <Description>Weft — safe .NET binding to yrs via an in-house C-ABI shim: ICrdtEngine/ICrdtDoc abstractions and per-document serialized concurrency.</Description>
     <!-- Exigido por el source generator [LibraryImport] (emite marshalling unsafe). -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Empaqueta el cdylib weft_yrs_ffi por RID bajo runtimes/<rid>/native/ (T055). -->

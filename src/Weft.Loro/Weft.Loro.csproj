@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Weft — adaptador dual-path sobre el motor CRDT Loro (vía shim weft-loro-ffi). Prueba la portabilidad de la abstracción ICrdtEngine (constitución P-IV).</Description>
+    <Description>Weft — dual-path adapter over the Loro CRDT engine (via the weft-loro-ffi shim). Exercises the portability of the ICrdtEngine abstraction (constitution P-IV).</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Empaqueta el cdylib weft_loro_ffi por RID bajo runtimes/<rid>/native/ (T055). -->
     <WeftNativeLib>weft_loro_ffi</WeftNativeLib>
