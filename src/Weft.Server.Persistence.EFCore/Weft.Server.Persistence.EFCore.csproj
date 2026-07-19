@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Weft — adaptador IDocumentStore sobre Entity Framework Core (persistencia de blobs opacos por documento, con snapshot + updates y compaction transaccional). Provider-agnóstico: el consumidor configura el provider (SQLite, PostgreSQL, SQL Server, …) vía DbContextOptions.</Description>
+    <Description>Weft — IDocumentStore adapter over Entity Framework Core (opaque per-document blob persistence: snapshot + updates with transactional compaction). Provider-agnostic: the consumer configures the provider (SQLite, PostgreSQL, SQL Server, …) via DbContextOptions.</Description>
     <RootNamespace>Weft.Server.Persistence.EFCore</RootNamespace>
   </PropertyGroup>
 

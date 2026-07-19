@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Weft — adaptador IDocumentStore sobre Redis (StackExchange.Redis): snapshot como string + updates como lista, con compaction atómica vía transacción. Compatible con servidores wire-Redis (Redis, Valkey).</Description>
+    <Description>Weft — IDocumentStore adapter over Redis (StackExchange.Redis): snapshot as a string + updates as a list, with atomic compaction via a transaction. Compatible with Redis-wire servers (Redis, Valkey).</Description>
     <RootNamespace>Weft.Server.Persistence.Redis</RootNamespace>
   </PropertyGroup>
 

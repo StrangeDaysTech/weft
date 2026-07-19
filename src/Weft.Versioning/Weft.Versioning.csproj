@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Weft — versionado content-addressed engine-agnóstico (publish/checkout/diff/branch/merge) sobre IBlobStore. Depende solo de las abstracciones de Weft.Core.</Description>
+    <Description>Weft — engine-agnostic content-addressed versioning (publish/checkout/diff/branch/merge) over IBlobStore. Depends only on the Weft.Core abstractions.</Description>
   </PropertyGroup>
 
   <ItemGroup>

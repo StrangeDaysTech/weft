@@ -1,7 +1,8 @@
 <Project>
 
   <!-- Configuración transversal de toda la solución Weft (net10.0 / C# 13).
-       Los .csproj individuales solo añaden Description y referencias. -->
+       Los .csproj individuales añaden Description y referencias; cada librería publicable
+       lleva su propio README.md (empaquetado como PackageReadmeFile, ver abajo). -->
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -34,7 +35,13 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <!-- Each publishable library ships its own README.md (in the project folder), embedded in the .nupkg. -->
+  <ItemGroup Condition="'$(IsTestProject)' != 'true' AND Exists('$(MSBuildProjectDirectory)/README.md')">
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
