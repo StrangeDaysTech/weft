@@ -5,7 +5,7 @@ name: release
 # workflow_dispatch ÚNICAMENTE (no en push/PR): la matriz cross-compile es cara y su validación es
 # un dry-run deliberado. El paso de PUBLISH (nuget push + tag + GitHub Release) va GATEADO tras
 # `inputs.dry_run` (default true) → un dispatch normal construye/empaqueta/smoke SIN publicar. Publicar
-# es un acto deliberado del operador: dispatch con dry_run=false + secret NUGET_API_KEY + environment.
+# es un acto deliberado del operador: dispatch con dry_run=false + Trusted Publishing (OIDC) + environment.
 on:
   workflow_dispatch:
     inputs:
@@ -262,6 +262,7 @@ jobs:
     environment: release
     permissions:
       contents: write
+      id-token: write # OIDC token for NuGet Trusted Publishing (no long-lived API key)
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v5
@@ -272,10 +273,19 @@ jobs:
         with:
           name: nupkg
           path: artifacts/nupkg
+      # Trusted Publishing: exchange the job's GitHub OIDC token for a short-lived (1 h, single-use)
+      # NuGet API key. Requires a trusted-publisher policy on nuget.org for owner=StrangeDaysTech,
+      # repo=StrangeDaysTech/weft, workflow=release.yml, environment=release. NUGET_USER is the
+      # nuget.org profile/org username (not the email); it is not a secret but is kept out of the YAML.
+      - name: NuGet login (OIDC → temporary API key)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
       - name: Push a NuGet.org
         run: >-
           dotnet nuget push "artifacts/nupkg/*.nupkg"
-          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
       - name: Tag + GitHub Release
