@@ -10,7 +10,7 @@ Weft ships as several layered NuGet packages. Reference only the ones you need; 
 > [**Weft architecture**](../architecture.md).
 
 | Package | Depends on | For |
-|---|---|---|
+| --- | --- | --- |
 | **Weft.Core** | — (brings the native `yrs` engine) | Safe binding + abstractions + concurrency broker |
 | **Weft.Versioning** | Weft.Core | Content-addressed versioning (publish/diff/branch/merge) |
 | **Weft.Server** | Weft.Core, Weft.Versioning | y-sync WebSocket relay for ASP.NET Core |
