@@ -31,27 +31,19 @@ Two design consequences worth having clear from the start:
 
 ## Module map
 
-Six packages. All dependencies point **toward the core**; none the other way.
+Six packages. All dependencies point **toward the core**; none the other way. Each arrow reads
+*depends on*.
 
-```text
-                    ┌───────────────┐
-                    │   Weft.Core   │  yrs binding + abstractions + broker
-                    └───────┬───────┘
-            ┌───────────────┼───────────────┐
-            │               │               │
-    ┌───────▼──────┐ ┌──────▼──────┐ ┌──────▼─────┐
-    │Weft.Versioning│ │  Weft.Loro  │ │            │
-    └───────┬───────┘ └─────────────┘ │            │
-            │                          │            │
-            └──────────┬───────────────┘            │
-                ┌──────▼──────┐                     │
-                │ Weft.Server │─────────────────────┘
-                └──────┬──────┘
-            ┌──────────┴──────────┐
-    ┌───────▼────────┐   ┌────────▼───────┐
-    │ …Persistence   │   │ …Persistence   │
-    │    .Redis      │   │    .EFCore     │
-    └────────────────┘   └────────────────┘
+```mermaid
+graph BT
+    Versioning["Weft.Versioning"] --> Core["Weft.Core"]
+    Loro["Weft.Loro"] --> Core
+    Server["Weft.Server"] --> Core
+    Server --> Versioning
+    Redis["…Persistence.Redis"] --> Server
+    EFCore["…Persistence.EFCore"] --> Server
+
+    style Core stroke-width:3px
 ```
 
 | Package | Responsibility | Depends on |
