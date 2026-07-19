@@ -1,31 +1,31 @@
 namespace Weft.Server.Persistence;
 
 /// <summary>
-/// Estado durable por documento (FR-017). Los blobs son <b>opacos</b>: el store nunca interpreta bytes de yrs
-/// (P-IV). Toda implementación es <b>thread-safe</b> por documento y pasa la misma contract suite compartida
-/// (<c>DocumentStoreContractSuite</c>), garantía de intercambiabilidad que exige el escenario de aceptación de
-/// US3.
+/// Durable per-document state (FR-017). The blobs are <b>opaque</b>: the store never interprets yrs bytes
+/// (P-IV). Every implementation is <b>thread-safe</b> per document and passes the same shared contract suite
+/// (<c>DocumentStoreContractSuite</c>), the interchangeability guarantee required by the US3 acceptance
+/// scenario.
 /// </summary>
 /// <remarks>
-/// El estado persistido de un documento es un snapshot consolidado más los updates incrementales acumulados
-/// desde ese snapshot. <see cref="LoadAsync"/> los devuelve enmarcados por <see cref="DocumentStateFraming"/>
-/// (snapshot primero, luego los updates en orden de append); el relay aplica cada record en orden para
-/// reconstruir el documento. <see cref="SaveSnapshotAsync"/> hace <b>compaction</b>: reemplaza el snapshot y
-/// descarta los updates acumulados.
+/// A document's persisted state is a consolidated snapshot plus the incremental updates accumulated
+/// since that snapshot. <see cref="LoadAsync"/> returns them framed by <see cref="DocumentStateFraming"/>
+/// (snapshot first, then the updates in append order); the relay applies each record in order to
+/// reconstruct the document. <see cref="SaveSnapshotAsync"/> performs <b>compaction</b>: it replaces the snapshot and
+/// discards the accumulated updates.
 /// </remarks>
 public interface IDocumentStore
 {
     /// <summary>
-    /// Estado completo persistido del documento (snapshot + updates acumulados, enmarcados por
-    /// <see cref="DocumentStateFraming"/>), o <c>null</c> si el documento no existe.
+    /// Full persisted state of the document (snapshot + accumulated updates, framed by
+    /// <see cref="DocumentStateFraming"/>), or <c>null</c> if the document does not exist.
     /// </summary>
     ValueTask<byte[]?> LoadAsync(string docId, CancellationToken ct = default);
 
-    /// <summary>Añade un update incremental a la cola durable del documento (durabilidad entre snapshots).</summary>
+    /// <summary>Appends an incremental update to the document's durable queue (durability between snapshots).</summary>
     ValueTask AppendUpdateAsync(string docId, ReadOnlyMemory<byte> update, CancellationToken ct = default);
 
     /// <summary>
-    /// Guarda un snapshot consolidado: reemplaza el estado y descarta los updates acumulados (compaction).
+    /// Saves a consolidated snapshot: replaces the state and discards the accumulated updates (compaction).
     /// </summary>
     ValueTask SaveSnapshotAsync(string docId, ReadOnlyMemory<byte> state, CancellationToken ct = default);
 }

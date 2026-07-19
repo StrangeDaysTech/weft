@@ -2,18 +2,18 @@ using System.Collections.Concurrent;
 
 namespace Weft.Versioning.Blobs;
 
-/// <summary>Almacén content-addressed en memoria (tests/dev). Thread-safe.</summary>
+/// <summary>In-memory content-addressed store (tests/dev). Thread-safe.</summary>
 public sealed class InMemoryBlobStore : IBlobStore
 {
     private readonly ConcurrentDictionary<VersionId, byte[]> _blobs = new();
 
-    /// <summary>Número de blobs distintos almacenados (útil para verificar dedup/compactación).</summary>
+    /// <summary>Number of distinct blobs stored (useful to verify dedup/compaction).</summary>
     public int Count => _blobs.Count;
 
     /// <inheritdoc/>
     public ValueTask PutAsync(VersionId id, ReadOnlyMemory<byte> blob, CancellationToken ct = default)
     {
-        // Idempotente: si ya existe, no se re-copia (dedup por hash).
+        // Idempotent: if it already exists, it is not re-copied (dedup by hash).
         _blobs.TryAdd(id, blob.ToArray());
         return ValueTask.CompletedTask;
     }

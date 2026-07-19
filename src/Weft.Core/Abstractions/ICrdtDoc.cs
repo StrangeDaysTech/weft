@@ -1,39 +1,39 @@
 namespace Weft;
 
 /// <summary>
-/// Documento CRDT vivo. NO es thread-safe: el dueño serializa el acceso (o usa el
-/// <c>DocumentBroker</c>, que lo garantiza). Ver constitución P-V.
+/// Live CRDT document. NOT thread-safe: the owner serializes access (or uses the
+/// <c>DocumentBroker</c>, which guarantees it). See constitution P-V.
 /// </summary>
 public interface ICrdtDoc : IDisposable
 {
     /// <summary>
-    /// Nombre estable del motor que respalda este documento ("yrs", "loro"). Coincide con
-    /// <see cref="ICrdtEngine.Name"/>. Permite rechazar mezclas cross-engine antes de cruzar el FFI.
+    /// Stable name of the engine backing this document ("yrs", "loro"). Matches
+    /// <see cref="ICrdtEngine.Name"/>. Allows rejecting cross-engine mixes before crossing the FFI.
     /// </summary>
     string EngineName { get; }
 
-    // -- Texto por campo nombrado (v1) --
+    // -- Text by named field (v1) --
 
-    /// <summary>Inserta <paramref name="text"/> en el campo <paramref name="field"/> en la posición <paramref name="index"/>.</summary>
+    /// <summary>Inserts <paramref name="text"/> into field <paramref name="field"/> at position <paramref name="index"/>.</summary>
     void InsertText(string field, int index, string text);
 
-    /// <summary>Borra <paramref name="length"/> unidades desde <paramref name="index"/> en el campo <paramref name="field"/>.</summary>
+    /// <summary>Deletes <paramref name="length"/> units from <paramref name="index"/> in field <paramref name="field"/>.</summary>
     void DeleteText(string field, int index, int length);
 
-    /// <summary>Devuelve el contenido completo del campo <paramref name="field"/>.</summary>
+    /// <summary>Returns the full content of field <paramref name="field"/>.</summary>
     string GetText(string field);
 
-    // -- Estado y sincronización --
+    // -- State and synchronization --
 
-    /// <summary>Export byte-determinista del estado completo (base del content-addressing, P-III).</summary>
+    /// <summary>Byte-deterministic export of the full state (basis of content-addressing, P-III).</summary>
     byte[] ExportState();
 
-    /// <summary>Resumen "qué conozco" para sync incremental.</summary>
+    /// <summary>"What I know" summary for incremental sync.</summary>
     byte[] ExportStateVector();
 
-    /// <summary>Delta con los cambios que el emisor del <paramref name="stateVector"/> no conoce.</summary>
+    /// <summary>Delta with the changes the sender of <paramref name="stateVector"/> does not know.</summary>
     byte[] ExportUpdateSince(ReadOnlySpan<byte> stateVector);
 
-    /// <summary>Fusiona un update/estado de otra réplica (convergente).</summary>
+    /// <summary>Merges an update/state from another replica (convergent).</summary>
     void ApplyUpdate(ReadOnlySpan<byte> update);
 }

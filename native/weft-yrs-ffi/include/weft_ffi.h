@@ -1,29 +1,29 @@
 /*
- * weft_ffi.h — contrato C-ABI del shim `weft-yrs-ffi` (Weft, Apache-2.0).
+ * weft_ffi.h — C-ABI contract of the `weft-yrs-ffi` shim (Weft, Apache-2.0).
  *
- * Fuente de verdad del contrato de ownership. `HeaderBindingParityTests` valida que las
- * declaraciones `[LibraryImport]` de Weft.Core coinciden con este header (paridad sintáctica:
- * conjunto de funciones, aridad, orden y tipos). Este header se mantiene A MANO: no hay csbindgen
- * en el repo — la mención en research R1 era una verificación cruzada opcional que nunca se
- * implementó. La ABI es propia y estable: un bump de `yrs` cambia lib.rs, jamás este header sin
- * incrementar weft_abi_version().
+ * Source of truth for the ownership contract. `HeaderBindingParityTests` validates that the
+ * `[LibraryImport]` declarations of Weft.Core match this header (syntactic parity:
+ * function set, arity, order and types). This header is maintained BY HAND: there is no csbindgen
+ * in the repo — the mention in research R1 was an optional cross-check that was never
+ * implemented. The ABI is owned and stable: a `yrs` bump changes lib.rs, never this header without
+ * incrementing weft_abi_version().
  *
- * ── Reglas transversales (no negociables) ──────────────────────────────────────────────
- *  1. Panics: cada función envuelve su cuerpo en catch_unwind; un panic retorna
- *     WEFT_ERR_PANIC, jamás cruza la frontera (sería UB).
- *  2. Ownership de buffers:
- *       - Salida (out_ptr/out_len): asignados por el shim (Box<[u8]>); el llamador los libera
- *         SOLO con weft_buf_free(ptr, len), exactamente una vez, nunca con el GC/Marshal.
- *       - Entrada (ptr+len): prestados; el shim no toma posesión ni retiene el puntero.
- *       - WeftDoc*: se libera SOLO con weft_doc_free, exactamente una vez.
- *  3. Thread-safety: NINGUNA función que reciba WeftDoc* es thread-safe respecto al mismo doc
- *     (yrs no es Send+Sync). El llamador serializa por documento. weft_buf_free es thread-safe.
- *  4. Strings: entradas de texto son UTF-8 (ptr+len, sin NUL); UTF-8 inválido -> WEFT_ERR_UTF8.
- *  5. Índices: uint32_t en UTF-16 code units (semántica de yrs); fuera de rango ->
+ * ── Cross-cutting rules (non-negotiable) ──────────────────────────────────────────────
+ *  1. Panics: each function wraps its body in catch_unwind; a panic returns
+ *     WEFT_ERR_PANIC, never crosses the boundary (would be UB).
+ *  2. Buffer ownership:
+ *       - Output (out_ptr/out_len): allocated by the shim (Box<[u8]>); the caller frees them
+ *         ONLY with weft_buf_free(ptr, len), exactly once, never with the GC/Marshal.
+ *       - Input (ptr+len): borrowed; the shim takes no ownership nor retains the pointer.
+ *       - WeftDoc*: freed ONLY with weft_doc_free, exactly once.
+ *  3. Thread-safety: NO function taking WeftDoc* is thread-safe with respect to the same doc
+ *     (yrs is not Send+Sync). The caller serializes per document. weft_buf_free is thread-safe.
+ *  4. Strings: text inputs are UTF-8 (ptr+len, no NUL); invalid UTF-8 -> WEFT_ERR_UTF8.
+ *  5. Indices: uint32_t in UTF-16 code units (yrs semantics); out of range ->
  *     WEFT_ERR_OUT_OF_BOUNDS.
  *
- * Postcondiciones: en error, los out-params quedan sin escribir (el llamador no libera nada);
- * en éxito con contenido vacío, out_ptr puede ser válido con out_len == 0 (liberar igual).
+ * Postconditions: on error, the out-params are left unwritten (the caller frees nothing);
+ * on success with empty content, out_ptr may be valid with out_len == 0 (free it anyway).
  */
 #ifndef WEFT_FFI_H
 #define WEFT_FFI_H
@@ -35,27 +35,27 @@
 extern "C" {
 #endif
 
-/* Puntero opaco al documento CRDT. Se libera SOLO con weft_doc_free. */
+/* Opaque pointer to the CRDT document. Freed ONLY with weft_doc_free. */
 typedef struct WeftDoc WeftDoc;
 
-/* ── Códigos de estado (int32_t) ──────────────────────────────────────────────────────── */
+/* ── Status codes (int32_t) ──────────────────────────────────────────────────────── */
 #define WEFT_OK                 0
-#define WEFT_ERR_NULL_ARG      -1   /* puntero requerido nulo */
-#define WEFT_ERR_DECODE        -2   /* blob/update no decodificable */
-#define WEFT_ERR_APPLY         -3   /* fallo aplicando update */
-#define WEFT_ERR_UTF8          -4   /* texto de entrada no UTF-8 */
-#define WEFT_ERR_OUT_OF_BOUNDS -5   /* índice/longitud fuera de rango */
-#define WEFT_ERR_PANIC       -127   /* panic capturado en el shim */
+#define WEFT_ERR_NULL_ARG      -1   /* required pointer null */
+#define WEFT_ERR_DECODE        -2   /* blob/update not decodable */
+#define WEFT_ERR_APPLY         -3   /* failure applying update */
+#define WEFT_ERR_UTF8          -4   /* input text not UTF-8 */
+#define WEFT_ERR_OUT_OF_BOUNDS -5   /* index/length out of range */
+#define WEFT_ERR_PANIC       -127   /* panic caught in the shim */
 
-/* ── Ciclo de vida del documento ──────────────────────────────────────────────────────── */
+/* ── Document lifecycle ──────────────────────────────────────────────────────── */
 int32_t weft_doc_new(WeftDoc** out_doc);
-/* Doc nuevo con client_id FIJO (siembra determinista, FU-012). client_id debe caber en 53 bits
- * (encoding de yrs 0.26+): client_id >= 2^53 -> WEFT_ERR_OUT_OF_BOUNDS. ABI v2. */
+/* New doc with FIXED client_id (deterministic seeding, FU-012). client_id must fit in 53 bits
+ * (yrs 0.26+ encoding): client_id >= 2^53 -> WEFT_ERR_OUT_OF_BOUNDS. ABI v2. */
 int32_t weft_doc_new_with_client_id(uint64_t client_id, WeftDoc** out_doc);
 int32_t weft_doc_load(const uint8_t* blob, size_t blob_len, WeftDoc** out_doc);
 void    weft_doc_free(WeftDoc* doc);
 
-/* ── Texto por campo nombrado ─────────────────────────────────────────────────────────── */
+/* ── Text by named field ─────────────────────────────────────────────────────────── */
 int32_t weft_text_insert(WeftDoc* doc, const uint8_t* field, size_t field_len,
                          uint32_t index, const uint8_t* text, size_t text_len);
 int32_t weft_text_delete(WeftDoc* doc, const uint8_t* field, size_t field_len,
@@ -63,25 +63,25 @@ int32_t weft_text_delete(WeftDoc* doc, const uint8_t* field, size_t field_len,
 int32_t weft_text_read(WeftDoc* doc, const uint8_t* field, size_t field_len,
                        uint8_t** out_ptr, size_t* out_len);
 
-/* ── Estado y sincronización ──────────────────────────────────────────────────────────── */
+/* ── State and synchronization ──────────────────────────────────────────────────────────── */
 int32_t weft_doc_export_state(WeftDoc* doc, uint8_t** out_ptr, size_t* out_len);
 int32_t weft_doc_state_vector(WeftDoc* doc, uint8_t** out_ptr, size_t* out_len);
 int32_t weft_doc_export_since(WeftDoc* doc, const uint8_t* sv, size_t sv_len,
                               uint8_t** out_ptr, size_t* out_len);
 int32_t weft_doc_apply_update(WeftDoc* doc, const uint8_t* update, size_t update_len);
 
-/* ── Memoria ──────────────────────────────────────────────────────────────────────────── */
+/* ── Memory ──────────────────────────────────────────────────────────────────────────── */
 void    weft_buf_free(uint8_t* ptr, size_t len);
 
-/* ── Diagnóstico ──────────────────────────────────────────────────────────────────────── */
+/* ── Diagnostics ──────────────────────────────────────────────────────────────────────── */
 uint32_t weft_abi_version(void);
 
-/* ── Test hooks (SOLO en builds con la feature de Cargo `test-hooks`) ─────────────────────
- * Provoca un panic interno deliberado para verificar catch_unwind end-to-end (SC-009).
- * NUNCA presente en binarios de release: el job `native` de release.yml verifica con `nm` que el
- * símbolo no está exportado en los cdylibs antes de empaquetarlos. */
+/* ── Test hooks (ONLY in builds with the Cargo `test-hooks` feature) ─────────────────────
+ * Triggers a deliberate internal panic to verify catch_unwind end-to-end (SC-009).
+ * NEVER present in release binaries: the `native` job in release.yml verifies with `nm` that the
+ * symbol is not exported in the cdylibs before packaging them. */
 #ifdef WEFT_TEST_HOOKS
-int32_t weft_test_panic(void);   /* retorna WEFT_ERR_PANIC si el shim es correcto */
+int32_t weft_test_panic(void);   /* returns WEFT_ERR_PANIC if the shim is correct */
 #endif
 
 #ifdef __cplusplus

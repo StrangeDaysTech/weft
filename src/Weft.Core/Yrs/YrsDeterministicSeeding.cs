@@ -1,8 +1,8 @@
 namespace Weft.Yrs;
 
 /// <summary>
-/// Siembra determinista para <see cref="YrsEngine"/>: fija el <c>client_id</c> del documento. El
-/// dominio válido es <c>&lt; 2^53</c> (encoding de client-ids de 53 bits de yrs 0.26+).
+/// Deterministic seeding for <see cref="YrsEngine"/>: fixes the document's <c>client_id</c>. The
+/// valid domain is <c>&lt; 2^53</c> (yrs 0.26+ 53-bit client-id encoding).
 /// </summary>
 internal sealed class YrsDeterministicSeeding : IDeterministicSeeding
 {

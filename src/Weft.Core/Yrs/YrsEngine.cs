@@ -1,18 +1,18 @@
 namespace Weft.Yrs;
 
 /// <summary>
-/// Motor CRDT respaldado por <c>yrs</c> vía el shim <c>weft-yrs-ffi</c>. Sin estado propio: el
-/// motor es una fábrica de documentos. <see cref="NativeVersioning"/> es <c>null</c> (yrs no ofrece
-/// versionado nativo; el versionado vive en la capa de dominio engine-agnóstica).
+/// CRDT engine backed by <c>yrs</c> via the <c>weft-yrs-ffi</c> shim. Stateless: the
+/// engine is a document factory. <see cref="NativeVersioning"/> is <c>null</c> (yrs offers no
+/// native versioning; versioning lives in the engine-agnostic domain layer).
 /// </summary>
 public sealed class YrsEngine : ICrdtEngine
 {
     private YrsEngine() { }
 
-    /// <summary>Instancia compartida del motor (sin estado, thread-safe).</summary>
+    /// <summary>Shared engine instance (stateless, thread-safe).</summary>
     public static YrsEngine Instance { get; } = new();
 
-    /// <summary>Nombre estable del motor; fuente única compartida con <see cref="YrsDoc.EngineName"/>.</summary>
+    /// <summary>Stable engine name; single source shared with <see cref="YrsDoc.EngineName"/>.</summary>
     internal const string EngineName = "yrs";
 
     /// <inheritdoc/>
@@ -28,11 +28,11 @@ public sealed class YrsEngine : ICrdtEngine
     public ICrdtDoc CreateDoc() => YrsDoc.Create();
 
     /// <summary>
-    /// Crea un documento con un <paramref name="clientId"/> FIJO. Habilita la paridad byte-idéntica
-    /// cross-implementación con Yjs (gate <c>determinism-yjs</c>, FU-012), que exige client-ids
-    /// deterministas. El id debe caber en 53 bits (encoding de yrs 0.26+). Este método concreto se
-    /// conserva; la capacidad cross-engine equivalente vive en <see cref="DeterministicSeeding"/>
-    /// (CHARTER-13/FU-016), que Loro también implementa vía <c>set_peer_id</c>.
+    /// Creates a document with a FIXED <paramref name="clientId"/>. Enables byte-identical
+    /// cross-implementation parity with Yjs (gate <c>determinism-yjs</c>, FU-012), which requires
+    /// deterministic client-ids. The id must fit in 53 bits (yrs 0.26+ encoding). This concrete method
+    /// is kept; the equivalent cross-engine capability lives in <see cref="DeterministicSeeding"/>
+    /// (CHARTER-13/FU-016), which Loro also implements via <c>set_peer_id</c>.
     /// </summary>
     public ICrdtDoc CreateDoc(ulong clientId) => YrsDoc.Create(clientId);
 

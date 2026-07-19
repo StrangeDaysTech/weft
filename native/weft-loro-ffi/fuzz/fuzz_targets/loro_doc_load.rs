@@ -1,5 +1,5 @@
-//! Fuzz target: `weft_loro_doc_load` con bytes arbitrarios (research R14). El shim contiene panics
-//! (`catch_unwind`) y rechaza corruptos (WEFT_ERR_DECODE); un SIGSEGV/UB real sigue detectándose.
+//! Fuzz target: `weft_loro_doc_load` with arbitrary bytes (research R14). The shim contains panics
+//! (`catch_unwind`) and rejects corrupt inputs (WEFT_ERR_DECODE); a real SIGSEGV/UB is still detected.
 #![no_main]
 
 use std::ptr;
@@ -12,7 +12,7 @@ use weft_loro_ffi::*;
 static INIT: Once = Once::new();
 
 fuzz_target!(|data: &[u8]| {
-    // Silencia el hook de libfuzzer-sys para ejercitar el catch_unwind del shim (ver weft-yrs-ffi).
+    // Silences libfuzzer-sys's hook to exercise the shim's catch_unwind (see weft-yrs-ffi).
     INIT.call_once(|| std::panic::set_hook(Box::new(|_| {})));
 
     unsafe {

@@ -1,35 +1,35 @@
 namespace Weft.Concurrency;
 
 /// <summary>
-/// Opciones de ciclo de vida del <see cref="DocumentBroker"/>: cuándo desalojar documentos inactivos,
-/// cuántos mantener activos a la vez (desalojo LRU al superarlo) y cómo persistir antes de desalojar.
-/// Inmutable tras construir el broker.
+/// Lifecycle options of the <see cref="DocumentBroker"/>: when to evict idle documents,
+/// how many to keep active at once (LRU eviction when exceeded) and how to persist before evicting.
+/// Immutable after the broker is constructed.
 /// </summary>
 public sealed class DocumentBrokerOptions
 {
     /// <summary>
-    /// Tiempo sin actividad tras el cual un documento activo es candidato a desalojo. Un documento se
-    /// reabre después desde su estado persistido (vía el <c>loader</c> de <see cref="DocumentBroker.OpenAsync"/>).
+    /// Time without activity after which an active document becomes a candidate for eviction. A document is
+    /// then reopened from its persisted state (via the <c>loader</c> of <see cref="DocumentBroker.OpenAsync"/>).
     /// </summary>
     public TimeSpan IdleEviction { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// Máximo de documentos activos simultáneos. Al superarse, se desaloja el menos recientemente usado
-    /// (LRU) para acotar la memoria (SC-006).
+    /// Maximum of simultaneously active documents. When exceeded, the least recently used
+    /// (LRU) one is evicted to bound memory (SC-006).
     /// </summary>
     public int MaxActiveDocuments { get; init; } = 1024;
 
     /// <summary>
-    /// Hook invocado antes de liberar un documento desalojado, con su estado exportado, para persistirlo.
-    /// El desalojo espera a que termine. No se invoca cuando el documento se desaloja por fallo del actor
-    /// (estado potencialmente inválido). <c>null</c> = no persistir (los cambios no guardados se pierden
-    /// al desalojar).
+    /// Hook invoked before releasing an evicted document, with its exported state, to persist it.
+    /// The eviction waits for it to finish. It is not invoked when the document is evicted due to an actor
+    /// fault (potentially invalid state). <c>null</c> = do not persist (unsaved changes are lost
+    /// on eviction).
     /// </summary>
     public Func<string, byte[], CancellationToken, ValueTask>? OnEvicting { get; init; }
 
     /// <summary>
-    /// Cadencia del barrido de inactividad. El broker revisa periódicamente si hay documentos que superan
-    /// <see cref="IdleEviction"/>. Por defecto, un tercio de <see cref="IdleEviction"/> (acotado a [1s, 60s]).
+    /// Cadence of the idle sweep. The broker periodically checks whether there are documents exceeding
+    /// <see cref="IdleEviction"/>. By default, a third of <see cref="IdleEviction"/> (bounded to [1s, 60s]).
     /// </summary>
     public TimeSpan? IdleSweepInterval { get; init; }
 

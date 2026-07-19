@@ -2,32 +2,32 @@ using System.Text;
 
 namespace Weft.Versioning;
 
-/// <summary>Operación de un segmento de diff.</summary>
+/// <summary>Operation of a diff segment.</summary>
 public enum DiffOp
 {
-    /// <summary>Texto sin cambios entre ambas versiones.</summary>
+    /// <summary>Text unchanged between the two versions.</summary>
     Equal,
 
-    /// <summary>Texto presente solo en la versión nueva.</summary>
+    /// <summary>Text present only in the new version.</summary>
     Inserted,
 
-    /// <summary>Texto presente solo en la versión antigua.</summary>
+    /// <summary>Text present only in the old version.</summary>
     Deleted,
 }
 
-/// <summary>Un segmento contiguo de un diff de texto.</summary>
+/// <summary>A contiguous segment of a text diff.</summary>
 public readonly record struct TextDiffSegment(DiffOp Op, string Text);
 
 /// <summary>
-/// Diff de texto por palabras (research R9): LCS sobre tokens palabra/espacio, determinista
-/// (mismas entradas → mismos segmentos). Alcance v1: texto plano por campo.
+/// Word-level text diff (research R9): LCS over word/space tokens, deterministic
+/// (same inputs → same segments). v1 scope: plain text per field.
 /// </summary>
 public sealed record TextDiff(IReadOnlyList<TextDiffSegment> Segments)
 {
-    /// <summary>Indica si hay al menos un segmento insertado o borrado.</summary>
+    /// <summary>Indicates whether there is at least one inserted or deleted segment.</summary>
     public bool HasChanges => Segments.Any(s => s.Op != DiffOp.Equal);
 
-    /// <summary>Computa el diff por palabras entre <paramref name="oldText"/> y <paramref name="newText"/>.</summary>
+    /// <summary>Computes the word-level diff between <paramref name="oldText"/> and <paramref name="newText"/>.</summary>
     public static TextDiff Compute(string oldText, string newText)
     {
         ArgumentNullException.ThrowIfNull(oldText);
@@ -38,7 +38,7 @@ public sealed record TextDiff(IReadOnlyList<TextDiffSegment> Segments)
         int[,] lcs = BuildLcsTable(a, b);
 
         var segments = new List<TextDiffSegment>();
-        // Reconstrucción desde el final de la tabla LCS hacia el inicio.
+        // Reconstruction from the end of the LCS table back to the start.
         int i = a.Length, j = b.Length;
         var rev = new List<TextDiffSegment>();
         while (i > 0 || j > 0)
@@ -62,7 +62,7 @@ public sealed record TextDiff(IReadOnlyList<TextDiffSegment> Segments)
         }
         rev.Reverse();
 
-        // Fusiona tokens contiguos de la misma operación en un solo segmento legible.
+        // Merge contiguous tokens of the same operation into a single readable segment.
         foreach (TextDiffSegment token in rev)
         {
             if (segments.Count > 0 && segments[^1].Op == token.Op)
@@ -77,7 +77,7 @@ public sealed record TextDiff(IReadOnlyList<TextDiffSegment> Segments)
         return new TextDiff(segments);
     }
 
-    /// <summary>Tokeniza en unidades palabra y espacio (cada run de whitespace o no-whitespace).</summary>
+    /// <summary>Tokenizes into word and space units (each run of whitespace or non-whitespace).</summary>
     private static string[] Tokenize(string text)
     {
         if (text.Length == 0)

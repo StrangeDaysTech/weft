@@ -9,13 +9,13 @@ using Weft.Versioning.Blobs;
 
 namespace Weft.Server;
 
-/// <summary>Registro (DI) y mapeo del endpoint del relay <see cref="WeftServer"/>.</summary>
+/// <summary>Registration (DI) and endpoint mapping of the <see cref="WeftServer"/> relay.</summary>
 public static class WeftServerExtensions
 {
     /// <summary>
-    /// Registra el relay en el contenedor. El consumidor DEBE registrar también un
-    /// <see cref="IWeftAuthorizer"/> (obligatorio, se valida en <see cref="MapWeft"/> al arrancar) y un
-    /// <see cref="IDocumentStore"/>; un <see cref="IBlobStore"/> es opcional (solo para
+    /// Registers the relay in the container. The consumer MUST also register an
+    /// <see cref="IWeftAuthorizer"/> (mandatory, validated in <see cref="MapWeft"/> at startup) and an
+    /// <see cref="IDocumentStore"/>; an <see cref="IBlobStore"/> is optional (only for
     /// <see cref="IWeftServer.PublishAsync"/>).
     /// </summary>
     public static IServiceCollection AddWeftServer(this IServiceCollection services, Action<WeftServerOptions>? configure = null)
@@ -36,10 +36,10 @@ public static class WeftServerExtensions
     }
 
     /// <summary>
-    /// Mapea el endpoint WebSocket del relay en <c>{pattern}/{docId}</c>. Falla al arrancar si no hay un
-    /// <see cref="IWeftAuthorizer"/> registrado (la autorización nunca es opcional; SC-010). Semántica del
-    /// handshake: <see cref="WeftAccess.Deny"/> → 403 antes del upgrade (0 bytes de contenido); en otro caso,
-    /// upgrade y relay con el nivel de acceso concedido.
+    /// Maps the relay's WebSocket endpoint at <c>{pattern}/{docId}</c>. Fails at startup if there is no
+    /// <see cref="IWeftAuthorizer"/> registered (authorization is never optional; SC-010). Handshake
+    /// semantics: <see cref="WeftAccess.Deny"/> → 403 before the upgrade (0 bytes of content); otherwise,
+    /// upgrade and relay with the granted access level.
     /// </summary>
     public static IEndpointConventionBuilder MapWeft(this IEndpointRouteBuilder endpoints, string pattern)
     {
@@ -52,15 +52,15 @@ public static class WeftServerExtensions
             if (!probe.IsService(typeof(IWeftAuthorizer)))
             {
                 throw new InvalidOperationException(
-                    "AddWeftServer requiere registrar un IWeftAuthorizer antes de MapWeft: la autorización nunca es " +
-                    "opcional ni por-defecto-permisiva (SC-010).");
+                    "AddWeftServer requires registering an IWeftAuthorizer before MapWeft: authorization is never " +
+                    "optional nor permissive-by-default (SC-010).");
             }
 
             if (!probe.IsService(typeof(IDocumentStore)))
             {
                 throw new InvalidOperationException(
-                    "AddWeftServer requiere registrar un IDocumentStore antes de MapWeft " +
-                    "(InMemoryDocumentStore/FileSystemDocumentStore o un adaptador EFCore/Redis).");
+                    "AddWeftServer requires registering an IDocumentStore before MapWeft " +
+                    "(InMemoryDocumentStore/FileSystemDocumentStore or an EFCore/Redis adapter).");
             }
         }
 
@@ -79,7 +79,7 @@ public static class WeftServerExtensions
             WeftAccess access = await authorizer.AuthorizeAsync(context, docId, context.RequestAborted);
             if (access == WeftAccess.Deny)
             {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden; // antes del upgrade: 0 bytes de contenido
+                context.Response.StatusCode = StatusCodes.Status403Forbidden; // before the upgrade: 0 bytes of content
                 return;
             }
 

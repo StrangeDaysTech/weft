@@ -6,10 +6,10 @@ using Weft.Yrs;
 namespace Weft.Versioning.Tests;
 
 /// <summary>
-/// Superficie opcional <see cref="INativeVersioning"/> de Loro (CHARTER-10/FU-006, hallazgo G1):
-/// LoroEngine expone probes DEMOSTRATIVOS del versionado nativo (diff/fork/shallow snapshot). No son
-/// content-addressing (no deterministas, no alimentan VersionId); estos tests asertan reachability,
-/// round-trip, convergencia del merge nativo, y que los probes NO mutan el doc del caller.
+/// Loro's optional <see cref="INativeVersioning"/> surface (CHARTER-10/FU-006, finding G1):
+/// LoroEngine exposes DEMONSTRATIVE probes of native versioning (diff/fork/shallow snapshot). They are not
+/// content-addressing (non-deterministic, they don't feed VersionId); these tests assert reachability,
+/// round-trip, native merge convergence, and that the probes do NOT mutate the caller's doc.
 /// </summary>
 public sealed class LoroNativeVersioningTests
 {
@@ -20,7 +20,7 @@ public sealed class LoroNativeVersioningTests
     [Fact]
     public void Yrs_engine_has_no_native_versioning()
     {
-        // Contraste: yrs no tiene versionado nativo → la capacidad opcional es null (permanente).
+        // Contrast: yrs has no native versioning → the optional capability is null (permanently).
         Assert.Null(YrsEngine.Instance.NativeVersioning);
     }
 
@@ -59,7 +59,7 @@ public sealed class LoroNativeVersioningTests
         using JsonDocument json = JsonDocument.Parse(Native.NativeBranchMergeProbe(doc, "body"));
         Assert.True(json.RootElement.GetProperty("converged").GetBoolean(), "el merge nativo debe converger");
 
-        // El probe forkea aparte: el doc del caller no cambia.
+        // The probe forks separately: the caller's doc does not change.
         Assert.Equal("base", doc.GetText("body"));
     }
 

@@ -1,59 +1,69 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Gobernanza de Weft
+# Weft governance
 
-Weft es un proyecto open-source (Apache-2.0) de [Strange Days Tech](https://strangedays.tech/es).
+Weft is an open-source (Apache-2.0) project by [Strange Days Tech](https://strangedays.tech/en).
 
-## Modelo
+## Model
 
-- **Mantenedor(es)**: el equipo de Strange Days Tech administra el repositorio, revisa PRs y corta releases.
-- **Decisiones técnicas**: se toman por el mantenedor con base en la **constitución** del proyecto
-  (`.specify/memory/constitution.md`, vinculante) y quedan registradas como **Charters** y documentos
-  **AILOG/AIDEC/ADR** de [StrayMark](https://github.com/StrangeDaysTech/straymark) — el porqué de cada
-  decisión es parte del repositorio, no folclore oral.
-- **Alcance**: Weft es un *building block* reutilizable, no una aplicación. Las peticiones que empujen lógica
-  de dominio hacia la librería se declinan por diseño (ver [`README.md`](./README.md) §"Lo que no es Weft").
+- **Maintainer(s)**: the Strange Days Tech team administers the repository, reviews PRs, and cuts releases.
+- **Technical decisions**: made by the maintainer based on the project **constitution**
+  (`.specify/memory/constitution.md`, binding) and recorded as **Charters** and
+  **AILOG/AIDEC/ADR** documents of [StrayMark](https://github.com/StrangeDaysTech/straymark) — the why
+  of each decision is part of the repository, not oral folklore.
+- **Scope**: Weft is a reusable *building block*, not an application. Requests that push domain logic
+  into the library are declined by design (see [`README.md`](./README.md) §"What Weft is not").
 
-## Cómo se decide un cambio
+## How a change is decided
 
-1. Discusión en un issue (para cambios sustantivos o de contrato: FFI, `IDocumentStore`, protocolo de sync).
-2. Un **Charter** de StrayMark declara el alcance ex-ante (qué entra, qué no, riesgos) antes de implementar.
-3. Implementación en un PR con los **6 gates** de la constitución en verde (ver [`CONTRIBUTING.md`](./CONTRIBUTING.md)).
-4. Cierres de hito requieren **auditoría externa multi-modelo** (StrayMark) antes de mergear.
+1. Discussion in an issue (for substantive or contract changes: FFI, `IDocumentStore`, sync protocol).
+2. A StrayMark **Charter** declares the scope ex-ante (what's in, what's out, risks) before implementing.
+3. Implementation in a PR with the **6 constitutional gates** green (see [`CONTRIBUTING.md`](./CONTRIBUTING.md)).
+4. Milestone closes require a **multi-model external audit** (StrayMark) before merging.
 
-## Versionado y releases
+## Versioning and releases
 
-- **SemVer**. La identidad de versión de un documento es el `SHA-256` de su export determinista: **un cambio
-  de encoding del motor es breaking** (rompe la citabilidad de versiones previas) y sube el *major*. Ver el
-  protocolo de bump del motor en [`CONTRIBUTING.md`](./CONTRIBUTING.md#protocolo-de-bump-del-motor-yrs--loro--research-r16).
-- Los paquetes se publican a NuGet.org con símbolos + SourceLink desde el pipeline de release
-  (`.github/workflows/release.yml`), tras verde en cross-compile + *pack-smoke* multi-RID.
-- **RIDs soportados** v1: `linux-x64`, `linux-arm64`, `win-x64`, `osx-arm64`. "Soportado" = ejercitado en CI
-  (P-VI).
+- **SemVer**. A document's version identity is the `SHA-256` of its deterministic export: **an engine
+  encoding change is breaking** (it invalidates the citability of prior versions) and bumps the
+  *major*. See the engine bump protocol in
+  [`CONTRIBUTING.md`](./CONTRIBUTING.md#engine-bump-protocol-yrs--loro--research-r16).
+- Packages are published to NuGet.org with symbols + SourceLink from the release pipeline
+  (`.github/workflows/release.yml`), after green cross-compile + *pack-smoke* multi-RID.
+- **Supported RIDs** v1: `linux-x64`, `linux-arm64`, `win-x64`, `osx-arm64`. "Supported" = exercised in
+  CI (P-VI).
 
-## Seguridad
+## Security
 
-Reporta vulnerabilidades de forma privada (no en un issue público) al contacto de seguridad de
-[Strange Days Tech](https://strangedays.tech/es). La memoria nativa se verifica con ASan/LSan en CI (P-II) y la
-frontera FFI se fuzzea (`cargo-fuzz`); el input de red no confiable del relay tiene límites de tamaño/recursos.
+Report vulnerabilities privately (not in a public issue) to the security contact of
+[Strange Days Tech](https://strangedays.tech/en). See [`SECURITY.md`](./SECURITY.md) for the reporting
+process. Native memory is verified with ASan/LSan in CI (P-II) and the FFI boundary is fuzzed
+(`cargo-fuzz`); the relay's untrusted network input has size/resource limits.
 
-### Ingesta directa de bytes CRDT no confiables (caveat R6)
+### Direct ingestion of untrusted CRDT bytes (R6 caveat)
 
-El **relay** (`Weft.Server`) ya protege la ingesta de red: cap configurable de tamaño de mensaje y límites de
-recursos por conexión antes de decodificar (ver `WeftServerOptions`). Si en cambio alimentas bytes CRDT **no
-confiables directamente** a la API pública fuera del relay — `weft_doc_load` / `apply_update` / `export_since`,
-o sus envoltorios en `Weft.Core` — replica esa defensa: **impón un cap de tamaño de entrada y un límite de
-memoria del proceso** (p. ej. cgroup/contenedor).
+The **relay** (`Weft.Server`) already protects network ingestion: a configurable message-size cap and
+per-connection resource limits before decoding (see `WeftServerOptions`). If instead you feed
+**untrusted** CRDT bytes **directly** to the public API outside the relay — `weft_doc_load` /
+`apply_update` / `export_since`, or their wrappers in `Weft.Core` — replicate that defense: **impose an
+input-size cap and a process memory limit** (e.g. cgroup/container).
 
-Motivo: el decoder de `yrs` puede amplificar memoria (allocation-bomb) — pocos bytes que declaran una longitud
-gigante disparan una reserva grande. `Update::decode` ya usa asignación falible (`try_reserve` → error
-recuperable, no abort), por lo que `apply_update` está endurecido upstream; quedan dos sitios residuales con
-`with_capacity` sin acotar (decode de *delete sets* y de *state vectors*, este último alcanzable vía
-`export_since`). En `glibc` (overcommit) el efecto práctico es una reserva virtual y un **error de decode limpio**,
-no un crash; el `abort` no capturable solo aparece en hosts memory-constrained duros o allocators eager. El fix
-canónico vive upstream (PR de `try_reserve` a `y-crdt`); un target de fuzz de regresión rastrea el residual.
+Rationale: the `yrs` decoder can amplify memory (allocation-bomb) — a few bytes declaring a huge length
+trigger a large reservation. `Update::decode` already uses fallible allocation (`try_reserve` →
+recoverable error, not abort), so `apply_update` is hardened upstream; two residual sites remain with
+unbounded `with_capacity` (decode of *delete sets* and of *state vectors*, the latter reachable via
+`export_since`). On `glibc` (overcommit) the practical effect is a virtual reservation and a **clean
+decode error**, not a crash; the non-catchable `abort` only appears on hard memory-constrained hosts or
+eager allocators. The canonical fix lives upstream (the `try_reserve` PR to `y-crdt`); a regression fuzz
+target tracks the residual.
 
-## Licencia
+## License
 
-[Apache-2.0](./LICENSE) — permisiva, con concesión explícita de patentes. Recíproca con los motores MIT sobre
-los que se apoya (`yrs`, Loro).
+[Apache-2.0](./LICENSE) — permissive, with an explicit patent grant, fit for open-source and proprietary
+use alike. Reciprocal with the MIT engines it builds on (`yrs`, Loro).
+
+The distributed native binaries statically link third-party Rust crates; their licenses are reproduced in
+[`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md), regenerated and license-gated in CI (the
+`third-party-notices` job fails if a dependency introduces a non-permissive license or the notice drifts).
+Everything is permissive except three **MPL-2.0** components reached only through the optional Loro engine —
+the default `yrs` path is fully permissive. MPL-2.0 is compatible with proprietary use; only attribution is
+required, and the notice file provides it.

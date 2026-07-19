@@ -2,18 +2,18 @@ using Weft.Server;
 using Weft.Server.Auth;
 using Weft.Server.Persistence;
 
-// Relay y-sync de ejemplo: sirve un endpoint WebSocket compatible con clientes Yjs (y-websocket/Tiptap) en
-// ws://127.0.0.1:5199/collab/{docId}. Ver samples/tiptap-client para el cliente y la validación de compat.
+// Example y-sync relay: serves a WebSocket endpoint compatible with Yjs clients (y-websocket/Tiptap) at
+// ws://127.0.0.1:5199/collab/{docId}. See samples/tiptap-client for the client and the wire-compat check.
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("WEFT_SAMPLE_URLS") ?? "http://127.0.0.1:5199");
 
 builder.Services.AddWeftServer();
 
-// OBLIGATORIO: sin IWeftAuthorizer, MapWeft falla al arrancar. Este demo concede ReadWrite a todos —
-// un consumidor real decide con su propia identidad (JWT/cookies) a partir del HttpContext.
+// REQUIRED: without an IWeftAuthorizer, MapWeft fails at startup. This demo grants ReadWrite to everyone —
+// a real consumer decides access from its own identity (JWT/cookies) via the HttpContext.
 builder.Services.AddSingleton<IWeftAuthorizer, DemoAuthorizer>();
 
-// Persistencia durable en disco (v1). Los documentos sobreviven al reinicio del servidor.
+// Durable on-disk persistence (v1). Documents survive a server restart.
 string dataDir = Path.Combine(AppContext.BaseDirectory, "weft-data");
 builder.Services.AddSingleton<IDocumentStore>(new FileSystemDocumentStore(dataDir));
 
@@ -21,11 +21,11 @@ WebApplication app = builder.Build();
 app.UseWebSockets();
 app.MapWeft("/collab");
 
-app.Logger.LogInformation("Weft sample relay en {Urls} — endpoint WebSocket /collab/{{docId}} — datos en {DataDir}",
+app.Logger.LogInformation("Weft sample relay on {Urls} — WebSocket endpoint /collab/{{docId}} — data in {DataDir}",
     string.Join(", ", app.Urls.DefaultIfEmpty("http://127.0.0.1:5199")), dataDir);
 app.Run();
 
-/// <summary>Authorizer de demostración: concede ReadWrite a toda conexión. NO usar en producción.</summary>
+/// <summary>Demo authorizer: grants ReadWrite to every connection. Do NOT use in production.</summary>
 internal sealed class DemoAuthorizer : IWeftAuthorizer
 {
     public ValueTask<WeftAccess> AuthorizeAsync(HttpContext context, string docId, CancellationToken ct)

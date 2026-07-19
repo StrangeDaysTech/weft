@@ -4,17 +4,17 @@ using Weft.Concurrency;
 using Weft.LoadTest;
 using Weft.Yrs;
 
-// Modo relay (FU-010/CHARTER-14): mide la latencia de broadcast del relay real en ambos modos de
-// durabilidad. Distinto de la carga de US2 de abajo (que conduce el broker directamente, ciega al relay).
+// Relay mode (FU-010/CHARTER-14): measures the broadcast latency of the real relay in both durability
+// modes. Distinct from the US2 load below (which drives the broker directly, blind to the relay).
 if (Array.IndexOf(args, "--relay") >= 0)
 {
     return await RelayLoad.RunAsync(ArgInt(args, "--edits", 200));
 }
 
-// Prueba de carga de US2/M1 (SC-006): cientos de documentos y muchas tareas concurrentes editando al
-// azar durante un período sostenido. Verifica (a) consistencia final de cada documento y (b) memoria
-// acotada — el número de documentos activos se mantiene bajo el límite pese a que el total supera el pool
-// (desalojo idle+LRU con persistencia y reapertura). Salida distinta de cero si algo falla (gate CI).
+// US2/M1 load test (SC-006): hundreds of documents and many concurrent tasks editing at
+// random over a sustained period. Verifies (a) final consistency of each document and (b) bounded
+// memory — the number of active documents stays under the limit even though the total exceeds the pool
+// (idle+LRU eviction with persistence and reopening). Non-zero exit if anything fails (CI gate).
 
 int docs = ArgInt(args, "--docs", 300);
 int tasks = ArgInt(args, "--tasks", 8);
@@ -24,7 +24,7 @@ int maxActive = ArgInt(args, "--max-active", Math.Max(8, docs / 4));
 Console.WriteLine($"[load-test] docs={docs} tasks={tasks} seconds={seconds} max-active={maxActive} " +
                   $"gc-server={System.Runtime.GCSettings.IsServerGC}");
 
-// "Persistencia" en memoria: el hook OnEvicting guarda aquí el estado; el loader lo relee al reabrir.
+// In-memory "persistence": the OnEvicting hook saves the state here; the loader re-reads it on reopen.
 var store = new ConcurrentDictionary<string, byte[]>(StringComparer.Ordinal);
 long evictions = 0;
 long confirmedOps = 0;
@@ -33,8 +33,8 @@ long errors = 0;
 var options = new DocumentBrokerOptions
 {
     MaxActiveDocuments = maxActive,
-    // Idle agresivo: fuerza desalojo/reapertura constantes bajo carga → ejercita la carrera
-    // desalojo-vs-reapertura (persistencia + recarga) que SC-006 exige sin pérdida de updates.
+    // Aggressive idle: forces constant eviction/reopen under load → exercises the
+    // eviction-vs-reopen race (persistence + reload) that SC-006 requires without losing updates.
     IdleEviction = TimeSpan.FromMilliseconds(30),
     IdleSweepInterval = TimeSpan.FromMilliseconds(10),
     OnEvicting = (id, state, ct) =>
@@ -45,7 +45,7 @@ var options = new DocumentBrokerOptions
     },
 };
 
-// Contador de inserciones confirmadas por documento: la longitud final del texto debe igualarlo.
+// Count of confirmed inserts per document: the final text length must equal it.
 long[] inserts = new long[docs];
 
 await using var broker = new DocumentBroker(YrsEngine.Instance, options);
@@ -53,7 +53,7 @@ await using var broker = new DocumentBroker(YrsEngine.Instance, options);
 Func<string, CancellationToken, ValueTask<byte[]?>> loader =
     (id, ct) => ValueTask.FromResult(store.TryGetValue(id, out byte[]? blob) ? blob : null);
 
-// Muestreo del pico de documentos activos durante la carga (evidencia de memoria acotada).
+// Sampling of the peak of active documents during the load (evidence of bounded memory).
 int peakActive = 0;
 using var samplerStop = new CancellationTokenSource();
 Task sampler = Task.Run(async () =>
@@ -72,8 +72,8 @@ Task sampler = Task.Run(async () =>
 var sw = Stopwatch.StartNew();
 long deadlineTicks = sw.ElapsedMilliseconds + (seconds * 1000L);
 
-// Cada documento crece hasta un tope y luego solo se lee: acota el TAMAÑO (memoria por doc),
-// mientras el pooling acota el NÚMERO de documentos activos. Ambos → memoria acotada (SC-006).
+// Each document grows up to a cap and is then read-only: bounds the SIZE (memory per doc),
+// while pooling bounds the NUMBER of active documents. Both → bounded memory (SC-006).
 const int perDocCap = 150;
 
 Task[] workers = Enumerable.Range(0, tasks).Select(workerId => Task.Run(async () =>
@@ -98,17 +98,17 @@ Task[] workers = Enumerable.Range(0, tasks).Select(workerId => Task.Run(async ()
             }
             else
             {
-                await session.GetTextAsync("body"); // mantiene el churn de apertura/desalojo sin crecer
+                await session.GetTextAsync("body"); // keeps the open/evict churn without growing
             }
         }
         catch (Exception ex)
         {
-            // En operación correcta no debería ocurrir (una sesión viva protege su documento del
-            // desalojo). Cualquier fallo aquí es una regresión de la capa de concurrencia.
+            // Under correct operation this should not happen (a live session protects its document from
+            // eviction). Any failure here is a regression in the concurrency layer.
             Interlocked.Increment(ref errors);
             if (Interlocked.Read(ref errors) <= 5)
             {
-                Console.WriteLine($"[load-test] error en '{docId}': {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"[load-test] error on '{docId}': {ex.GetType().Name}: {ex.Message}");
             }
         }
     }
@@ -119,10 +119,10 @@ sw.Stop();
 samplerStop.Cancel();
 await sampler;
 
-Console.WriteLine($"[load-test] carga completa en {sw.Elapsed.TotalSeconds:F1}s: " +
+Console.WriteLine($"[load-test] load complete in {sw.Elapsed.TotalSeconds:F1}s: " +
                   $"ops={confirmedOps} evictions={evictions} peak-active={peakActive} errors={errors}");
 
-// -- Verificación de consistencia: reabrir cada documento y comparar longitud con las inserciones --
+// -- Consistency check: reopen each document and compare its length against the inserts --
 int inconsistencias = 0;
 for (int idx = 0; idx < docs; idx++)
 {
@@ -133,40 +133,40 @@ for (int idx = 0; idx < docs; idx++)
     {
         if (inconsistencias < 10)
         {
-            Console.WriteLine($"[load-test] INCONSISTENTE doc-{idx}: len={text.Length} esperado={expected}");
+            Console.WriteLine($"[load-test] INCONSISTENT doc-{idx}: len={text.Length} expected={expected}");
         }
         inconsistencias++;
     }
 }
 
-// -- Memoria (informativo): managed heap tras GC forzado + working set. La memoria se acota por dos vías:
-//    el TAMAÑO por documento (cap de inserciones) y el NÚMERO de documentos activos (pool + LRU). El pico
-//    de activos es una cota SUAVE (se reafirma en cada barrido, no en OpenAsync), así que puede exceder
-//    MaxActiveDocuments transitoriamente; el criterio duro de PASS es el working set absoluto, abajo. --
+// -- Memory (informational): managed heap after a forced GC + working set. Memory is bounded two ways:
+//    the SIZE per document (insert cap) and the NUMBER of active documents (pool + LRU). The peak
+//    of active docs is a SOFT bound (reasserted on each sweep, not in OpenAsync), so it may exceed
+//    MaxActiveDocuments transiently; the hard PASS criterion is the absolute working set, below. --
 long managed = GC.GetTotalMemory(forceFullCollection: true);
 long workingSet = Process.GetCurrentProcess().WorkingSet64;
-Console.WriteLine($"[load-test] memoria: managed-heap={managed / (1024 * 1024)}MB " +
+Console.WriteLine($"[load-test] memory: managed-heap={managed / (1024 * 1024)}MB " +
                   $"working-set={workingSet / (1024 * 1024)}MB");
 
-// Memoria acotada (SC-006): con tamaño por doc y número de docs activos ambos acotados, el working
-// set se estabiliza. Límite absoluto generoso; un proceso que crece sin cota lo supera holgadamente.
+// Bounded memory (SC-006): with per-doc size and number of active docs both bounded, the working
+// set stabilizes. Generous absolute limit; a process growing without bound exceeds it comfortably.
 const long workingSetLimitMb = 1536;
 long workingSetMb = workingSet / (1024 * 1024);
 bool memoryBounded = workingSetMb < workingSetLimitMb;
 bool consistent = inconsistencias == 0;
 bool noErrors = Interlocked.Read(ref errors) == 0;
 
-Console.WriteLine($"[load-test] consistencia={(consistent ? "OK" : $"FAIL ({inconsistencias})")} " +
-                  $"memoria-acotada={(memoryBounded ? "OK" : $"FAIL (working-set {workingSetMb}MB >= {workingSetLimitMb}MB)")} " +
-                  $"sin-errores={(noErrors ? "OK" : "FAIL")}");
+Console.WriteLine($"[load-test] consistency={(consistent ? "OK" : $"FAIL ({inconsistencias})")} " +
+                  $"memory-bounded={(memoryBounded ? "OK" : $"FAIL (working-set {workingSetMb}MB >= {workingSetLimitMb}MB)")} " +
+                  $"no-errors={(noErrors ? "OK" : "FAIL")}");
 
 if (consistent && memoryBounded && noErrors)
 {
-    Console.WriteLine("[load-test] RESULTADO: PASS");
+    Console.WriteLine("[load-test] RESULT: PASS");
     return 0;
 }
 
-Console.WriteLine("[load-test] RESULTADO: FAIL");
+Console.WriteLine("[load-test] RESULT: FAIL");
 return 1;
 
 static int ArgInt(string[] args, string name, int fallback)

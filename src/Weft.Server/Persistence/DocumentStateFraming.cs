@@ -3,23 +3,23 @@ using Weft.Server.Protocol;
 namespace Weft.Server.Persistence;
 
 /// <summary>
-/// Framing compartido del estado persistido de un documento. Como los blobs de <see cref="IDocumentStore"/>
-/// son <b>opacos</b> (P-IV: el store no conoce tipos de yrs y no puede fusionar updates), el estado que
-/// devuelve <see cref="IDocumentStore.LoadAsync"/> es una <b>secuencia plana de records</b>: el snapshot (si
-/// existe) seguido de cada update acumulado desde ese snapshot, en orden de append. Cada record se enmarca
-/// como un <c>VarUint8Array</c> lib0.
+/// Shared framing of a document's persisted state. Since the <see cref="IDocumentStore"/> blobs are
+/// <b>opaque</b> (P-IV: the store does not know yrs types and cannot merge updates), the state that
+/// <see cref="IDocumentStore.LoadAsync"/> returns is a <b>flat sequence of records</b>: the snapshot (if it
+/// exists) followed by each update accumulated since that snapshot, in append order. Each record is framed
+/// as a lib0 <c>VarUint8Array</c>.
 /// </summary>
 /// <remarks>
-/// El relay (CHARTER-05) reconstruye el documento aplicando cada record en orden a un doc fresco de yrs
-/// (todos son operaciones <c>apply_update</c> idempotentes: reaplicar un update ya integrado es un no-op CRDT,
-/// lo que hace la recuperación tolerante a un snapshot y updates que se solapen). Esta clase es el único punto
-/// que conoce el formato del contenedor; los adaptadores lo comparten y la contract suite lo verifica.
+/// The relay (CHARTER-05) reconstructs the document by applying each record in order to a fresh yrs doc
+/// (all are idempotent <c>apply_update</c> operations: reapplying an already-integrated update is a CRDT no-op,
+/// which makes recovery tolerant of a snapshot and updates that overlap). This class is the only point
+/// that knows the container format; the adapters share it and the contract suite verifies it.
 /// </remarks>
 public static class DocumentStateFraming
 {
     /// <summary>
-    /// Enmarca <paramref name="snapshot"/> (opcional) y <paramref name="updates"/> en una secuencia de records.
-    /// Devuelve <c>null</c> si no hay nada persistido (sin snapshot y sin updates) — la señal de "doc inexistente".
+    /// Frames <paramref name="snapshot"/> (optional) and <paramref name="updates"/> into a sequence of records.
+    /// Returns <c>null</c> if nothing is persisted (no snapshot and no updates) — the "nonexistent doc" signal.
     /// </summary>
     public static byte[]? Frame(byte[]? snapshot, IReadOnlyList<byte[]> updates)
     {
@@ -43,9 +43,9 @@ public static class DocumentStateFraming
     }
 
     /// <summary>
-    /// Lee de vuelta los records de un estado enmarcado por <see cref="Frame"/>. Cada elemento es una copia de
-    /// un record; se aplican en orden. Un contenedor truncado falla con <see cref="MalformedMessageException"/>
-    /// (la misma guarda estructural del códec).
+    /// Reads back the records of a state framed by <see cref="Frame"/>. Each element is a copy of
+    /// a record; they are applied in order. A truncated container fails with <see cref="MalformedMessageException"/>
+    /// (the same structural guard of the codec).
     /// </summary>
     public static IReadOnlyList<byte[]> ReadRecords(ReadOnlySpan<byte> framed)
     {

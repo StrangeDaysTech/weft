@@ -1,61 +1,61 @@
 namespace Weft;
 
-/// <summary>Código de error del motor CRDT tal como cruza la frontera FFI.</summary>
+/// <summary>Error code of the CRDT engine as it crosses the FFI boundary.</summary>
 public enum WeftErrorCode
 {
-    /// <summary>Blob/update no decodificable.</summary>
+    /// <summary>Blob/update not decodable.</summary>
     Decode,
 
-    /// <summary>Fallo aplicando un update.</summary>
+    /// <summary>Failure applying an update.</summary>
     Apply,
 
-    /// <summary>Texto de entrada no es UTF-8 válido.</summary>
+    /// <summary>Input text is not valid UTF-8.</summary>
     Utf8,
 
-    /// <summary>Índice/longitud fuera de rango.</summary>
+    /// <summary>Index/length out of range.</summary>
     OutOfBounds,
 
-    /// <summary>Un panic del motor fue capturado en la frontera (P-I).</summary>
+    /// <summary>An engine panic was captured at the boundary (P-I).</summary>
     Panic,
 }
 
-/// <summary>Base de toda excepción de Weft.</summary>
+/// <summary>Base of every Weft exception.</summary>
 public class WeftException : Exception
 {
-    /// <summary>Crea una excepción con mensaje.</summary>
+    /// <summary>Creates an exception with a message.</summary>
     public WeftException(string message) : base(message) { }
 
-    /// <summary>Crea una excepción con mensaje y causa.</summary>
+    /// <summary>Creates an exception with a message and cause.</summary>
     public WeftException(string message, Exception innerException) : base(message, innerException) { }
 }
 
-/// <summary>Un blob o update no se pudo decodificar (código FFI <c>DECODE</c>).</summary>
+/// <summary>A blob or update could not be decoded (FFI code <c>DECODE</c>).</summary>
 public sealed class CorruptUpdateException : WeftException
 {
-    /// <summary>Crea la excepción con un mensaje por defecto.</summary>
+    /// <summary>Creates the exception with a default message.</summary>
     public CorruptUpdateException()
-        : base("El blob o update no es decodificable (formato corrupto o incompatible).") { }
+        : base("The blob or update is not decodable (corrupt or incompatible format).") { }
 
-    /// <summary>Crea la excepción con un mensaje explícito.</summary>
+    /// <summary>Creates the exception with an explicit message.</summary>
     public CorruptUpdateException(string message) : base(message) { }
 }
 
-/// <summary>Error del motor CRDT a través de la frontera (apply/utf8/panic).</summary>
+/// <summary>CRDT engine error across the boundary (apply/utf8/panic).</summary>
 public sealed class WeftEngineException : WeftException
 {
-    /// <summary>Código de error tipificado del motor.</summary>
+    /// <summary>Typed error code of the engine.</summary>
     public WeftErrorCode ErrorCode { get; }
 
-    /// <summary>Crea la excepción con su código y mensaje.</summary>
+    /// <summary>Creates the exception with its code and message.</summary>
     public WeftEngineException(WeftErrorCode errorCode, string message) : base(message)
     {
         ErrorCode = errorCode;
     }
 }
 
-/// <summary>La integridad de un blob content-addressed no verifica (usado por Weft.Versioning).</summary>
+/// <summary>The integrity of a content-addressed blob does not verify (used by Weft.Versioning).</summary>
 public sealed class BlobIntegrityException : WeftException
 {
-    /// <summary>Crea la excepción con un mensaje explícito.</summary>
+    /// <summary>Creates the exception with an explicit message.</summary>
     public BlobIntegrityException(string message) : base(message) { }
 }

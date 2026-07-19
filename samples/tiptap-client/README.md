@@ -1,39 +1,42 @@
-# Weft · cliente Tiptap + validación de compat del wire
+# Weft · Tiptap client + wire-compat validation
 
-Sample de US3 (CHARTER-05): un editor **Tiptap** colaborativo real contra el relay `Weft.Server`, más un
-check **headless** de compatibilidad del wire con `yjs`/`y-websocket`. Demuestra que el relay interopera con
-el ecosistema Yjs **sin adaptación** — el servidor habla `y-sync` estándar.
+Sample for US3 (CHARTER-05): a real collaborative **Tiptap** editor against the `Weft.Server` relay,
+plus a **headless** wire-compatibility check with `yjs`/`y-websocket`. Demonstrates that the relay
+interoperates with the Yjs ecosystem **without adaptation** — the server speaks standard `y-sync`.
 
-## Requisitos
+## Requirements
 
-- El sample server corriendo:
+- The sample server running (listens on `ws://127.0.0.1:5199/collab/{docId}`):
+
   ```bash
-  dotnet run --project ../Weft.Sample.Server    # escucha en ws://127.0.0.1:5199/collab/{docId}
+  dotnet run --project ../Weft.Sample.Server
   ```
-- Node.js + npm. Instalar deps una vez: `npm install`.
 
-## 1) Validación headless (sin navegador) — gate de compat del wire
+- Node.js + npm. Install deps once: `npm install`.
 
-Dos `Y.Doc` reales de Yjs se conectan vía `y-websocket` y deben converger tras ediciones cruzadas:
+## 1) Headless validation (no browser) — wire-compat gate
+
+Two real Yjs `Y.Doc`s connect via `y-websocket` and must converge after cross edits:
 
 ```bash
 npm run check
-# ✓ convergencia Yjs (y-websocket) ↔ Weft.Server (yrs): "Hello from A. And B too."
+# ✓ convergence Yjs (y-websocket) ↔ Weft.Server (yrs): "Hello from A. And B too."
 ```
 
-Sale con código 0 si converge; 1 si diverge o da timeout. Es la evidencia de que los updates de yrs (servidor)
-y Yjs (cliente) son intercambiables a nivel binario.
+Exits 0 if they converge; 1 if they diverge or time out. This is the evidence that yrs updates
+(server) and Yjs updates (client) are interchangeable at the binary level.
 
-## 2) Validación manual con Tiptap (quickstart §US3)
+## 2) Manual validation with Tiptap (quickstart §US3)
 
 ```bash
-npm run dev            # Vite sirve el editor en http://localhost:5173
+npm run dev            # Vite serves the editor at http://localhost:5173
 ```
 
-1. Abre `http://localhost:5173/?doc=demo` en **2+ pestañas** (o navegadores).
-2. Escribe en una pestaña → el texto aparece en vivo en las demás (convergencia).
-3. Los cursores/nombres de los pares se ven (awareness); al cerrar una pestaña, su cursor desaparece (retirada).
-4. Recarga una pestaña → recupera el estado desde el relay (delta en reconexión).
-5. Reinicia el sample server → los documentos persisten (`FileSystemDocumentStore`).
+1. Open `http://localhost:5173/?doc=demo` in **2+ tabs** (or browsers).
+2. Type in one tab → the text appears live in the others (convergence).
+3. Peer cursors/names are visible (awareness); closing a tab makes its cursor disappear (retirement).
+4. Reload a tab → it recovers state from the relay (delta on reconnect).
+5. Restart the sample server → documents persist (`FileSystemDocumentStore`).
 
-El `docId` es el parámetro `?doc=`; cambia la URL base con `?url=ws://host:port/collab` si hace falta.
+The `docId` is the `?doc=` query parameter; change the base URL with `?url=ws://host:port/collab`
+if needed.

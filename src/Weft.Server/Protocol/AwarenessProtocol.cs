@@ -3,26 +3,26 @@ using System.Text;
 namespace Weft.Server.Protocol;
 
 /// <summary>
-/// Parsing mínimo del protocolo <c>y-awareness</c> — lo justo para que el relay difunda la <b>retirada</b> del
-/// estado de una conexión al cerrarse (FR-015). El relay no interpreta el <i>contenido</i> del estado (es
-/// opaco); solo necesita los <c>clientID</c> que una conexión anunció para poder marcarlos offline al salir.
+/// Minimal parsing of the <c>y-awareness</c> protocol — just enough for the relay to broadcast the <b>removal</b> of
+/// a connection's state when it closes (FR-015). The relay does not interpret the <i>content</i> of the state (it is
+/// opaque); it only needs the <c>clientID</c>s that a connection announced in order to mark them offline on leaving.
 /// </summary>
 /// <remarks>
-/// Formato de un awareness update (payload interno del mensaje <see cref="MessageType.Awareness"/>):
+/// Format of an awareness update (inner payload of the <see cref="MessageType.Awareness"/> message):
 /// <code>
 /// &lt;numClients:varUint&gt; ( &lt;clientID:varUint&gt; &lt;clock:varUint&gt; &lt;state:VarUint8Array (JSON UTF-8)&gt; )*
 /// </code>
-/// La retirada es un update con <c>clock+1</c> y estado <c>"null"</c> por cada clientID, como hace
-/// <c>y-protocols/awareness</c>.
+/// The removal is an update with <c>clock+1</c> and state <c>"null"</c> for each clientID, as
+/// <c>y-protocols/awareness</c> does.
 /// </remarks>
 internal static class AwarenessProtocol
 {
     private static readonly byte[] NullStateUtf8 = Encoding.UTF8.GetBytes("null");
 
     /// <summary>
-    /// Extrae los pares <c>clientID → clock</c> de un awareness update, acumulando en
-    /// <paramref name="tracked"/> (el clock más alto visto por cliente). Tolerante a payloads que no parsean
-    /// (best-effort: el awareness no es crítico para la convergencia del documento).
+    /// Extracts the <c>clientID → clock</c> pairs from an awareness update, accumulating into
+    /// <paramref name="tracked"/> (the highest clock seen per client). Tolerant of payloads that do not parse
+    /// (best-effort: awareness is not critical for the document's convergence).
     /// </summary>
     public static void TrackClients(ReadOnlySpan<byte> awarenessPayload, Dictionary<uint, uint> tracked)
     {
@@ -34,9 +34,9 @@ internal static class AwarenessProtocol
             {
                 uint clientId = r.ReadVarUint();
                 uint clock = r.ReadVarUint();
-                _ = r.ReadVarUint8Array(); // estado (opaco): se salta
-                // Insertar el cliente aunque su clock sea 0 (común en el primer awareness de un cliente Yjs);
-                // indexar `tracked[clientId]` en el else con la clave ausente lanzaría KeyNotFoundException.
+                _ = r.ReadVarUint8Array(); // state (opaque): skipped
+                // Insert the client even if its clock is 0 (common in the first awareness of a Yjs client);
+                // indexing `tracked[clientId]` in the else with the absent key would throw KeyNotFoundException.
                 if (!tracked.TryGetValue(clientId, out uint prevClock) || clock > prevClock)
                 {
                     tracked[clientId] = clock;
@@ -45,14 +45,14 @@ internal static class AwarenessProtocol
         }
         catch (MalformedMessageException)
         {
-            // Awareness malformado: se ignora para el tracking (el broadcast del mensaje ya lo maneja el relay).
+            // Malformed awareness: ignored for tracking (the relay already handles the message's broadcast).
         }
     }
 
     /// <summary>
-    /// Construye un mensaje <see cref="MessageType.Awareness"/> completo que marca offline a
-    /// <paramref name="clients"/> (estado <c>"null"</c>, <c>clock+1</c>). Devuelve <c>null</c> si no hay clientes
-    /// que retirar.
+    /// Builds a complete <see cref="MessageType.Awareness"/> message that marks
+    /// <paramref name="clients"/> offline (state <c>"null"</c>, <c>clock+1</c>). Returns <c>null</c> if there are no
+    /// clients to remove.
     /// </summary>
     public static byte[]? EncodeRemoval(IReadOnlyDictionary<uint, uint> clients)
     {

@@ -5,42 +5,43 @@ using Xunit.Abstractions;
 namespace Weft.Core.Tests;
 
 /// <summary>
-/// Benchmark de tamaño de delta (T062, SC-004): en el escenario de referencia de reconexión, el
-/// sync incremental transfiere ≥ 90 % menos bytes que reenviar el estado completo.
+/// Delta size benchmark (T062, SC-004): in the reference reconnection scenario, incremental
+/// sync transfers ≥ 90 % fewer bytes than resending the full state.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>El escenario de referencia se define aquí</b> porque la spec no lo definía. SC-004
-/// (<c>spec.md:175</c>) cita «523 B → 29 B», pero ese dato sale de una celda etiquetada
-/// «Rough perf» en <c>docs/spikes/spike03/hallazgos-spike-03.md:38</c>, de un spike cuyo código
-/// es desechable por diseño (<c>docs/spikes/README.md:4-5</c>) y no vive en este repo: no
-/// documenta tamaño de documento, ni número de ediciones, ni qué se exportó exactamente. Se cita
-/// como contexto histórico —523→29 es un 94,5 %, consistente con el umbral— y NO como expectativa
-/// byte a byte: asertar esos absolutos ataría la suite a un spike irreproducible y la rompería
-/// cualquier bump de yrs sin que nada estuviera mal. Lo vinculante de SC-004 es el ratio.
+/// <b>The reference scenario is defined here</b> because the spec did not define it. SC-004
+/// (<c>spec.md:175</c>) cites «523 B → 29 B», but that figure comes from a cell labeled
+/// «Rough perf» in <c>docs/spikes/spike03/hallazgos-spike-03.md:38</c>, from a spike whose code
+/// is throwaway by design (<c>docs/spikes/README.md:4-5</c>) and does not live in this repo: it
+/// documents neither document size, nor number of edits, nor exactly what was exported. It is cited
+/// as historical context —523→29 is 94.5 %, consistent with the threshold— and NOT as a
+/// byte-for-byte expectation: asserting those absolutes would tie the suite to an irreproducible
+/// spike and would break it on any yrs bump with nothing actually wrong. What is binding in SC-004
+/// is the ratio.
 /// </para>
 /// <para>
-/// La forma del escenario sale de la prosa de SC-004 («reconexión») y de la postcondición del
-/// relay en <c>contracts/server-api.md:116</c> («una reconexión con SV previo recibe solo el
-/// delta»):
+/// The shape of the scenario comes from the prose of SC-004 («reconnection») and from the
+/// postcondition of the relay in <c>contracts/server-api.md:116</c> («a reconnection with a prior
+/// SV receives only the delta»):
 /// </para>
 /// <list type="number">
-///   <item>Un autor tiene un documento de referencia: un párrafo de prosa, el orden de magnitud
-///   (~500 B de estado) de la referencia del spike.</item>
-///   <item>Un par se pone al día y captura su state vector — el «qué conozco» que enviará al
-///   reconectar.</item>
-///   <item>Mientras el par está desconectado, el autor recibe UNA edición pequeña.</item>
-///   <item>Al reconectar, el par pide solo lo que le falta.</item>
+///   <item>An author has a reference document: a paragraph of prose, the order of magnitude
+///   (~500 B of state) of the spike reference.</item>
+///   <item>A peer catches up and captures its state vector — the «what I know» that it will send
+///   when reconnecting.</item>
+///   <item>While the peer is disconnected, the author receives ONE small edit.</item>
+///   <item>On reconnecting, the peer requests only what it is missing.</item>
 /// </list>
 /// <para>
-/// Se mide <c>ExportUpdateSince(sv).Length</c> (lo que viaja) contra <c>ExportState().Length</c>
-/// (lo que viajaría sin sync incremental). El escenario se fijó antes de medir y el assert es el
-/// umbral de la spec, no un número calibrado a posteriori.
+/// We measure <c>ExportUpdateSince(sv).Length</c> (what travels) against <c>ExportState().Length</c>
+/// (what would travel without incremental sync). The scenario was fixed before measuring and the
+/// assert is the spec threshold, not a number calibrated after the fact.
 /// </para>
 /// <para>
-/// Los client-ids son fijos (capacidad de <c>YrsEngine</c>, CHARTER-09/FU-012) para que el tamaño
-/// medido no dependa del varint de un id aleatorio: un id de 53 bits ocupa varios bytes más que
-/// uno pequeño, y eso es ruido que no pertenece a la medición.
+/// The client-ids are fixed (a <c>YrsEngine</c> capability, CHARTER-09/FU-012) so that the measured
+/// size does not depend on the varint of a random id: a 53-bit id takes several more bytes than a
+/// small one, and that is noise that does not belong in the measurement.
 /// </para>
 /// </remarks>
 public sealed class DeltaSizeBenchmark
@@ -52,7 +53,7 @@ public sealed class DeltaSizeBenchmark
     private const ulong AutorClientId = 1;
     private const ulong ParClientId = 2;
 
-    /// <summary>Documento de referencia: prosa, ~500 B de estado exportado.</summary>
+    /// <summary>Reference document: prose, ~500 B of exported state.</summary>
     private const string ParrafoReferencia =
         "El telar levanta la urdimbre y la trama cruza entre los hilos tensados; cada pasada fija " +
         "el dibujo que ya no podrá deshacerse sin destejer lo anterior. Quien mira la tela " +
@@ -61,7 +62,7 @@ public sealed class DeltaSizeBenchmark
         "orden final no lo dicta quien llegó primero, sino la regla que todos aceptaron de " +
         "antemano.";
 
-    /// <summary>La edición que ocurre mientras el par está desconectado.</summary>
+    /// <summary>The edit that occurs while the peer is disconnected.</summary>
     private const string EdicionDuranteDesconexion = "Nota al margen: ";
 
     [Fact]
@@ -70,35 +71,35 @@ public sealed class DeltaSizeBenchmark
         using ICrdtDoc autor = YrsEngine.Instance.CreateDoc(AutorClientId);
         autor.InsertText("body", 0, ParrafoReferencia);
 
-        // El par se pone al día y captura su SV justo antes de desconectarse.
+        // The peer catches up and captures its SV just before disconnecting.
         using ICrdtDoc par = YrsEngine.Instance.CreateDoc(ParClientId);
         par.ApplyUpdate(autor.ExportState());
         byte[] svAlDesconectar = par.ExportStateVector();
 
-        // Mientras el par no está, el documento avanza.
+        // While the peer is away, the document moves forward.
         autor.InsertText("body", 0, EdicionDuranteDesconexion);
 
-        // Reconexión: lo que viaja vs lo que viajaría reenviando el estado completo.
+        // Reconnection: what travels vs what would travel by resending the full state.
         byte[] delta = autor.ExportUpdateSince(svAlDesconectar);
         byte[] estadoCompleto = autor.ExportState();
 
-        // Un delta que no converge no es un delta barato, es un delta roto: medir su tamaño sin
-        // comprobar que sincroniza dejaría pasar un buffer vacío con una reducción del 100 %.
+        // A delta that does not converge is not a cheap delta, it is a broken delta: measuring its
+        // size without checking that it syncs would let an empty buffer with a 100 % reduction pass.
         par.ApplyUpdate(delta);
         Assert.Equal(autor.ExportState(), par.ExportState());
         Assert.Equal(EdicionDuranteDesconexion + ParrafoReferencia, par.GetText("body"));
 
         double reduccion = 1.0 - ((double)delta.Length / estadoCompleto.Length);
 
-        // Un benchmark reporta su medición: el número es el entregable, no solo el verde/rojo.
+        // A benchmark reports its measurement: the number is the deliverable, not just the green/red.
         _output.WriteLine(
-            $"SC-004 · escenario de reconexión: estado completo={estadoCompleto.Length} B, " +
-            $"delta={delta.Length} B, reducción={reduccion:P1} (umbral ≥ 90 %). " +
-            $"Referencia histórica del spike03: 523 B → 29 B (94,5 %).");
+            $"SC-004 · reconnection scenario: full state={estadoCompleto.Length} B, " +
+            $"delta={delta.Length} B, reduction={reduccion:P1} (threshold ≥ 90 %). " +
+            $"Historical reference from spike03: 523 B → 29 B (94.5 %).");
 
         Assert.True(
             reduccion >= 0.90,
-            $"SC-004: delta={delta.Length} B vs estado completo={estadoCompleto.Length} B → " +
-            $"reducción medida {reduccion:P1}, se exige ≥ 90 %.");
+            $"SC-004: delta={delta.Length} B vs full state={estadoCompleto.Length} B → " +
+            $"measured reduction {reduccion:P1}, ≥ 90 % is required.");
     }
 }

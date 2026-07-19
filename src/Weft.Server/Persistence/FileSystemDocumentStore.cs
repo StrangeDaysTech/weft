@@ -6,28 +6,28 @@ using System.Text;
 namespace Weft.Server.Persistence;
 
 /// <summary>
-/// <see cref="IDocumentStore"/> respaldado por el sistema de archivos: persistencia durable para v1. Cada
-/// documento vive en su propio directorio bajo la raíz configurada, con un archivo <c>snapshot</c> y un
-/// archivo por update acumulado (<c>u-{seq}</c>).
+/// <see cref="IDocumentStore"/> backed by the file system: durable persistence for v1. Each
+/// document lives in its own directory under the configured root, with a <c>snapshot</c> file and one
+/// file per accumulated update (<c>u-{seq}</c>).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Atomicidad.</b> Toda escritura (snapshot y cada update) se materializa con temp + <c>rename</c>: se
-/// escribe a un archivo temporal, se vuelca a disco y se renombra sobre el destino final (rename es atómico en
-/// POSIX y equivalente en Windows). Un update es su propio archivo con rename atómico —nunca un append
-/// truncable—, así que un fallo a media escritura deja el archivo destino intacto o inexistente, jamás un
-/// record corrupto que rompa la carga.
+/// <b>Atomicity.</b> Every write (snapshot and each update) is materialized with temp + <c>rename</c>: it is
+/// written to a temporary file, flushed to disk and renamed over the final target (rename is atomic on
+/// POSIX and equivalent on Windows). An update is its own file with an atomic rename —never a truncatable
+/// append—, so a failure mid-write leaves the target file intact or nonexistent, never a
+/// corrupt record that breaks the load.
 /// </para>
 /// <para>
-/// <b>Compaction.</b> <see cref="SaveSnapshotAsync"/> reemplaza el snapshot atómicamente y luego borra todos
-/// los archivos de update acumulados. El snapshot se escribe antes de borrar los updates: un fallo entre ambos
-/// pasos solo deja updates que ya están incorporados al snapshot, y su reaplicación es un no-op CRDT
-/// idempotente (ver <see cref="DocumentStateFraming"/>).
+/// <b>Compaction.</b> <see cref="SaveSnapshotAsync"/> replaces the snapshot atomically and then deletes all
+/// the accumulated update files. The snapshot is written before deleting the updates: a failure between the two
+/// steps only leaves updates that are already incorporated into the snapshot, and reapplying them is an
+/// idempotent CRDT no-op (see <see cref="DocumentStateFraming"/>).
 /// </para>
 /// <para>
-/// <b>Concurrencia.</b> Un <see cref="SemaphoreSlim"/> por documento serializa las operaciones de ese doc; el
-/// mapa global de semáforos es concurrente. El <c>docId</c> (opaco, puede contener cualquier carácter) se
-/// mapea a un nombre de directorio por hash SHA-256 hex — evita traversal de rutas y longitudes ilegales.
+/// <b>Concurrency.</b> A <see cref="SemaphoreSlim"/> per document serializes that doc's operations; the
+/// global map of semaphores is concurrent. The <c>docId</c> (opaque, may contain any character) is
+/// mapped to a directory name by SHA-256 hex hash — avoids path traversal and illegal lengths.
 /// </para>
 /// </remarks>
 public sealed class FileSystemDocumentStore : IDocumentStore
@@ -40,14 +40,14 @@ public sealed class FileSystemDocumentStore : IDocumentStore
     {
         public readonly SemaphoreSlim Gate = new(1, 1);
 
-        /// <summary>Siguiente índice de update; <c>-1</c> = aún no inicializado desde disco.</summary>
+        /// <summary>Next update index; <c>-1</c> = not yet initialized from disk.</summary>
         public long NextSeq = -1;
     }
 
     private readonly string _root;
     private readonly ConcurrentDictionary<string, DocLock> _locks = new(StringComparer.Ordinal);
 
-    /// <summary>Crea el store bajo <paramref name="rootDirectory"/> (se crea si no existe).</summary>
+    /// <summary>Creates the store under <paramref name="rootDirectory"/> (created if it does not exist).</summary>
     public FileSystemDocumentStore(string rootDirectory)
     {
         ArgumentException.ThrowIfNullOrEmpty(rootDirectory);
@@ -124,11 +124,11 @@ public sealed class FileSystemDocumentStore : IDocumentStore
         {
             Directory.CreateDirectory(dir);
 
-            // 1) Reemplazo atómico del snapshot.
+            // 1) Atomic replacement of the snapshot.
             string snapshotPath = Path.Combine(dir, SnapshotFileName);
             await AtomicWriteAsync(snapshotPath, state, ct).ConfigureAwait(false);
 
-            // 2) Compaction: borrar los updates ya incorporados al snapshot y reiniciar la numeración.
+            // 2) Compaction: delete the updates already incorporated into the snapshot and reset the numbering.
             foreach (string updatePath in EnumerateUpdateFilesOrdered(dir))
             {
                 File.Delete(updatePath);
@@ -171,7 +171,7 @@ public sealed class FileSystemDocumentStore : IDocumentStore
             .Where(p => TryParseSeq(Path.GetFileName(p), out _))
             .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal);
 
-    // Nombre zero-padded a 20 dígitos → el orden lexicográfico coincide con el orden numérico de append.
+    // Name zero-padded to 20 digits → the lexicographic order matches the numeric append order.
     private static string UpdateFileName(long seq) =>
         UpdatePrefix + seq.ToString("D20", CultureInfo.InvariantCulture);
 
@@ -195,17 +195,17 @@ public sealed class FileSystemDocumentStore : IDocumentStore
             tmpPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, FileOptions.None))
         {
             await fs.WriteAsync(bytes, ct).ConfigureAwait(false);
-            // Durabilidad (FU-010): FlushAsync solo vacía al page cache del SO; Flush(flushToDisk: true)
-            // fuerza el fsync a disco. No hay variante async de fsync en .NET, así que este Flush es
-            // síncrono (bloquea el hilo durante el fsync; el append ya está fuera del turno del actor).
+            // Durability (FU-010): FlushAsync only flushes to the OS page cache; Flush(flushToDisk: true)
+            // forces the fsync to disk. There is no async variant of fsync in .NET, so this Flush is
+            // synchronous (blocks the thread during the fsync; the append is already outside the actor turn).
             fs.Flush(flushToDisk: true);
         }
 
         File.Move(tmpPath, finalPath, overwrite: true);
 
-        // Un rename es durable solo si el directorio que lo contiene también se sincroniza (POSIX). En
-        // Windows no hay handle de directorio equivalente; se omite (NTFS ordena metadata de forma que el
-        // rename no precede al contenido ya sincronizado arriba).
+        // A rename is durable only if the directory containing it is also synced (POSIX). On
+        // Windows there is no equivalent directory handle; it is skipped (NTFS orders metadata such that the
+        // rename does not precede the content already synced above).
         FsyncDirectory(Path.GetDirectoryName(finalPath));
     }
 
@@ -216,8 +216,8 @@ public sealed class FileSystemDocumentStore : IDocumentStore
             return;
         }
 
-        // Abrir el directorio y fsync-earlo: hace durable la entrada del rename. Best-effort: si el SO no
-        // permite abrir un directorio como archivo, la durabilidad del contenido (arriba) es lo esencial.
+        // Open the directory and fsync it: makes the rename entry durable. Best-effort: if the OS does not
+        // allow opening a directory as a file, the content's durability (above) is what is essential.
         try
         {
             using var dirHandle = File.OpenHandle(dir, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
@@ -225,7 +225,7 @@ public sealed class FileSystemDocumentStore : IDocumentStore
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            System.Diagnostics.Debug.WriteLine($"[FileSystemDocumentStore] fsync de directorio '{dir}' omitido: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[FileSystemDocumentStore] directory fsync of '{dir}' skipped: {ex.Message}");
         }
     }
 

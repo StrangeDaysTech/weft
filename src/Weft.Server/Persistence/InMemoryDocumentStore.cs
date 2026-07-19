@@ -3,8 +3,8 @@ using System.Collections.Concurrent;
 namespace Weft.Server.Persistence;
 
 /// <summary>
-/// <see cref="IDocumentStore"/> respaldado por memoria: para tests y desarrollo. No sobrevive al proceso.
-/// Thread-safe por documento vía un lock por entrada; el mapa global usa <see cref="ConcurrentDictionary{TKey,TValue}"/>.
+/// <see cref="IDocumentStore"/> backed by memory: for tests and development. Does not survive the process.
+/// Thread-safe per document via a per-entry lock; the global map uses <see cref="ConcurrentDictionary{TKey,TValue}"/>.
 /// </summary>
 public sealed class InMemoryDocumentStore : IDocumentStore
 {

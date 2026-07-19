@@ -1,146 +1,139 @@
-# Arquitectura de Weft
+# Weft architecture
 
-> Cómo está construido Weft y por qué. Documento de orientación para quien va a consumir la
-> librería, integrarla o contribuir a ella.
+> How Weft is built and why. An orientation document for anyone about to consume the library,
+> integrate it, or contribute to it.
 >
-> **Alcance**: este doc explica la **forma** del sistema y el **contrato de memoria** de la
-> frontera nativa. No duplica lo que ya vive en otro sitio: la API por paquete está en
-> [`docs/api/README.md`](api/README.md), los contratos formales en
-> [`specs/001-weft-crdt-versioning/contracts/`](../specs/001-weft-crdt-versioning/contracts/), y el
-> *porqué* de cada decisión técnica en
-> [`research.md`](../specs/001-weft-crdt-versioning/research.md) (R1–R17), al que se enlaza en vez
-> de reexplicarlo.
+> **Scope**: this doc explains the **shape** of the system and the **memory contract** of the native
+> boundary. It does not duplicate what already lives elsewhere: the per-package API is in
+> [`docs/api/README.md`](api/README.md), the formal contracts in
+> [`specs/001-weft-crdt-versioning/contracts/`](../specs/001-weft-crdt-versioning/contracts/), and the
+> *why* of each technical decision in
+> [`research.md`](../specs/001-weft-crdt-versioning/research.md) (R1–R17), which is linked to rather
+> than re-explained.
 
-## Qué es Weft
+## What Weft is
 
-Weft es un **building block**, no una aplicación: da colaboración CRDT en tiempo real y versionado
-content-addressed a aplicaciones .NET. El trabajo CRDT real lo hace [`yrs`](https://github.com/y-crdt/y-crdt)
-(el core Rust de Yjs); Weft aporta un binding seguro, un modelo de versionado que `yrs` no tiene, un
-relay compatible con el ecosistema Yjs, y la disciplina de memoria/determinismo que hace que todo eso
-sea sostenible desde .NET.
+Weft is a **building block**, not an application: it gives .NET applications real-time CRDT
+collaboration and content-addressed versioning. The actual CRDT work is done by
+[`yrs`](https://github.com/y-crdt/y-crdt) (the Rust core of Yjs); Weft adds a safe binding, a
+versioning model that `yrs` doesn't have, a relay compatible with the Yjs ecosystem, and the
+memory/determinism discipline that makes all of that sustainable from .NET.
 
-Dos consecuencias de diseño que conviene tener claras desde el principio:
+Two design consequences worth having clear from the start:
 
-- **Weft no decide tu autenticación, tu almacenamiento ni tu retención.** El relay delega la
-  autorización en un `IWeftAuthorizer` tuyo (R17), la persistencia en un `IDocumentStore` tuyo (R8), y
-  las versiones publicadas son inmutables sin `delete` en v1 — la política de retención es dominio
-  del consumidor.
-- **La interoperabilidad con Yjs es un requisito, no un accidente.** El wire es el protocolo y-sync
-  sobre lib0 (R7) y el encoding es byte-idéntico al de Yjs JS, verificado por un gate bloqueante.
-  Un cliente Tiptap/y-websocket existente habla con Weft sin adaptadores.
+- **Weft does not decide your authentication, your storage, or your retention.** The relay delegates
+  authorization to an `IWeftAuthorizer` of yours (R17), persistence to an `IDocumentStore` of yours
+  (R8), and published versions are immutable with no `delete` in v1 — retention policy is the
+  consumer's domain.
+- **Interoperability with Yjs is a requirement, not an accident.** The wire is the y-sync protocol
+  over lib0 (R7) and the encoding is byte-identical to Yjs JS, verified by a blocking gate. An
+  existing Tiptap/y-websocket client talks to Weft with no adapters.
 
-## Mapa de módulos
+## Module map
 
-Seis paquetes. Todas las dependencias apuntan **hacia el core**; ninguna al revés.
+Six packages. All dependencies point **toward the core**; none the other way. Each arrow reads
+*depends on*.
 
-```text
-                    ┌───────────────┐
-                    │   Weft.Core   │  binding yrs + abstracciones + broker
-                    └───────┬───────┘
-            ┌───────────────┼───────────────┐
-            │               │               │
-    ┌───────▼──────┐ ┌──────▼──────┐ ┌──────▼─────┐
-    │Weft.Versioning│ │  Weft.Loro  │ │            │
-    └───────┬───────┘ └─────────────┘ │            │
-            │                          │            │
-            └──────────┬───────────────┘            │
-                ┌──────▼──────┐                     │
-                │ Weft.Server │─────────────────────┘
-                └──────┬──────┘
-            ┌──────────┴──────────┐
-    ┌───────▼────────┐   ┌────────▼───────┐
-    │ …Persistence   │   │ …Persistence   │
-    │    .Redis      │   │    .EFCore     │
-    └────────────────┘   └────────────────┘
+```mermaid
+graph BT
+    Versioning["Weft.Versioning"] --> Core["Weft.Core"]
+    Loro["Weft.Loro"] --> Core
+    Server["Weft.Server"] --> Core
+    Server --> Versioning
+    Redis["…Persistence.Redis"] --> Server
+    EFCore["…Persistence.EFCore"] --> Server
+
+    style Core stroke-width:3px
 ```
 
-| Paquete | Responsabilidad | Depende de |
-|---|---|---|
-| **Weft.Core** | Binding seguro a `yrs` vía shim C-ABI propio; abstracciones (`ICrdtEngine`, `ICrdtDoc`); concurrencia serializada (`DocumentBroker`) | — |
-| **Weft.Versioning** | Versionado content-addressed **engine-agnóstico**: `VersionStore`, `VersionId`, `IBlobStore`, diff por palabras | Weft.Core |
-| **Weft.Server** | Relay WebSocket y-sync para ASP.NET Core: `AddWeftServer`/`MapWeft`, awareness, backpressure | Weft.Core, Weft.Versioning |
-| **Weft.Loro** | Adaptador dual-path sobre Loro. Existe para mantener honesta la abstracción (P-IV) | Weft.Core |
-| **…Persistence.Redis** / **…Persistence.EFCore** | Implementaciones de `IDocumentStore` | Weft.Server |
+| Package | Responsibility | Depends on |
+| --- | --- | --- |
+| **Weft.Core** | Safe binding to `yrs` via an in-house C-ABI shim; abstractions (`ICrdtEngine`, `ICrdtDoc`); serialized concurrency (`DocumentBroker`) | — |
+| **Weft.Versioning** | **Engine-agnostic** content-addressed versioning: `VersionStore`, `VersionId`, `IBlobStore`, word-level diff | Weft.Core |
+| **Weft.Server** | y-sync WebSocket relay for ASP.NET Core: `AddWeftServer`/`MapWeft`, awareness, backpressure | Weft.Core, Weft.Versioning |
+| **Weft.Loro** | Dual-path adapter over Loro. Exists to keep the abstraction honest (P-IV) | Weft.Core |
+| **…Persistence.Redis** / **…Persistence.EFCore** | `IDocumentStore` implementations | Weft.Server |
 
-La regla que sostiene el grafo: **`Weft.Versioning` no puede referenciar tipos de `yrs` ni de Loro.**
-Sólo habla con las abstracciones. Es lo que hace que el versionado funcione igual sobre ambos motores,
-y lo verifica un gate (`dual-engine`) que corre la misma suite sobre los dos.
+The rule that holds the graph together: **`Weft.Versioning` may not reference `yrs` or Loro types.**
+It only talks to the abstractions. That is what makes versioning work identically over both engines,
+and a gate (`dual-engine`) verifies it by running the same suite over the two.
 
-## La frontera FFI
+## The FFI boundary
 
-Es la parte del sistema donde un error no da una excepción sino corrupción silenciosa, así que es la
-que más disciplina lleva.
+This is the part of the system where a mistake yields not an exception but silent corruption, so it's
+the part that carries the most discipline.
 
-### Por qué un shim propio
+### Why an in-house shim
 
-Weft no llama a `yrs` directamente ni usa un binding de terceros: mantiene su propio shim C-ABI en
-Rust (`native/weft-yrs-ffi`), y .NET habla con él vía `[LibraryImport]` (R1). El shim es la única
-superficie que cruza; `yrs` nunca se expone. Eso permite fijar la semántica que .NET necesita
-—índices en UTF-16, errores tipados, un contrato de memoria explícito— en vez de heredar la de Rust.
+Weft does not call `yrs` directly, nor use a third-party binding: it maintains its own C-ABI shim in
+Rust (`native/weft-yrs-ffi`), and .NET talks to it via `[LibraryImport]` (R1). The shim is the only
+surface that crosses; `yrs` is never exposed. That lets us fix the semantics .NET needs — UTF-16
+indices, typed errors, an explicit memory contract — instead of inheriting Rust's.
 
-Un detalle no obvio: **los índices son unidades de código UTF-16**, no bytes UTF-8 (el default de
-`yrs`). Es lo que hace que `doc.InsertText("t", 5, …)` signifique lo mismo desde C# que desde Yjs JS,
-y coincida con `string.Length` de .NET.
+A non-obvious detail: **indices are UTF-16 code units**, not UTF-8 bytes (`yrs`'s default). That's
+what makes `doc.InsertText("t", 5, …)` mean the same thing from C# as from Yjs JS, and match .NET's
+`string.Length`.
 
-Las versiones de los motores están **fijadas exactamente** (`yrs = "=0.27.2"`, `loro = "=1.13.6"`): un
-bump es un acto deliberado con protocolo propio (R16), porque puede cambiar el encoding y por tanto
-la identidad de las versiones ya publicadas.
+Engine versions are **pinned exactly** (`yrs = "=0.27.2"`, `loro = "=1.13.6"`): a bump is a
+deliberate act with its own protocol (R16), because it can change the encoding and therefore the
+identity of already-published versions.
 
-### Contrato de ownership de memoria
+### Memory ownership contract
 
-**Ésta es la parte que hay que leer si vas a tocar el shim.** La regla de oro:
+**This is the part to read if you're going to touch the shim.** The golden rule:
 
-> El GC de .NET **nunca** toca memoria nativa. Todo buffer que el shim entrega se libera **sólo** con
-> `weft_buf_free`, exactamente una vez, con el mismo `(ptr, len)` que se recibió.
+> The .NET GC **never** touches native memory. Every buffer the shim hands over is freed **only** with
+> `weft_buf_free`, exactly once, with the same `(ptr, len)` that was received.
 
-Tres clases de memoria cruzan la frontera, con reglas distintas:
+Three classes of memory cross the boundary, with different rules:
 
-| Qué | Quién lo asigna | Quién lo libera | Regla |
-|---|---|---|---|
-| **Handle de documento** (`WeftDoc*`) | El shim (`weft_doc_new` / `weft_doc_load`) | El llamador, con `weft_doc_free`, **exactamente una vez** | La idempotencia **no** está garantizada: liberar dos veces es UB. Del lado C# lo envuelve un `SafeHandle`, así que no lo haces a mano |
-| **Buffers de salida** (`out_ptr` + `out_len`) | El shim (`Box<[u8]>` + `mem::forget`) | El llamador, con `weft_buf_free(ptr, len)` | `len` debe ser el que el shim devolvió: reconstruye el `Box` desde `(ptr, len)`. Un `len` distinto corrompe el allocator |
-| **Buffers de entrada** | El llamador | El llamador | Están **prestados**: el shim no toma posesión ni retiene el puntero más allá de la llamada |
+| What | Who allocates it | Who frees it | Rule |
+| --- | --- | --- | --- |
+| **Document handle** (`WeftDoc*`) | The shim (`weft_doc_new` / `weft_doc_load`) | The caller, with `weft_doc_free`, **exactly once** | Idempotency is **not** guaranteed: freeing twice is UB. On the C# side a `SafeHandle` wraps it, so you don't do it by hand |
+| **Output buffers** (`out_ptr` + `out_len`) | The shim (`Box<[u8]>` + `mem::forget`) | The caller, with `weft_buf_free(ptr, len)` | `len` must be the one the shim returned: it reconstructs the `Box` from `(ptr, len)`. A different `len` corrupts the allocator |
+| **Input buffers** | The caller | The caller | They are **borrowed**: the shim takes no ownership and does not retain the pointer beyond the call |
 
-Dos postcondiciones que ahorran depuración:
+Two postconditions that save debugging:
 
-- **En error, los out-params no se escriben.** Si el código de retorno no es `WEFT_OK`, no hay nada
-  que liberar.
-- **En éxito, un resultado vacío puede tener `out_ptr` válido con `out_len == 0`.** Hay que liberarlo
-  igual: «vacío» no es «nulo».
+- **On error, the out-params are not written.** If the return code is not `WEFT_OK`, there is nothing
+  to free.
+- **On success, an empty result may have a valid `out_ptr` with `out_len == 0`.** It must be freed
+  anyway: "empty" is not "null".
 
-Del lado .NET esto se concentra en **un punto por motor**: `YrsDoc.TakeOwnedBuffer` y
-`LoroDoc.TakeOwnedBuffer` (que llama a `weft_loro_buf_free` — cada shim libera con el suyo, nunca
-cruzados). Ambos copian a memoria gestionada y liberan en un `finally`. Si auditas fugas, son los dos
-sitios por los que empezar; el resto del código gestionado nunca ve un puntero nativo.
+On the .NET side this concentrates in **one point per engine**: `YrsDoc.TakeOwnedBuffer` and
+`LoroDoc.TakeOwnedBuffer` (which calls `weft_loro_buf_free` — each shim frees with its own, never
+crossed). Both copy to managed memory and free in a `finally`. If you audit leaks, those are the two
+sites to start from; the rest of the managed code never sees a native pointer.
 
-Los handles usan `SafeHandleZeroOrMinusOneIsInvalid`, que resuelve de una vez fuga, double-free y
-use-after-free (R2). Hay una fricción conocida: `[LibraryImport]` no marshala `SafeHandle`
-(SYSLIB1051), así que los P/Invoke declaran `nint` crudo y las llamadas prestan el puntero con un
-`HandleLease` (`DangerousAddRef`/`DangerousRelease`). Es deliberado y está documentado, no un descuido.
+Handles use `SafeHandleZeroOrMinusOneIsInvalid`, which resolves leak, double-free, and use-after-free
+in one go (R2). There is a known friction: `[LibraryImport]` does not marshal `SafeHandle`
+(SYSLIB1051), so the P/Invokes declare raw `nint` and calls lend the pointer with a `HandleLease`
+(`DangerousAddRef`/`DangerousRelease`). It's deliberate and documented, not an oversight.
 
-### Ningún panic cruza la frontera
+### No panic crosses the boundary
 
-Un panic de Rust desenrollando a través de una frontera C es UB. Por eso **toda** entrada del shim que
-ejecuta código del motor envuelve su cuerpo en un helper `guard()` con `catch_unwind`: un panic se
-convierte en `WEFT_ERR_PANIC` (-127), nunca en un desenrollado que cruza. `weft_doc_free` y
-`weft_buf_free` usan `catch_unwind` directo por la misma razón. (La única excepción es
-`weft_abi_version`, que devuelve una constante y no puede entrar en pánico.)
+A Rust panic unwinding across a C boundary is UB. That's why **every** shim entry point that runs
+engine code wraps its body in a `guard()` helper with `catch_unwind`: a panic becomes `WEFT_ERR_PANIC`
+(-127), never an unwind that crosses. `weft_doc_free` and `weft_buf_free` use `catch_unwind` directly
+for the same reason. (The only exception is `weft_abi_version`, which returns a constant and cannot
+panic.)
 
-Esta garantía se verifica end-to-end, no se asume: el shim exporta `weft_test_panic` bajo la feature
-`test-hooks`, y la suite comprueba que un panic real se contiene y el proceso sigue vivo (SC-009). El
-símbolo **nunca viaja en release**: el pipeline compila sin la feature, y el job `native` de
-`release.yml` verifica con `nm` que no está exportado en los cdylibs antes de que lleguen al pack.
+This guarantee is verified end-to-end, not assumed: the shim exports `weft_test_panic` under the
+`test-hooks` feature, and the suite checks that a real panic is contained and the process stays alive
+(SC-009). The symbol **never ships in release**: the pipeline builds without the feature, and the
+`native` job in `release.yml` verifies with `nm` that it is not exported in the cdylibs before they
+reach the pack.
 
-**Lo que `catch_unwind` no puede contener**: un fallo de asignación aborta el proceso vía
-`handle_alloc_error`, que no es un panic. Es la raíz de R6 — ver [Límites conocidos](#límites-conocidos).
+**What `catch_unwind` cannot contain**: an allocation failure aborts the process via
+`handle_alloc_error`, which is not a panic. It's the root of R6 — see [Known limits](#known-limits).
 
-### Errores
+### Errors
 
-Códigos `i32` en la frontera, mapeados a la jerarquía `WeftException` del lado gestionado. La
-traducción es total: ningún código se filtra a la API pública como número.
+`i32` codes at the boundary, mapped to the managed-side `WeftException` hierarchy. The translation is
+total: no code leaks to the public API as a number.
 
-| Código | Valor | Excepción .NET |
-|---|---|---|
+| Code | Value | .NET exception |
+| --- | --- | --- |
 | `WEFT_OK` | 0 | — |
 | `WEFT_ERR_NULL_ARG` | -1 | `WeftException` |
 | `WEFT_ERR_DECODE` | -2 | `CorruptUpdateException` |
@@ -149,191 +142,194 @@ traducción es total: ningún código se filtra a la API pública como número.
 | `WEFT_ERR_OUT_OF_BOUNDS` | -5 | `ArgumentOutOfRangeException` |
 | `WEFT_ERR_PANIC` | -127 | `WeftEngineException(Panic)` |
 
-### Carga del binario y verificación de ABI
+### Binary loading and ABI verification
 
-El resolver se registra solo (`[ModuleInitializer]`) y busca el binario en
-`runtimes/<rid>/native/` → `runtimes/<portable-rid>/native/` → directorio base, con fallback a
-`NATIVE_DLL_SEARCH_DIRECTORIES`. Es el layout estándar de NuGet multi-RID (patrón SkiaSharp, R11),
-así que `dotnet add package Weft.Core` resuelve el nativo sin que hagas nada.
+The resolver registers itself (`[ModuleInitializer]`) and looks for the binary in
+`runtimes/<rid>/native/` → `runtimes/<portable-rid>/native/` → base directory, with a fallback to
+`NATIVE_DLL_SEARCH_DIRECTORIES`. It's the standard NuGet multi-RID layout (SkiaSharp pattern, R11), so
+`dotnet add package Weft.Core` resolves the native binary without you doing anything.
 
-Al cargar, **verifica la ABI antes de usar la librería**: llama a `weft_abi_version` y, si el símbolo
-falta o la versión no es la esperada (hoy **2**), libera la librería y lanza una excepción explícita.
-Esto convierte un desajuste binario —que si no sería corrupción silenciosa o un crash sin contexto—
-en un error legible en el primer uso. La ABI subió a 2 al añadirse `weft_doc_new_with_client_id`
-(client-ids deterministas, necesarios para el gate de paridad con Yjs).
+On load, it **verifies the ABI before using the library**: it calls `weft_abi_version` and, if the
+symbol is missing or the version is not the expected one (currently **2**), it frees the library and
+throws an explicit exception. This turns a binary mismatch — which would otherwise be silent
+corruption or a context-free crash — into a readable error on first use. The ABI went to 2 when
+`weft_doc_new_with_client_id` was added (deterministic client-ids, needed for the Yjs parity gate).
 
-La superficie son **12 funciones** de datos (crear doc, crear doc con client-id fijo, cargar, liberar;
-insertar/borrar/leer texto; exportar estado/state-vector/delta; aplicar update; liberar buffer), más
-`weft_abi_version`. El contrato formal está en
+The surface is **12 data functions** (create doc, create doc with fixed client-id, load, free;
+insert/delete/read text; export state/state-vector/delta; apply update; free buffer), plus
+`weft_abi_version`. The formal contract is in
 [`contracts/ffi-abi.md`](../specs/001-weft-crdt-versioning/contracts/ffi-abi.md).
 
-### El shim de Loro
+### The Loro shim
 
-`native/weft-loro-ffi` es simétrico, con prefijo `weft_loro_*`, su propio `weft_loro_buf_free` y su
-propio `weft_loro_abi_version`. Mismas reglas de ownership y de `catch_unwind`.
+`native/weft-loro-ffi` is symmetric, with a `weft_loro_*` prefix, its own `weft_loro_buf_free` and its
+own `weft_loro_abi_version`. Same ownership and `catch_unwind` rules.
 
-Expone además tres *probes* que `yrs` no tiene (`shallow_snapshot`, `native_diff_probe`,
-`native_branch_merge_probe`), superficie de `INativeVersioning`. **Son demostrativos**: su salida no
-es byte-determinista entre réplicas, **no** alimentan `VersionId` y ningún gate depende de ellos.
-Existen para probar que la abstracción admite capacidades específicas de motor sin que el dominio se
-entere; el content-addressing sigue viniendo de `ExportState()` en ambos motores.
+It also exposes three *probes* that `yrs` doesn't have (`shallow_snapshot`, `native_diff_probe`,
+`native_branch_merge_probe`), the `INativeVersioning` surface. **They are demonstrative**: their
+output is not byte-deterministic across replicas, they do **not** feed `VersionId`, and no gate
+depends on them. They exist to prove the abstraction admits engine-specific capabilities without the
+domain noticing; content-addressing still comes from `ExportState()` on both engines.
 
-## Flujo de sync
+## Sync flow
 
 ```text
-cliente ──WebSocket──> MapWeft ──> IWeftAuthorizer ──> WeftServer ──> DocumentHub
+client ──WebSocket──> MapWeft ──> IWeftAuthorizer ──> WeftServer ──> DocumentHub
                                         │                                  │
                                   Deny → 403                        DocumentSession
-                              (antes del upgrade)                          │
+                              (before the upgrade)                         │
                                                                     DocumentActor
-                                                                   (canal 1-reader)
+                                                                   (1-reader channel)
                                                                            │
                                                                        ICrdtDoc
 ```
 
-El recorrido de un update:
+The path of an update:
 
-1. **Endpoint**. `MapWeft` expone `{pattern}/{docId}`. Si falta un `IWeftAuthorizer` o un
-   `IDocumentStore` registrado, **falla al arrancar**, no en la primera petición. Un `Deny` responde
-   **403 antes del upgrade** a WebSocket: cero bytes de contenido para quien no tiene acceso.
-2. **Handshake**. El **servidor** manda su `SyncStep1` primero; el cliente responde con el suyo y el
-   servidor contesta con `SyncStep2(delta)`. Incremental en ambas direcciones desde el primer byte:
-   por eso una reconexión transfiere un delta y no el estado completo (SC-004; medido: 479 B → 26 B,
-   94,6 % menos).
-3. **Aplicar y persistir**. El update se aplica dentro del turno del actor y se persiste (`AppendUpdateAsync`).
-4. **Difundir**. El delta se difunde a **todas** las conexiones del documento, incluido el emisor. El
-   eco es un no-op CRDT idempotente, y es deliberado: rastrear el origen dentro del turno del actor
-   costaría más que dejar que el CRDT haga su trabajo.
-5. **Cerrar**. Cada desconexión emite la retirada de awareness de ese cliente, para que los demás
-   dejen de verlo al instante (FR-015). Cuando además era el **último**, se consolida un snapshot
-   (compaction) y se libera la sesión.
+1. **Endpoint**. `MapWeft` exposes `{pattern}/{docId}`. If a registered `IWeftAuthorizer` or
+   `IDocumentStore` is missing, it **fails at startup**, not on the first request. A `Deny` responds
+   **403 before the upgrade** to WebSocket: zero content bytes for whoever has no access.
+2. **Handshake**. The **server** sends its `SyncStep1` first; the client replies with its own and the
+   server answers with `SyncStep2(delta)`. Incremental in both directions from the first byte: that's
+   why a reconnect transfers a delta and not the full state (SC-004; measured: 479 B → 26 B, 94.6%
+   less).
+3. **Apply and persist**. The update is applied within the actor's turn and persisted
+   (`AppendUpdateAsync`).
+4. **Broadcast**. The delta is broadcast to **all** the document's connections, including the sender.
+   The echo is an idempotent CRDT no-op, and it's deliberate: tracking the origin within the actor's
+   turn would cost more than letting the CRDT do its job.
+5. **Close**. Each disconnect emits that client's awareness retirement, so the others stop seeing it
+   instantly (FR-015). When it was also the **last** one, a snapshot is consolidated (compaction) and
+   the session is released.
 
-Cosas del protocolo que conviene saber:
+Protocol things worth knowing:
 
-- **Awareness (presencia) nunca se persiste.** Es efímera por definición; se difunde a los pares y ya.
-- **Un cliente `ReadOnly` que manda `SyncStep2` se ignora sin cerrar la conexión** — cerrarla rompería
-  el handshake y-websocket estándar. Pero si manda un `Update` se cierra con **1008** (PolicyViolation).
-  La distinción es intencional.
-- **Backpressure en dos ejes** (FU-002): tamaño de mensaje (16 MiB por defecto → cierre **1009**) y
-  cola de envío por conexión (256 → se cierra el consumidor lento). Un cliente lento no puede hacer
-  crecer la memoria del servidor sin límite.
-- Mensaje malformado → cierre **1002** (ProtocolError). El cap de tamaño se aplica **antes** de parsear.
+- **Awareness (presence) is never persisted.** It's ephemeral by definition; it's broadcast to peers
+  and that's it.
+- **A `ReadOnly` client that sends `SyncStep2` is ignored without closing the connection** — closing
+  it would break the standard y-websocket handshake. But if it sends an `Update` it's closed with
+  **1008** (PolicyViolation). The distinction is intentional.
+- **Backpressure on two axes** (FU-002): message size (16 MiB by default → **1009** close) and
+  per-connection send queue (256 → the slow consumer is closed). A slow client cannot grow the
+  server's memory without bound.
+- Malformed message → **1002** (ProtocolError) close. The size cap is applied **before** parsing.
 
-### Concurrencia
+### Concurrency
 
-`ICrdtDoc` **no es thread-safe**, y no se pretende que lo sea. La serialización vive un nivel arriba:
+`ICrdtDoc` is **not thread-safe**, and is not meant to be. Serialization lives one level up:
 
-- Un **`DocumentActor` por documento**, con un canal de un solo lector (R6). Todas las operaciones de
-  un documento pasan por su turno; no hay locks en el camino caliente.
-- El **broker** gestiona el ciclo de vida: desalojo por inactividad, LRU bajo presión de memoria, y
-  recarga desde lo persistido al reabrir. `MaxActiveDocuments` es un límite **suave**: nunca desaloja
-  un documento con sesiones vivas.
-- La carrera interesante —desalojo en vuelo mientras alguien reabre el mismo documento— se resuelve
-  esperando a que la persistencia termine antes de recargar (SC-006). Está cubierta por la prueba de
-  carga, que fuerza cientos de miles de desalojos.
+- One **`DocumentActor` per document**, with a single-reader channel (R6). All of a document's
+  operations go through its turn; there are no locks on the hot path.
+- The **broker** manages the lifecycle: inactivity eviction, LRU under memory pressure, and reload
+  from persistence on reopen. `MaxActiveDocuments` is a **soft** limit: it never evicts a document
+  with live sessions.
+- The interesting race — eviction in flight while someone reopens the same document — is resolved by
+  waiting for persistence to finish before reloading (SC-006). It's covered by the load test, which
+  forces hundreds of thousands of evictions.
 
-Fuera del broker, serializar es responsabilidad del dueño del documento (P-V).
+Outside the broker, serializing is the responsibility of the document's owner (P-V).
 
-## Modelo de versionado
+## Versioning model
 
-Ortogonal al sync: puedes versionar sin servidor, y servir sin versionar.
+Orthogonal to sync: you can version without a server, and serve without versioning.
 
-- **`VersionId` = SHA-256 del export determinista.** No hay contador ni reloj: la identidad *es* el
-  contenido (R10). Dos réplicas convergidas publican el mismo id, byte a byte. Esto sólo funciona
-  porque el export es determinista — de ahí que el determinismo sea un principio constitucional con
-  gate propio, y no un detalle de implementación.
-- **`IBlobStore`** guarda blobs por hash: `Put` es idempotente y la deduplicación sale gratis. **No hay
-  `delete` en v1**: las versiones publicadas son inmutables y la retención la decide el consumidor.
-- **`VersionStore`** publica, hace checkout, diff (LCS por palabras, R9), branch y merge. Al leer,
-  **re-hashea y compara** antes de devolver: un blob corrupto da `BlobIntegrityException`, no un
-  documento silenciosamente equivocado.
-- **Los merges cross-engine se rechazan** comparando `EngineName`: el formato de update de yrs y el de
-  Loro no son intercambiables, y fallar temprano y claro es mejor que fallar dentro del FFI.
+- **`VersionId` = SHA-256 of the deterministic export.** No counter, no clock: identity *is* the
+  content (R10). Two converged replicas publish the same id, byte for byte. This only works because
+  the export is deterministic — hence determinism being a constitutional principle with its own gate,
+  and not an implementation detail.
+- **`IBlobStore`** stores blobs by hash: `Put` is idempotent and deduplication comes for free. **There
+  is no `delete` in v1**: published versions are immutable and retention is the consumer's call.
+- **`VersionStore`** publishes, checks out, diffs (word-level LCS, R9), branches, and merges. On read,
+  it **re-hashes and compares** before returning: a corrupt blob yields `BlobIntegrityException`, not
+  a silently wrong document.
+- **Cross-engine merges are rejected** by comparing `EngineName`: the update format of yrs and that of
+  Loro are not interchangeable, and failing early and clearly is better than failing inside the FFI.
 
-Una nota sobre citabilidad: **nunca se usa `skip_gc`** en el motor. La capacidad de citar una versión
-antigua no viene de retener basura en el documento vivo, sino de que cada versión publicada es un blob
-inmutable direccionado por contenido.
+A note on citability: **`skip_gc` is never used** in the engine. The ability to cite an old version
+doesn't come from retaining garbage in the live document, but from each published version being an
+immutable, content-addressed blob.
 
-### Paridad servidor ↔ local
+### Server ↔ local parity
 
-`IWeftServer.PublishAsync` ejecuta el export **dentro del turno del actor**, lo que garantiza que
-publicar desde el servidor da el mismo `VersionId` que publicar en local sobre el mismo estado. Sin
-esa garantía, «la versión v1 del documento» significaría cosas distintas según quién la publicó.
+`IWeftServer.PublishAsync` runs the export **within the actor's turn**, which guarantees that
+publishing from the server yields the same `VersionId` as publishing locally over the same state.
+Without that guarantee, "version v1 of the document" would mean different things depending on who
+published it.
 
-## Persistencia (eje distinto)
+## Persistence (a separate axis)
 
-`IDocumentStore` trata el estado como **blobs opacos** (R8): snapshot consolidado + updates
-acumulados. La capa de persistencia no sabe de CRDTs, y eso es a propósito — es lo que permite que
-haya adaptadores de Redis, EF Core, filesystem y memoria intercambiables, todos validados por la
-**misma** suite de contrato.
+`IDocumentStore` treats state as **opaque blobs** (R8): a consolidated snapshot + accumulated updates.
+The persistence layer knows nothing about CRDTs, and that's on purpose — it's what allows
+interchangeable Redis, EF Core, filesystem, and in-memory adapters, all validated by the **same**
+contract suite.
 
-La recuperación tolera solapamiento entre snapshot y updates porque aplicar un update es idempotente:
-en el peor caso se aplica dos veces lo mismo y converge igual.
+Recovery tolerates overlap between snapshot and updates because applying an update is idempotent: in
+the worst case the same thing is applied twice and converges anyway.
 
 ## Gates
 
-Los gates no son CI decorativo: son la constitución hecha ejecutable. Corren por PR en
-`ci.yml` salvo donde se indique.
+The gates are not decorative CI: they are the constitution made executable. They run per PR in
+`ci.yml` except where noted.
 
-| Gate | Qué protege | Bloquea | Principio |
-|---|---|---|---|
-| `test-{linux,win,mac}` | Build + suite en los 3 SO | Sí | P-VI |
-| `asan` | 0 fugas / 0 double-free en ambos shims (nightly + ASan/LSan) | Sí | P-II |
-| `determinism` | Export byte-determinista cross-RID **y paridad byte-idéntica con Yjs JS** | Sí | P-III |
-| `dual-engine` | La misma suite de versionado verde sobre yrs **y** Loro | Sí | P-IV |
-| `fuzz` | La frontera FFI ante bytes arbitrarios | **Parcial** | P-I/P-II |
-| `pack-smoke` | Instalar el paquete y correr hello-Weft por RID; símbolo de test ausente | **No** (ver abajo) | P-VI |
+| Gate | What it protects | Blocks | Principle |
+| --- | --- | --- | --- |
+| `test-{linux,win,mac}` | Build + suite on the 3 OSes | Yes | P-VI |
+| `asan` | 0 leaks / 0 double-free in both shims (nightly + ASan/LSan) | Yes | P-II |
+| `determinism` | Byte-deterministic export cross-RID **and byte-identical parity with Yjs JS** | Yes | P-III |
+| `dual-engine` | The same versioning suite green over yrs **and** Loro | Yes | P-IV |
+| `fuzz` | The FFI boundary against arbitrary bytes | **Partial** | P-I/P-II |
+| `pack-smoke` | Install the package and run hello-Weft per RID; test symbol absent | **No** (see below) | P-VI |
 
-Dos matices que importan si vas a fiarte de estos gates:
+Two nuances that matter if you're going to trust these gates:
 
-- **`fuzz` bloquea a medias, y es deliberado.** Si los targets no *compilan*, el job se pone rojo. Si
-  un target *encuentra un crash*, sólo emite un `::warning`. La razón es R6 (ver abajo): hoy los
-  targets reproducen un fallo conocido de `yrs` aguas abajo del shim, y bloquear merges por él
-  paralizaría el repo sin arreglar nada.
-- **El `pack-smoke` real no corre por PR.** El job de `ci.yml` es un marcador; la matriz
-  cross-compile de verdad —y la verificación de que `weft_test_panic` no está exportado— vive en
-  `release.yml`, que es `workflow_dispatch` únicamente, porque la matriz es cara. En la práctica el
-  empaquetado se valida en el dry-run del release, no en cada PR.
+- **`fuzz` blocks halfway, and it's deliberate.** If the targets don't *compile*, the job goes red. If
+  a target *finds a crash*, it only emits a `::warning`. The reason is R6 (see below): today the
+  targets reproduce a known `yrs` bug downstream of the shim, and blocking merges on it would
+  paralyze the repo without fixing anything.
+- **The real `pack-smoke` does not run per PR.** The `ci.yml` job is a marker; the real cross-compile
+  matrix — and the verification that `weft_test_panic` is not exported — lives in `release.yml`, which
+  is `workflow_dispatch`-only, because the matrix is expensive. In practice packaging is validated in
+  the release dry-run, not on every PR.
 
-## Límites conocidos
+## Known limits
 
-Vale más decirlos que descubrirlos en producción:
+Better to state them than to discover them in production:
 
-- **R6 — amplificación de memoria del decoder de `yrs`.** Un update malformado de pocos bytes puede
-  declarar una longitud enorme y hacer que `yrs` reserve sin cota; la asignación falla y el proceso
-  aborta (`handle_alloc_error`, **no** capturable por `catch_unwind`). El shim es correcto —contiene
-  panics, sin UB—; el fallo está aguas abajo. El fix está enviado upstream
-  ([y-crdt#639](https://github.com/y-crdt/y-crdt/pull/639), aprobado) y se adoptará vía bump.
-  **Mientras tanto**: el relay ya se protege con cap de tamaño y límite de memoria; si usas la **ruta
-  directa** del FFI (`LoadDoc`/`ApplyUpdate`) con bytes **no confiables**, protégela igual. Ver
-  [`GOVERNANCE.md`](../GOVERNANCE.md) §Seguridad.
-- **Sólo texto por campo nombrado en v1.** Sin mapas, arrays ni tipos anidados todavía.
-- **Los probes nativos de Loro no son content-addressing** (ver arriba). Si tu código los usa como si
-  lo fueran, converge a resultados no deterministas.
+- **R6 — `yrs` decoder memory amplification.** A malformed update of a few bytes can declare an
+  enormous length and make `yrs` reserve without bound; the allocation fails and the process aborts
+  (`handle_alloc_error`, **not** catchable by `catch_unwind`). The shim is correct — it contains
+  panics, no UB; the failure is downstream. The fix is submitted upstream
+  ([y-crdt#639](https://github.com/y-crdt/y-crdt/pull/639), approved) and will be adopted via a bump.
+  **In the meantime**: the relay already protects itself with a size cap and a memory limit; if you
+  use the **direct** FFI path (`LoadDoc`/`ApplyUpdate`) with **untrusted** bytes, protect it the same
+  way. See [`GOVERNANCE.md`](../GOVERNANCE.md#security) (Security section).
+- **Text-by-named-field only in v1.** No maps, arrays, or nested types yet.
+- **Loro's native probes are not content-addressing** (see above). If your code uses them as if they
+  were, it converges to non-deterministic results.
 
-## Decisiones
+## Decisions
 
-El *porqué* de cada elección vive en
-[`research.md`](../specs/001-weft-crdt-versioning/research.md), no aquí. Índice rápido:
+The *why* of each choice lives in
+[`research.md`](../specs/001-weft-crdt-versioning/research.md), not here. Quick index:
 
-| | Decisión | | Decisión |
-|---|---|---|---|
-| **R1** | Shim propio + `[LibraryImport]` | **R10** | Content-addressing SHA-256 |
-| **R2** | `SafeHandle` / `HandleLease` | **R11** | NuGet multi-RID (patrón SkiaSharp) |
-| **R3** | Ownership de buffers | **R12** | Cross-compile con cargo-zigbuild |
-| **R4** | Errores tipados | **R13** | Gate de determinismo vs Yjs |
-| **R5** | Índices `int` validados | **R14** | Fuzzing de la frontera |
-| **R6** | Actor + Channels | **R15** | Dual-engine como prueba viva |
-| **R7** | Protocolo y-protocols | **R16** | Pinning y protocolo de bump |
-| **R8** | `IDocumentStore` opaco | **R17** | Authz delegada al consumidor |
-| **R9** | Diff LCS por palabras | | |
+| | Decision | | Decision |
+| --- | --- | --- | --- |
+| **R1** | In-house shim + `[LibraryImport]` | **R10** | SHA-256 content-addressing |
+| **R2** | `SafeHandle` / `HandleLease` | **R11** | NuGet multi-RID (SkiaSharp pattern) |
+| **R3** | Buffer ownership | **R12** | Cross-compile with cargo-zigbuild |
+| **R4** | Typed errors | **R13** | Determinism gate vs Yjs |
+| **R5** | Validated `int` indices | **R14** | Boundary fuzzing |
+| **R6** | Actor + Channels | **R15** | Dual-engine as living proof |
+| **R7** | y-protocols protocol | **R16** | Pinning and bump protocol |
+| **R8** | Opaque `IDocumentStore` | **R17** | Authz delegated to the consumer |
+| **R9** | Word-level LCS diff | | |
 
-Los principios que gobiernan todo esto están en la
-[constitución](../.specify/memory/constitution.md) (P-I…P-VI); son vinculantes, no aspiracionales.
+The principles that govern all of this are in the
+[constitution](../.specify/memory/constitution.md) (P-I…P-VI); they are binding, not aspirational.
 
-## Por dónde seguir
+## Where to go next
 
-- **Consumir la librería**: [`README.md`](../README.md) (quickstart) → [`docs/api/README.md`](api/README.md)
-- **Contribuir**: [`CONTRIBUTING.md`](../CONTRIBUTING.md), incluido el protocolo de bump del motor
-- **Validar end-to-end**: [`quickstart.md`](../specs/001-weft-crdt-versioning/quickstart.md)
-- **Evidencia experimental** que fundó estas decisiones: [`docs/spikes/`](spikes/)
+- **Consume the library**: [`README.md`](../README.md) (quickstart) → [`docs/api/README.md`](api/README.md)
+- **Contribute**: [`CONTRIBUTING.md`](../CONTRIBUTING.md), including the engine bump protocol
+- **Validate end-to-end**: [`quickstart.md`](../specs/001-weft-crdt-versioning/quickstart.md)
+- **Experimental evidence** that founded these decisions: [`docs/spikes/`](spikes/)

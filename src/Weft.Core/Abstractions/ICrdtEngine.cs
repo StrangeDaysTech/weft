@@ -1,25 +1,25 @@
 namespace Weft;
 
-/// <summary>Fábrica de documentos de un motor CRDT. Thread-safe.</summary>
+/// <summary>Document factory of a CRDT engine. Thread-safe.</summary>
 public interface ICrdtEngine
 {
-    /// <summary>Nombre estable del motor ("yrs", "loro").</summary>
+    /// <summary>Stable engine name ("yrs", "loro").</summary>
     string Name { get; }
 
-    /// <summary>Crea un documento vacío.</summary>
+    /// <summary>Creates an empty document.</summary>
     ICrdtDoc CreateDoc();
 
-    /// <summary>Reconstruye un documento desde un blob exportado.</summary>
-    /// <param name="blob">Estado exportado por <see cref="ICrdtDoc.ExportState"/> (update v1).</param>
-    /// <exception cref="CorruptUpdateException">El blob no es decodificable.</exception>
+    /// <summary>Rebuilds a document from an exported blob.</summary>
+    /// <param name="blob">State exported by <see cref="ICrdtDoc.ExportState"/> (update v1).</param>
+    /// <exception cref="CorruptUpdateException">The blob is not decodable.</exception>
     ICrdtDoc LoadDoc(ReadOnlySpan<byte> blob);
 
-    /// <summary>Capacidad opcional de versionado nativo; <c>null</c> si el motor no la ofrece.</summary>
+    /// <summary>Optional native versioning capability; <c>null</c> if the engine does not offer it.</summary>
     INativeVersioning? NativeVersioning { get; }
 
     /// <summary>
-    /// Capacidad opcional para sembrar la identidad de réplica (determinismo de test/corpus);
-    /// <c>null</c> si el motor no la ofrece.
+    /// Optional capability to seed the replica identity (test/corpus determinism);
+    /// <c>null</c> if the engine does not offer it.
     /// </summary>
     IDeterministicSeeding? DeterministicSeeding { get; }
 }

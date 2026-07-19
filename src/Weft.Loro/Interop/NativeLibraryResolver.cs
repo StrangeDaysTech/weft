@@ -4,16 +4,16 @@ using System.Runtime.InteropServices;
 
 namespace Weft.Loro.Interop;
 
-/// <summary>Resuelve el cdylib <c>weft_loro_ffi</c> por RID y verifica su ABI (igual que Weft.Yrs).</summary>
+/// <summary>Resolves the <c>weft_loro_ffi</c> cdylib per RID and verifies its ABI (same as Weft.Yrs).</summary>
 internal static class NativeLibraryResolver
 {
-    // ABI v2 (CHARTER-10): + probes de versionado nativo (INativeVersioning, FU-006).
+    // ABI v2 (CHARTER-10): + native versioning probes (INativeVersioning, FU-006).
     private const uint ExpectedAbiVersion = 3;
     private static int _registered;
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Usage", "CA2255:The 'ModuleInitializer' attribute should not be used in libraries",
-        Justification = "Registro único del DllImportResolver nativo; patrón idiomático de binding por RID.")]
+        Justification = "Single registration of the native DllImportResolver; idiomatic per-RID binding pattern.")]
     [ModuleInitializer]
     internal static void Register()
     {
@@ -95,14 +95,14 @@ internal static class NativeLibraryResolver
         if (!NativeLibrary.TryGetExport(handle, "weft_loro_abi_version", out nint fn))
         {
             NativeLibrary.Free(handle);
-            throw new WeftException($"El binario nativo '{source}' no exporta weft_loro_abi_version.");
+            throw new WeftException($"The native binary '{source}' does not export weft_loro_abi_version.");
         }
         uint actual = ((delegate* unmanaged<uint>)fn)();
         if (actual != ExpectedAbiVersion)
         {
             NativeLibrary.Free(handle);
             throw new WeftException(
-                $"ABI del shim Loro '{source}' = {actual}, se esperaba {ExpectedAbiVersion}.");
+                $"ABI of the Loro shim '{source}' = {actual}, expected {ExpectedAbiVersion}.");
         }
     }
 }

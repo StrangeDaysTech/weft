@@ -4,16 +4,16 @@ using Weft.Server.Persistence.EFCore;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-/// <summary>Registro DI del adaptador <see cref="EFCoreDocumentStore"/>.</summary>
+/// <summary>DI registration for the <see cref="EFCoreDocumentStore"/> adapter.</summary>
 public static class WeftEFCoreServiceCollectionExtensions
 {
     /// <summary>
-    /// Registra <see cref="EFCoreDocumentStore"/> como <see cref="IDocumentStore"/> (singleton) sobre una
-    /// factory de <see cref="WeftDocumentStoreContext"/>. El consumidor elige el provider en
-    /// <paramref name="configureContext"/>, p. ej. <c>opts =&gt; opts.UseSqlite(connectionString)</c>.
+    /// Registers <see cref="EFCoreDocumentStore"/> as <see cref="IDocumentStore"/> (singleton) over a
+    /// <see cref="WeftDocumentStoreContext"/> factory. The consumer chooses the provider in
+    /// <paramref name="configureContext"/>, e.g. <c>opts =&gt; opts.UseSqlite(connectionString)</c>.
     /// </summary>
-    /// <param name="services">Colección de servicios.</param>
-    /// <param name="configureContext">Configura el <see cref="DbContextOptionsBuilder"/> (provider + conexión).</param>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configureContext">Configures the <see cref="DbContextOptionsBuilder"/> (provider + connection).</param>
     public static IServiceCollection AddWeftEFCoreDocumentStore(
         this IServiceCollection services,
         Action<DbContextOptionsBuilder> configureContext)

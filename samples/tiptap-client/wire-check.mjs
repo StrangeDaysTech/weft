@@ -1,8 +1,8 @@
-// Validación HEADLESS de compatibilidad del wire (retira R1 sin navegador): dos Y.Doc reales de Yjs se
-// conectan al relay Weft.Server vía y-websocket y deben converger tras ediciones cruzadas. Si yrs (servidor) y
-// Yjs (cliente) no fueran compatibles a nivel de update binario, esto divergiría o daría timeout.
+// HEADLESS wire-compatibility check (retires R1 without a browser): two real Yjs Y.Docs connect to the
+// Weft.Server relay via y-websocket and must converge after cross edits. If yrs (server) and Yjs (client)
+// were not compatible at the binary update level, this would diverge or time out.
 //
-// Uso: arrancar el sample server (dotnet run --project samples/Weft.Sample.Server), luego `npm run check`.
+// Usage: start the sample server (dotnet run --project samples/Weft.Sample.Server), then `npm run check`.
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import WS from 'ws';
@@ -22,7 +22,7 @@ function waitFor(cond, label, ms = 5000) {
     const t0 = Date.now();
     const iv = setInterval(() => {
       if (cond()) { clearInterval(iv); resolve(); }
-      else if (Date.now() - t0 > ms) { clearInterval(iv); reject(new Error('timeout esperando: ' + label)); }
+      else if (Date.now() - t0 > ms) { clearInterval(iv); reject(new Error('timeout waiting for: ' + label)); }
     }, 20);
   });
 }
@@ -31,24 +31,24 @@ const a = connect();
 const b = connect();
 let code = 0;
 try {
-  await waitFor(() => a.provider.wsconnected && b.provider.wsconnected, 'conexión de ambos clientes');
+  await waitFor(() => a.provider.wsconnected && b.provider.wsconnected, 'both clients to connect');
 
-  // A edita → B debe converger.
+  // A edits → B must converge.
   a.doc.getText(FIELD).insert(0, 'Hello from A. ');
-  await waitFor(() => b.doc.getText(FIELD).toString().includes('Hello from A.'), 'B recibe la edición de A');
+  await waitFor(() => b.doc.getText(FIELD).toString().includes('Hello from A.'), 'B to receive A\'s edit');
 
-  // B edita → A debe converger.
+  // B edits → A must converge.
   const t = b.doc.getText(FIELD);
   t.insert(t.length, 'And B too.');
-  await waitFor(() => a.doc.getText(FIELD).toString().includes('And B too.'), 'A recibe la edición de B');
+  await waitFor(() => a.doc.getText(FIELD).toString().includes('And B too.'), 'A to receive B\'s edit');
 
   const ta = a.doc.getText(FIELD).toString();
   const tb = b.doc.getText(FIELD).toString();
-  if (ta !== tb) throw new Error(`divergencia: A="${ta}" B="${tb}"`);
+  if (ta !== tb) throw new Error(`divergence: A="${ta}" B="${tb}"`);
 
-  console.log('✓ convergencia Yjs (y-websocket) ↔ Weft.Server (yrs):', JSON.stringify(ta));
+  console.log('✓ convergence Yjs (y-websocket) ↔ Weft.Server (yrs):', JSON.stringify(ta));
 } catch (e) {
-  console.error('✗ FALLO de compat del wire:', e.message);
+  console.error('✗ wire-compat FAILURE:', e.message);
   code = 1;
 } finally {
   a.provider.destroy();

@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Weft.Loro.Interop;
 
-/// <summary>P/Invoke sobre la C-ABI del shim <c>weft-loro-ffi</c> (simétrica a weft-yrs-ffi).</summary>
+/// <summary>P/Invoke over the C-ABI of the <c>weft-loro-ffi</c> shim (symmetric to weft-yrs-ffi).</summary>
 internal static partial class NativeMethods
 {
     internal const string Lib = "weft_loro_ffi";
@@ -45,7 +45,7 @@ internal static partial class NativeMethods
     [LibraryImport(Lib)]
     internal static partial int weft_loro_doc_apply_update(nint doc, ReadOnlySpan<byte> update, nuint updateLen);
 
-    // ── Versionado nativo (INativeVersioning, capacidad opcional — CHARTER-10/FU-006) ──
+    // ── Native versioning (INativeVersioning, optional capability — CHARTER-10/FU-006) ──
     [LibraryImport(Lib)]
     internal static partial int weft_loro_shallow_snapshot(nint doc, out nint outPtr, out nuint outLen);
 

@@ -5,9 +5,9 @@ using Weft.Yrs;
 namespace Weft.Core.Tests;
 
 /// <summary>
-/// Panic-safety en la frontera (T020, SC-009): un panic del motor se captura como
-/// <c>WEFT_ERR_PANIC</c> (nunca cruza la frontera C, que sería UB), el proceso sigue estable, y el
-/// binding lo mapea a <see cref="WeftEngineException"/> con <see cref="WeftErrorCode.Panic"/>.
+/// Panic-safety at the boundary (T020, SC-009): an engine panic is caught as
+/// <c>WEFT_ERR_PANIC</c> (it never crosses the C boundary, which would be UB), the process stays
+/// stable, and the binding maps it to <see cref="WeftEngineException"/> with <see cref="WeftErrorCode.Panic"/>.
 /// </summary>
 public sealed class PanicSafetyTests
 {
@@ -31,8 +31,8 @@ public sealed class PanicSafetyTests
     {
         Assert.True(
             File.Exists(NativeLibraryPath),
-            $"El cdylib con feature test-hooks no se encontró en {NativeLibraryPath}. " +
-            "Compila: cargo build --release --features test-hooks en native/.");
+            $"The cdylib with the test-hooks feature was not found at {NativeLibraryPath}. " +
+            "Build it: cargo build --release --features test-hooks in native/.");
 
         nint handle = NativeLibrary.Load(NativeLibraryPath);
         try
@@ -40,7 +40,7 @@ public sealed class PanicSafetyTests
             nint fnPtr = NativeLibrary.GetExport(handle, "weft_test_panic");
             var testPanic = Marshal.GetDelegateForFunctionPointer<TestPanicFn>(fnPtr);
 
-            // Invocarlo muchas veces: el panic se captura cada vez y el proceso no crashea.
+            // Invoke it many times: the panic is caught each time and the process does not crash.
             for (int i = 0; i < 100; i++)
             {
                 Assert.Equal(-127, testPanic()); // WEFT_ERR_PANIC
@@ -50,7 +50,7 @@ public sealed class PanicSafetyTests
         {
             NativeLibrary.Free(handle);
         }
-        // Llegar aquí sin crash es la evidencia de estabilidad del proceso (SC-009).
+        // Reaching here without a crash is the evidence of process stability (SC-009).
     }
 
     [Fact]

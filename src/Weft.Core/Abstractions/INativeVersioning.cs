@@ -1,14 +1,14 @@
 namespace Weft;
 
-/// <summary>Capacidad opcional para motores con versionado nativo (Loro). Probes de paridad.</summary>
+/// <summary>Optional capability for engines with native versioning (Loro). Parity probes.</summary>
 public interface INativeVersioning
 {
-    /// <summary>Descripción (JSON) del diff nativo del motor para el campo dado.</summary>
+    /// <summary>Description (JSON) of the engine's native diff for the given field.</summary>
     string NativeDiffProbe(ICrdtDoc doc, string field);
 
-    /// <summary>Descripción (JSON) de la operación nativa de fork/merge del motor.</summary>
+    /// <summary>Description (JSON) of the engine's native fork/merge operation.</summary>
     string NativeBranchMergeProbe(ICrdtDoc doc, string field);
 
-    /// <summary>Snapshot superficial (shallow) nativo del documento.</summary>
+    /// <summary>Native shallow snapshot of the document.</summary>
     byte[] ShallowSnapshot(ICrdtDoc doc);
 }

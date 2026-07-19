@@ -15,17 +15,17 @@ using Weft.Yrs;
 namespace Weft.LoadTest;
 
 /// <summary>
-/// Carga del relay real (FU-010/CHARTER-14): mide la latencia editor→observador de un update a través
-/// del relay completo (TestServer + WebSocket + <see cref="FileSystemDocumentStore"/> con fsync), en
-/// AMBOS modos de durabilidad. Es la evidencia que respalda el default <c>PersistThenBroadcast</c>: sin
-/// ella, la elección del default sería una afirmación no medida. La <see cref="Program"/> de US2 conduce
-/// el broker directamente y es ciega al path de persistencia del relay.
+/// Real relay load (FU-010/CHARTER-14): measures the editor→observer latency of an update through
+/// the full relay (TestServer + WebSocket + <see cref="FileSystemDocumentStore"/> with fsync), in
+/// BOTH durability modes. It is the evidence backing the <c>PersistThenBroadcast</c> default: without
+/// it, the choice of default would be an unmeasured claim. The US2 <see cref="Program"/> drives
+/// the broker directly and is blind to the relay's persistence path.
 /// </summary>
 internal static class RelayLoad
 {
     public static async Task<int> RunAsync(int edits)
     {
-        Console.WriteLine($"[relay-load] editor→observador vía relay real, {edits} ediciones/modo, FileSystemDocumentStore + fsync");
+        Console.WriteLine($"[relay-load] editor→observer via real relay, {edits} edits/mode, FileSystemDocumentStore + fsync");
 
         LatencyStats persist = await MeasureAsync(DurabilityMode.PersistThenBroadcast, edits);
         LatencyStats broadcast = await MeasureAsync(DurabilityMode.BroadcastThenPersist, edits);
@@ -36,8 +36,8 @@ internal static class RelayLoad
             $"[relay-load] coste del orden seguro (p50): +{persist.P50 - broadcast.P50:F1}ms, " +
             $"(p99): +{persist.P99 - broadcast.P99:F1}ms");
 
-        // PASS = ambos modos convergieron en todas las ediciones (sin pérdidas ni timeouts). El número de
-        // latencia es informativo (depende del disco del runner); lo que se gatea es la corrección.
+        // PASS = both modes converged on all edits (no losses or timeouts). The latency
+        // number is informational (depends on the runner's disk); what is gated is correctness.
         bool ok = persist.Count == edits && broadcast.Count == edits;
         Console.WriteLine($"[relay-load] convergencia: persist={persist.Count}/{edits} broadcast={broadcast.Count}/{edits} " +
                           $"→ {(ok ? "PASS" : "FAIL")}");
@@ -154,7 +154,7 @@ internal static class RelayLoad
         public override string ToString() => $"p50={P50:F1}ms p99={P99:F1}ms max={Max:F1}ms (n={Count})";
     }
 
-    /// <summary>Cliente WebSocket mínimo con un doc yrs real, hablando y-sync contra el relay.</summary>
+    /// <summary>Minimal WebSocket client with a real yrs doc, speaking y-sync against the relay.</summary>
     private sealed class RelayClient : IAsyncDisposable
     {
         private const string Field = "body";

@@ -5,16 +5,16 @@ using Weft.Server.Persistence.Redis;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-/// <summary>Registro DI del adaptador <see cref="RedisDocumentStore"/>.</summary>
+/// <summary>DI registration for the <see cref="RedisDocumentStore"/> adapter.</summary>
 public static class WeftRedisServiceCollectionExtensions
 {
     /// <summary>
-    /// Registra <see cref="RedisDocumentStore"/> como <see cref="IDocumentStore"/> (singleton). Si no hay un
-    /// <see cref="IConnectionMultiplexer"/> ya registrado, crea uno con <paramref name="configuration"/>.
+    /// Registers <see cref="RedisDocumentStore"/> as <see cref="IDocumentStore"/> (singleton). If no
+    /// <see cref="IConnectionMultiplexer"/> is already registered, creates one with <paramref name="configuration"/>.
     /// </summary>
-    /// <param name="services">Colección de servicios.</param>
-    /// <param name="configuration">Cadena de conexión de <c>StackExchange.Redis</c> (p. ej. <c>localhost:6379</c>).</param>
-    /// <param name="keyPrefix">Prefijo de claves para aislar la instancia/entorno.</param>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration"><c>StackExchange.Redis</c> connection string (e.g. <c>localhost:6379</c>).</param>
+    /// <param name="keyPrefix">Key prefix to isolate the instance/environment.</param>
     public static IServiceCollection AddWeftRedisDocumentStore(
         this IServiceCollection services,
         string configuration,

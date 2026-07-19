@@ -1,82 +1,82 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Contribuir a Weft
+# Contributing to Weft
 
-Gracias por tu interés. Weft es una librería .NET (Apache-2.0) de colaboración CRDT en tiempo real y
-versionado content-addressed sobre el core Rust `yrs`, vía un shim C-ABI propio.
+Thanks for your interest. Weft is a .NET library (Apache-2.0) for real-time CRDT collaboration and
+content-addressed versioning over the Rust `yrs` core, via an in-house C-ABI shim.
 
 ## CLA
 
-Toda contribución requiere firmar el **CLA** (Contributor License Agreement) — un bot lo pide
-automáticamente en tu primer PR. Ver [`CLA.md`](./CLA.md).
+Every contribution requires signing the **CLA** (Contributor License Agreement) — a bot requests it
+automatically on your first PR. See [`CLA.md`](./CLA.md).
 
 ## Toolchain
 
 - **.NET SDK 10** (`net10.0`, C# 13).
-- **Rust stable** (fijado en `native/rust-toolchain.toml`); `nightly` solo para ASan/LSan (lo instala CI).
-- Para cross-compilar los binarios nativos localmente (RIDs de Linux): `cargo-zigbuild` + `zig` 0.15.x.
-- Opcional: **Node.js** para el gate de determinismo cross-implementación (`tests/determinism-yjs/`) y el
-  cliente de ejemplo Tiptap.
+- **Rust stable** (pinned in `native/rust-toolchain.toml`); `nightly` only for ASan/LSan (CI installs it).
+- To cross-compile the native binaries locally (Linux RIDs): `cargo-zigbuild` + `zig` 0.15.x.
+- Optional: **Node.js** for the cross-implementation determinism gate (`tests/determinism-yjs/`) and the
+  Tiptap sample client.
 
-## Construir y probar
+## Build and test
 
 ```bash
-# Shim nativo (con test-hooks para la suite de panic-safety, SC-009)
+# Native shim (with test-hooks for the panic-safety suite, SC-009)
 cd native && cargo build --release --features test-hooks && cargo test --features test-hooks && cd ..
 
-# Solución .NET completa
+# Full .NET solution
 dotnet build Weft.sln -c Release
-dotnet test  Weft.sln -c Release        # el test de Redis se salta sin WEFT_TEST_REDIS (Valkey/Redis local)
+dotnet test  Weft.sln -c Release        # the Redis test is skipped without WEFT_TEST_REDIS (local Valkey/Redis)
 ```
 
-> **No empaquetes (`dotnet pack`) desde un árbol compilado con `--features test-hooks`.** El pack lee
-> el cdylib de `native/target/<triple>/release/`; si lo construiste con la feature (p. ej. tras
-> `cargo build --release --target <triple> --features test-hooks`), el `.nupkg` incluiría el símbolo
-> `weft_test_panic`/`weft_loro_test_panic`. El gate SC-009 que verifica su ausencia solo corre en el
-> pipeline de `release.yml`, **no** en un pack local. Para publicar, compila el nativo **sin** la
-> feature (FU-019).
+> **Do not pack (`dotnet pack`) from a tree built with `--features test-hooks`.** The pack reads the
+> cdylib from `native/target/<triple>/release/`; if you built it with the feature (e.g. after
+> `cargo build --release --target <triple> --features test-hooks`), the `.nupkg` would include the
+> `weft_test_panic`/`weft_loro_test_panic` symbol. The SC-009 gate that verifies its absence only runs
+> in the `release.yml` pipeline, **not** in a local pack. To publish, build the native binary
+> **without** the feature (FU-019).
 
-## Gates (constitución)
+## Gates (constitution)
 
-La constitución del proyecto (`.specify/memory/constitution.md`) fija 6 principios **vinculantes**, cada uno
-con su gate de CI. Un PR no se mergea sin ellos en verde:
+The project constitution (`.specify/memory/constitution.md`) fixes 6 **binding** principles, each with
+its CI gate. A PR is not merged without them green:
 
-| Principio | Gate |
-|---|---|
-| **P-I** FFI segura | ningún panic cruza la frontera C (`catch_unwind` en cada entrada) |
-| **P-II** Memoria verificada | ASan/LSan sobre los tests Rust de ambos shims — 0 fugas / 0 double-free |
-| **P-III** Determinismo | encoding reproducible cross-RID + paridad byte-idéntica cross-impl vs Yjs (**bloqueante** desde CHARTER-09) |
-| **P-IV** Motor reemplazable | la suite de versionado corre idéntica sobre `yrs` **y** Loro (dual-engine) |
-| **P-V** Concurrencia por doc | acceso a `ICrdtDoc` serializado; el broker usa actor/canal single-reader |
-| **P-VI** Portabilidad por RID | *pack-smoke* del paquete en cada RID soportado — "soportado" = ejercitado |
+| Principle | Gate |
+| --- | --- |
+| **P-I** Safe FFI | no panic crosses the C boundary (`catch_unwind` at every entry point) |
+| **P-II** Verified memory | ASan/LSan over the Rust tests of both shims — 0 leaks / 0 double-free |
+| **P-III** Determinism | reproducible encoding cross-RID + byte-identical cross-impl parity vs Yjs (**blocking** since CHARTER-09) |
+| **P-IV** Replaceable engine | the versioning suite runs identically over `yrs` **and** Loro (dual-engine) |
+| **P-V** Per-doc concurrency | serialized access to `ICrdtDoc`; the broker uses a single-reader actor/channel |
+| **P-VI** Portability by RID | *pack-smoke* of the package on every supported RID — "supported" = exercised |
 
-Reglas duras al escribir código: buffers del shim liberados solo con `weft_buf_free` (el GC jamás toca memoria
-nativa); nunca `skip_gc`; `Weft.Versioning` no referencia tipos de `yrs`/Loro (solo las abstracciones); API
-pública con índices `int` validados y errores nativos → jerarquía `WeftException`.
+Hard rules when writing code: shim buffers freed only with `weft_buf_free` (the GC never touches native
+memory); never `skip_gc`; `Weft.Versioning` does not reference `yrs`/Loro types (only the abstractions);
+public API with validated `int` indices and native errors → `WeftException` hierarchy.
 
-## Protocolo de bump del motor (yrs / Loro) — research R16
+## Engine bump protocol (yrs / Loro) — research R16
 
-Las versiones de los motores están **pinneadas exactas** (`yrs = "=0.27.2"`, `loro = "=1.13.6"`) con
-`Cargo.lock` versionado — los nombres y firmas de `yrs` cambian entre minors, y el gate de determinismo
-(P-III) exige reproducibilidad. Para subir un motor:
+Engine versions are **pinned exactly** (`yrs = "=0.27.2"`, `loro = "=1.13.6"`) with a versioned
+`Cargo.lock` — `yrs`'s names and signatures change between minors, and the determinism gate (P-III)
+requires reproducibility. To bump an engine:
 
-1. **Rama dedicada**; actualizar el pin exacto en `native/<crate>/Cargo.toml` + `Cargo.lock`.
-2. **Ajustar el shim** (`native/<crate>/src/lib.rs`) a los cambios de API del motor. El shim aísla el bump: la
-   **C-ABI propia y el C# no cambian** (esa es su razón de ser).
-3. **Correr los gates completos**: sanitizers (P-II), determinismo cross-RID **y cross-implementación**
-   (P-III — un bump puede cambiar el encoding y romper la citabilidad de versiones previas), convergencia y
+1. **Dedicated branch**; update the exact pin in `native/<crate>/Cargo.toml` + `Cargo.lock`.
+2. **Adjust the shim** (`native/<crate>/src/lib.rs`) to the engine's API changes. The shim isolates the
+   bump: the **in-house C-ABI and the C# do not change** (that's its whole point).
+3. **Run the full gates**: sanitizers (P-II), determinism cross-RID **and cross-implementation** (P-III
+   — a bump can change the encoding and break the citability of prior versions), convergence, and
    dual-engine (P-IV).
-4. **Merge solo en verde.** Un cambio de encoding es *breaking* para el content-addressing → se trata como
-   tal en el versionado SemVer del paquete.
+4. **Merge only when green.** An encoding change is *breaking* for content-addressing → it's treated as
+   such in the package's SemVer versioning.
 
-## Flujo de trabajo
+## Workflow
 
-Spec-driven con [GitHub Spec Kit](https://github.com/github/spec-kit) (spec → plan → tasks → implement) y
-gobernanza documental con [StrayMark](https://github.com/StrangeDaysTech/straymark) (Charters + AILOG/AIDEC).
-Ver [`GOVERNANCE.md`](./GOVERNANCE.md). Las decisiones ✅ CERRADO del brief (`weft-design-brief.md`) no se
-re-litigan.
+Spec-driven with [GitHub Spec Kit](https://github.com/github/spec-kit) (spec → plan → tasks → implement)
+and documentation governance with [StrayMark](https://github.com/StrangeDaysTech/straymark) (Charters +
+AILOG/AIDEC). See [`GOVERNANCE.md`](./GOVERNANCE.md). The ✅ CLOSED decisions of the brief
+(`weft-design-brief.md`) are not re-litigated.
 
-## Reportar bugs / proponer cambios
+## Reporting bugs / proposing changes
 
-Abre un issue con repro mínimo. Para cambios sustantivos, comenta el diseño en un issue antes del PR — los
-cambios de contrato (FFI, `IDocumentStore`, protocolo de sync) requieren acuerdo previo.
+Open an issue with a minimal repro. For substantive changes, discuss the design in an issue before the
+PR — contract changes (FFI, `IDocumentStore`, sync protocol) require prior agreement.

@@ -1,5 +1,5 @@
-// Cliente Tiptap colaborativo real contra el relay Weft.Server (gate de compat del wire de US3, T052).
-// Tiptap + y-prosemirror + y-websocket, sin adaptación específica de Weft: el relay habla y-sync estándar.
+// Real collaborative Tiptap client against the Weft.Server relay (US3 wire-compat gate, T052).
+// Tiptap + y-prosemirror + y-websocket, with no Weft-specific adaptation: the relay speaks standard y-sync.
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
@@ -20,7 +20,7 @@ const color = '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6
 const editor = new Editor({
   element: document.querySelector('#editor'),
   extensions: [
-    StarterKit.configure({ history: false }), // el historial/undo lo gestiona Yjs, no Tiptap
+    StarterKit.configure({ history: false }), // history/undo is handled by Yjs, not Tiptap
     Collaboration.configure({ document: ydoc }),
     CollaborationCursor.configure({ provider, user: { name, color } }),
   ],
@@ -28,4 +28,4 @@ const editor = new Editor({
 
 provider.on('status', (e) => { document.querySelector('#status').textContent = e.status; });
 document.querySelector('#room').textContent = room;
-window.__weft = { editor, ydoc, provider }; // para inspección manual en la consola
+window.__weft = { editor, ydoc, provider }; // for manual inspection in the console

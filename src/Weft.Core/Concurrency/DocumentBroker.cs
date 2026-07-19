@@ -1,16 +1,16 @@
 namespace Weft.Concurrency;
 
 /// <summary>
-/// Gestiona documentos activos con acceso serializado por documento (un actor/canal por <c>docId</c>,
-/// constitución P-V). Thread-safe y el único camino soportado para compartir un documento entre hilos.
-/// Registra y reutiliza actores por identidad, los desaloja por inactividad y por presión de memoria
-/// (LRU), y libera los recursos nativos de forma determinista.
+/// Manages active documents with per-document serialized access (one actor/channel per <c>docId</c>,
+/// constitution P-V). Thread-safe and the only supported way to share a document across threads.
+/// Registers and reuses actors by identity, evicts them by inactivity and by memory pressure
+/// (LRU), and releases native resources deterministically.
 /// </summary>
 /// <remarks>
-/// El límite <see cref="DocumentBrokerOptions.MaxActiveDocuments"/> es "suave": se reafirma en el barrido
-/// periódico, no de forma síncrona en <see cref="OpenAsync"/>, y nunca desaloja un documento con sesiones
-/// vivas. Puede excederse transitoriamente bajo ráfagas de aperturas o cuando todos los documentos activos
-/// tienen sesiones abiertas.
+/// The <see cref="DocumentBrokerOptions.MaxActiveDocuments"/> limit is "soft": it is reasserted in the periodic
+/// sweep, not synchronously in <see cref="OpenAsync"/>, and it never evicts a document with live
+/// sessions. It may be exceeded transiently under bursts of openings or when all active documents
+/// have open sessions.
 /// </remarks>
 public sealed class DocumentBroker : IAsyncDisposable
 {
@@ -24,7 +24,7 @@ public sealed class DocumentBroker : IAsyncDisposable
     private readonly Task _sweeper;
     private bool _disposed;
 
-    /// <summary>Crea el broker sobre un motor CRDT y opciones de ciclo de vida (por defecto si se omiten).</summary>
+    /// <summary>Creates the broker over a CRDT engine and lifecycle options (defaults if omitted).</summary>
     public DocumentBroker(ICrdtEngine engine, DocumentBrokerOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(engine);
@@ -35,16 +35,16 @@ public sealed class DocumentBroker : IAsyncDisposable
         _sweeper = Task.Run(SweepLoopAsync);
     }
 
-    /// <summary>Número de documentos actualmente activos (registrados).</summary>
+    /// <summary>Number of currently active (registered) documents.</summary>
     public int ActiveDocumentCount
     {
         get { lock (_gate) { return _actors.Count; } }
     }
 
     /// <summary>
-    /// Abre (o reutiliza) el documento <paramref name="docId"/>. Si no está activo, lo carga con
-    /// <paramref name="loader"/> (un <c>loader</c> que devuelve <c>null</c>/vacío ⇒ documento nuevo).
-    /// Devuelve una <see cref="DocumentSession"/> para operarlo de forma asíncrona.
+    /// Opens (or reuses) the document <paramref name="docId"/>. If it is not active, it loads it with
+    /// <paramref name="loader"/> (a <c>loader</c> that returns <c>null</c>/empty ⇒ new document).
+    /// Returns a <see cref="DocumentSession"/> to operate it asynchronously.
     /// </summary>
     public async ValueTask<DocumentSession> OpenAsync(
         string docId,
@@ -64,8 +64,8 @@ public sealed class DocumentBroker : IAsyncDisposable
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 if (_evicting.TryGetValue(docId, out Task? eviction))
                 {
-                    // Hay un desalojo de este documento en vuelo: esperar a que persista su estado antes
-                    // de cargar, o cargaríamos un snapshot a medio escribir (updates perdidos, SC-006).
+                    // There is an in-flight eviction of this document: wait for it to persist its state before
+                    // loading, or we would load a half-written snapshot (lost updates, SC-006).
                     existing = null;
                     loadTask = null!;
                     inflightEviction = eviction;
@@ -78,8 +78,8 @@ public sealed class DocumentBroker : IAsyncDisposable
                 }
                 else
                 {
-                    // Un actor terminado (Faulted/Evicted) que quedó registrado se descarta para recrearlo
-                    // limpio — nunca reintentar sobre él (evita el giro infinito sobre un actor muerto).
+                    // A terminated actor (Faulted/Evicted) that remained registered is discarded to recreate it
+                    // clean — never retry over it (avoids the infinite spin over a dead actor).
                     if (found is not null)
                     {
                         _actors.Remove(docId);
@@ -91,8 +91,8 @@ public sealed class DocumentBroker : IAsyncDisposable
                     }
                     else
                     {
-                        // La carga compartida usa el token del broker, NO el del caller: la cancelación de
-                        // un caller no debe envenenar la carga para los demás waiters del mismo docId.
+                        // The shared load uses the broker's token, NOT the caller's: a caller's
+                        // cancellation must not poison the load for the other waiters of the same docId.
                         loadTask = LoadAndRegisterAsync(docId, loader, _shutdown.Token);
                         _loading[docId] = loadTask;
                     }
@@ -101,16 +101,16 @@ public sealed class DocumentBroker : IAsyncDisposable
 
             if (inflightEviction is not null)
             {
-                try { await inflightEviction.WaitAsync(ct).ConfigureAwait(false); } catch (OperationCanceledException) { throw; } catch { /* el desalojo reporta aparte */ }
-                continue; // el estado ya está persistido; reintentar cargará el snapshot correcto
+                try { await inflightEviction.WaitAsync(ct).ConfigureAwait(false); } catch (OperationCanceledException) { throw; } catch { /* the eviction reports separately */ }
+                continue; // the state is already persisted; retrying will load the correct snapshot
             }
 
-            // WaitAsync aplica el ct de ESTE caller solo a la espera; la carga compartida sigue viva para
-            // otros waiters aunque este cancele (finding H).
+            // WaitAsync applies THIS caller's ct only to the wait; the shared load stays alive for
+            // other waiters even if this one cancels (finding H).
             DocumentActor actor = existing ?? await loadTask.WaitAsync(ct).ConfigureAwait(false);
 
-            // Añadir la sesión atómicamente respecto al barrido: solo si el actor sigue registrado y
-            // no terminó. Si fue desalojado en la ventana, reintentar (reabrirá o reutilizará).
+            // Add the session atomically with respect to the sweep: only if the actor is still registered and
+            // did not terminate. If it was evicted in the window, retry (will reopen or reuse).
             lock (_gate)
             {
                 if (_actors.TryGetValue(docId, out DocumentActor? still)
@@ -122,7 +122,7 @@ public sealed class DocumentBroker : IAsyncDisposable
                     return session;
                 }
             }
-            // desalojado entre carga y registro de la sesión (raro): ceder y reintentar sin quemar CPU
+            // evicted between load and session registration (rare): yield and retry without burning CPU
             await System.Threading.Tasks.Task.Yield();
         }
     }
@@ -132,9 +132,9 @@ public sealed class DocumentBroker : IAsyncDisposable
         Func<string, CancellationToken, ValueTask<byte[]?>>? loader,
         CancellationToken ct)
     {
-        // Cede ANTES de trabajar: garantiza que nunca completa síncronamente dentro del lock de OpenAsync,
-        // así OpenAsync ya asignó `_loading[docId]` antes de que el `finally` de aquí lo retire (esto evita
-        // la entrada rancia que causaba el livelock R6, y permite que la carga gestione su propia entrada).
+        // Yield BEFORE working: guarantees it never completes synchronously inside OpenAsync's lock,
+        // so OpenAsync already assigned `_loading[docId]` before the `finally` here removes it (this avoids
+        // the stale entry that caused the R6 livelock, and lets the load manage its own entry).
         await System.Threading.Tasks.Task.Yield();
         try
         {
@@ -153,9 +153,9 @@ public sealed class DocumentBroker : IAsyncDisposable
             }
             if (disposedRace)
             {
-                // Broker cerrado durante la carga: liberar el actor de forma DETERMINISTA (await, no
-                // fire-and-forget) para que DisposeAsync —que espera las cargas en vuelo— no retorne
-                // antes de que este documento quede liberado (finding F).
+                // Broker closed during the load: release the actor DETERMINISTICALLY (await, not
+                // fire-and-forget) so that DisposeAsync —which waits for the in-flight loads— does not return
+                // before this document is released (finding F).
                 await actor.BeginEvictionAsync().ConfigureAwait(false);
                 throw new ObjectDisposedException(nameof(DocumentBroker));
             }
@@ -180,8 +180,8 @@ public sealed class DocumentBroker : IAsyncDisposable
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    // un barrido fallido no debe matar el barrido de fondo (quedaría sin desalojar nunca).
-                    System.Diagnostics.Debug.WriteLine($"[DocumentBroker] barrido falló: {ex}");
+                    // a failed sweep must not kill the background sweep (it would never evict again).
+                    System.Diagnostics.Debug.WriteLine($"[DocumentBroker] sweep failed: {ex}");
                 }
             }
         }
@@ -191,7 +191,7 @@ public sealed class DocumentBroker : IAsyncDisposable
         }
     }
 
-    /// <summary>Un pase de desalojo: inactividad (idle) + presión de memoria (LRU). Visible para tests.</summary>
+    /// <summary>A single eviction pass: inactivity (idle) + memory pressure (LRU). Visible for tests.</summary>
     internal async ValueTask SweepOnceAsync()
     {
         List<Task> evictions = [];
@@ -218,10 +218,10 @@ public sealed class DocumentBroker : IAsyncDisposable
             int over = remaining - _options.MaxActiveDocuments;
             if (over > 0)
             {
-                // Presión de memoria: desalojar los menos recientemente usados SIN sesión, aunque estén
-                // "tibios". El orden por inactividad descendente protege a los recién usados/creados; si
-                // alguno se desaloja en la ventana previa a su primera sesión, OpenAsync reintenta.
-                // `toEvict` es un HashSet → la exclusión es O(1) por candidato (finding K).
+                // Memory pressure: evict the least recently used ones WITHOUT a session, even if they are
+                // "warm". Ordering by descending inactivity protects the recently used/created ones; if
+                // one is evicted in the window before its first session, OpenAsync retries.
+                // `toEvict` is a HashSet → the exclusion is O(1) per candidate (finding K).
                 List<DocumentActor> lru = _actors.Values
                     .Where(a => !toEvict.Contains(a) && a.SessionCount == 0)
                     .OrderByDescending(a => a.IdleMilliseconds)
@@ -237,26 +237,26 @@ public sealed class DocumentBroker : IAsyncDisposable
             {
                 _actors.Remove(a.DocId);
                 Task eviction = EvictActorAsync(a);
-                _evicting[a.DocId] = eviction; // los OpenAsync concurrentes esperan a que persista
+                _evicting[a.DocId] = eviction; // concurrent OpenAsync calls wait for it to persist
                 evictions.Add(eviction);
             }
         }
 
-        // Esperar a que los desalojos que este barrido inició terminen (persistencia incluida). Da
-        // determinismo a los tests; en el barrido de fondo solo pausa hasta el siguiente tick.
+        // Wait for the evictions this sweep started to finish (persistence included). It gives
+        // determinism to the tests; in the background sweep it only pauses until the next tick.
         await Task.WhenAll(evictions).ConfigureAwait(false);
     }
 
     private async Task EvictActorAsync(DocumentActor actor)
     {
-        await System.Threading.Tasks.Task.Yield(); // no completar síncronamente: _evicting se asigna antes del finally
+        await System.Threading.Tasks.Task.Yield(); // do not complete synchronously: _evicting is assigned before the finally
         try
         {
             await actor.BeginEvictionAsync().ConfigureAwait(false);
         }
         catch
         {
-            // el desalojo de un actor no debe tumbar el barrido de los demás
+            // one actor's eviction must not bring down the sweep of the others
         }
         finally
         {
@@ -267,7 +267,7 @@ public sealed class DocumentBroker : IAsyncDisposable
         }
     }
 
-    /// <summary>Drena y libera todos los documentos exactamente una vez; detiene el barrido.</summary>
+    /// <summary>Drains and releases all documents exactly once; stops the sweep.</summary>
     public async ValueTask DisposeAsync()
     {
         lock (_gate)
@@ -286,13 +286,13 @@ public sealed class DocumentBroker : IAsyncDisposable
         }
         catch
         {
-            // el sweeper ya está terminando
+            // the sweeper is already terminating
         }
 
-        // Esperar las cargas y los desalojos en vuelo antes de drenar el resto, para que la liberación
-        // sea DETERMINISTA respecto al retorno de DisposeAsync (finding F). Como `_disposed` ya es true,
-        // ninguna carga posterior registra en `_actors`: las que estaban en vuelo o bien ya registraron
-        // (capturadas en `all`), o ven `_disposed` y liberan su actor ellas mismas (await, no fire-and-forget).
+        // Wait for the in-flight loads and evictions before draining the rest, so that the release
+        // is DETERMINISTIC with respect to DisposeAsync's return (finding F). Since `_disposed` is already true,
+        // no later load registers in `_actors`: the ones that were in flight either already registered
+        // (captured in `all`), or see `_disposed` and release their actor themselves (await, not fire-and-forget).
         Task[] loading;
         Task[] inflight;
         List<DocumentActor> all;
@@ -309,7 +309,7 @@ public sealed class DocumentBroker : IAsyncDisposable
         }
         catch
         {
-            // una carga durante el apagado lanza ObjectDisposedException tras liberar su actor; no bloquea
+            // a load during shutdown throws ObjectDisposedException after releasing its actor; it does not block
         }
         try
         {
@@ -317,7 +317,7 @@ public sealed class DocumentBroker : IAsyncDisposable
         }
         catch
         {
-            // cada desalojo reporta su propio fallo; no bloquear el cierre
+            // each eviction reports its own failure; do not block the shutdown
         }
 
         foreach (DocumentActor a in all)
@@ -328,7 +328,7 @@ public sealed class DocumentBroker : IAsyncDisposable
             }
             catch
             {
-                // liberar el resto pese a un fallo aislado
+                // release the rest despite an isolated failure
             }
         }
 

@@ -1,11 +1,11 @@
-//! Suite de integración del shim `weft-yrs-ffi`.
+//! Integration suite for the `weft-yrs-ffi` shim.
 //!
-//! Doble propósito:
-//!  1. **Funcional**: round-trip byte-idéntico, convergencia, rutas de error tipificadas.
-//!  2. **Memoria (gate P-II)**: cada función se ejercita ≥2000 iteraciones incluyendo rutas de
-//!     error; bajo ASan/LSan (nightly) debe cerrar con 0 fugas / 0 double-free.
+//! Dual purpose:
+//!  1. **Functional**: byte-identical round-trip, convergence, typed error paths.
+//!  2. **Memory (P-II gate)**: each function is exercised ≥2000 iterations including error
+//!     paths; under ASan/LSan (nightly) it must finish with 0 leaks / 0 double-free.
 //!
-//! Ejecutar el gate de memoria:
+//! Run the memory gate:
 //! ```bash
 //! RUSTFLAGS="-Zsanitizer=address" cargo +nightly test \
 //!   -p weft-yrs-ffi --features test-hooks --target x86_64-unknown-linux-gnu
@@ -16,7 +16,7 @@ use std::ptr;
 use weft_yrs_ffi::*;
 use yrs::Doc;
 
-/// Crea un doc y aborta si el shim falla.
+/// Creates a doc and aborts if the shim fails.
 unsafe fn new_doc() -> *mut Doc {
     let mut doc: *mut Doc = ptr::null_mut();
     assert_eq!(weft_doc_new(&mut doc), WEFT_OK);
@@ -24,7 +24,7 @@ unsafe fn new_doc() -> *mut Doc {
     doc
 }
 
-/// Inserta texto en un campo, asumiendo entradas válidas.
+/// Inserts text into a field, assuming valid inputs.
 unsafe fn insert(doc: *mut Doc, field: &str, index: u32, text: &str) -> i32 {
     weft_text_insert(
         doc,
@@ -36,7 +36,7 @@ unsafe fn insert(doc: *mut Doc, field: &str, index: u32, text: &str) -> i32 {
     )
 }
 
-/// Recupera un buffer de salida y lo libera con weft_buf_free (patrón TakeOwnedBuffer).
+/// Retrieves an output buffer and frees it with weft_buf_free (TakeOwnedBuffer pattern).
 unsafe fn take_buf(f: impl FnOnce(*mut *mut u8, *mut usize) -> i32) -> Result<Vec<u8>, i32> {
     let mut out_ptr: *mut u8 = ptr::null_mut();
     let mut out_len: usize = 0;
@@ -69,14 +69,14 @@ fn round_trip_and_text_ops() {
         assert_eq!(insert(doc, "body", 0, "Hola mundo"), WEFT_OK);
         assert_eq!(read_text(doc, "body"), "Hola mundo");
 
-        // Borrado en rango válido: elimina " mundo" (6 unidades desde el índice 4).
+        // Delete in valid range: removes " mundo" (6 units from index 4).
         assert_eq!(
             weft_text_delete(doc, "body".as_ptr(), "body".len(), 4, 6),
             WEFT_OK
         );
         assert_eq!(read_text(doc, "body"), "Hola");
 
-        // Round-trip: load(export(d)).export() es byte-idéntico (P-III).
+        // Round-trip: load(export(d)).export() is byte-identical (P-III).
         let blob = export_state(doc);
         let mut reloaded: *mut Doc = ptr::null_mut();
         assert_eq!(weft_doc_load(blob.as_ptr(), blob.len(), &mut reloaded), WEFT_OK);
@@ -96,13 +96,13 @@ fn incremental_sync_converges() {
         assert_eq!(insert(a, "t", 0, "abc"), WEFT_OK);
         assert_eq!(insert(b, "t", 0, "XYZ"), WEFT_OK);
 
-        // b pide a `a` solo lo que no conoce (delta vs su state vector).
+        // b asks `a` only for what it does not know (delta vs its state vector).
         let sv_b = take_buf(|p, l| weft_doc_state_vector(b, p, l)).unwrap();
         let delta = take_buf(|p, l| weft_doc_export_since(a, sv_b.as_ptr(), sv_b.len(), p, l))
             .unwrap();
         assert_eq!(weft_doc_apply_update(b, delta.as_ptr(), delta.len()), WEFT_OK);
 
-        // Y `a` recibe el estado completo de `b`. Ambos convergen byte-idéntico.
+        // And `a` receives the full state of `b`. Both converge byte-identical.
         let full_b = export_state(b);
         assert_eq!(weft_doc_apply_update(a, full_b.as_ptr(), full_b.len()), WEFT_OK);
         assert_eq!(export_state(a), export_state(b));
@@ -117,18 +117,18 @@ fn error_paths_are_typed_not_panics() {
     unsafe {
         let doc = new_doc();
 
-        // NULL_ARG: out-param nulo y doc nulo.
+        // NULL_ARG: null out-param and null doc.
         assert_eq!(weft_doc_new(ptr::null_mut()), WEFT_ERR_NULL_ARG);
         assert_eq!(insert(ptr::null_mut(), "f", 0, "x"), WEFT_ERR_NULL_ARG);
 
-        // UTF8: field con bytes inválidos.
+        // UTF8: field with invalid bytes.
         let bad = [0xFFu8, 0xFE];
         assert_eq!(
             weft_text_insert(doc, bad.as_ptr(), bad.len(), 0, b"x".as_ptr(), 1),
             WEFT_ERR_UTF8
         );
 
-        // OUT_OF_BOUNDS: insertar más allá del final; borrar fuera de rango.
+        // OUT_OF_BOUNDS: insert past the end; delete out of range.
         assert_eq!(insert(doc, "f", 5, "x"), WEFT_ERR_OUT_OF_BOUNDS);
         assert_eq!(insert(doc, "f", 0, "abc"), WEFT_OK);
         assert_eq!(
@@ -136,7 +136,7 @@ fn error_paths_are_typed_not_panics() {
             WEFT_ERR_OUT_OF_BOUNDS
         );
 
-        // DECODE: blob basura a load y a apply_update.
+        // DECODE: garbage blob to load and to apply_update.
         let garbage = [1u8, 2, 3, 4, 5, 6, 7, 8];
         let mut d: *mut Doc = ptr::null_mut();
         assert_eq!(
@@ -149,14 +149,14 @@ fn error_paths_are_typed_not_panics() {
         );
 
         weft_doc_free(doc);
-        // free de null es no-op seguro.
+        // free of null is a safe no-op.
         weft_doc_free(ptr::null_mut());
         weft_buf_free(ptr::null_mut(), 0);
     }
 }
 
-/// Gate de memoria: bucle de estrés que ejercita todas las funciones muchas veces.
-/// Bajo ASan/LSan cualquier fuga o double-free rompe aquí.
+/// Memory gate: stress loop that exercises all functions many times.
+/// Under ASan/LSan any leak or double-free breaks here.
 #[test]
 fn stress_all_functions_2000_iterations() {
     unsafe {
@@ -169,7 +169,7 @@ fn stress_all_functions_2000_iterations() {
             let _ = export_state(doc);
             let _ = take_buf(|p, l| weft_doc_state_vector(doc, p, l)).unwrap();
 
-            // Round-trip por iteración (ejercita load + free del reconstruido).
+            // Round-trip per iteration (exercises load + free of the reconstructed one).
             let blob = export_state(doc);
             let mut reloaded: *mut Doc = ptr::null_mut();
             assert_eq!(weft_doc_load(blob.as_ptr(), blob.len(), &mut reloaded), WEFT_OK);
@@ -177,14 +177,14 @@ fn stress_all_functions_2000_iterations() {
             let _ = take_buf(|p, l| weft_doc_export_since(doc, sv.as_ptr(), sv.len(), p, l))
                 .unwrap();
 
-            // Ruta de error también en el bucle (UTF8 inválido) para cubrirla ≥2000 veces.
+            // Error path also in the loop (invalid UTF8) to cover it ≥2000 times.
             let bad = [0xFFu8];
             assert_eq!(
                 weft_text_insert(doc, bad.as_ptr(), bad.len(), 0, b"x".as_ptr(), 1),
                 WEFT_ERR_UTF8
             );
 
-            // Borra parte del contenido (ejercita remove_range) si hay suficientes unidades.
+            // Deletes part of the content (exercises remove_range) if there are enough units.
             let _ = weft_text_delete(doc, field.as_ptr(), field.len(), 0, 3);
 
             weft_doc_free(reloaded);
@@ -194,17 +194,17 @@ fn stress_all_functions_2000_iterations() {
     }
 }
 
-/// Regresión (hallazgo del fuzzer, R6): un update malformado que declara una longitud enorme en
-/// pocos bytes debe degradar a `WEFT_ERR_DECODE`, nunca panic/UB. El "OOM" que reportó libFuzzer
-/// era su presupuesto de RSS de 2 GB ante la asignación transitoria del decoder de yrs; con memoria
-/// normal el shim devuelve DECODE limpiamente. Ver AILOG R6 (mitigación de recursos en la capa de
-/// servidor, M2).
+/// Regression (fuzzer finding, R6): a malformed update that declares an enormous length in
+/// few bytes must degrade to `WEFT_ERR_DECODE`, never panic/UB. The "OOM" libFuzzer reported
+/// was its 2 GB RSS budget facing the transient allocation of yrs's decoder; with normal
+/// memory the shim returns DECODE cleanly. See AILOG R6 (resource mitigation in the
+/// server layer, M2).
 #[test]
 fn malformed_update_with_huge_declared_length_decodes_cleanly() {
     unsafe {
-        // Inputs reproductores hallados por cargo-fuzz sobre weft_doc_load: declaran una longitud
-        // enorme en 4 bytes → yrs reserva capacidad virtual grande pero falla el decode sin
-        // llenarla (RSS real medido ~150 MB) → WEFT_ERR_DECODE, nunca panic/UB.
+        // Reproducer inputs found by cargo-fuzz over weft_doc_load: they declare an enormous
+        // length in 4 bytes → yrs reserves large virtual capacity but fails the decode without
+        // filling it (real RSS measured ~150 MB) → WEFT_ERR_DECODE, never panic/UB.
         for data in [[0xd8u8, 0xd8, 0xeb, 0x23], [0xfa, 0xff, 0xa4, 0x25]] {
             let mut loaded: *mut Doc = ptr::null_mut();
             assert_eq!(weft_doc_load(data.as_ptr(), data.len(), &mut loaded), WEFT_ERR_DECODE);
@@ -220,20 +220,20 @@ fn malformed_update_with_huge_declared_length_decodes_cleanly() {
     }
 }
 
-/// Regresión (hallazgo del fuzzer, R6): un update malformado que hace `panic!` dentro de yrs
-/// (assertion en `block.rs`) NO debe cruzar la frontera — `catch_unwind` lo contiene como código
-/// de error. Verifica el contrato P-I con panic=unwind (igual que producción; el fuzz de CI corre
-/// con un hook silenciado para ejercitar este mismo camino).
-/// Siembra de client_id (FU-012/CHARTER-09): dos docs con el MISMO client_id + las mismas ops
-/// exportan bytes idénticos (base de la paridad cross-impl); el guard de 53 bits rechaza en la
-/// frontera; el borde superior válido (2^53 - 1) se acepta.
+/// Regression (fuzzer finding, R6): a malformed update that `panic!`s inside yrs
+/// (assertion in `block.rs`) must NOT cross the boundary — `catch_unwind` contains it as an
+/// error code. Verifies the P-I contract with panic=unwind (same as production; the CI fuzz runs
+/// with a silenced hook to exercise this very path).
+/// client_id seeding (FU-012/CHARTER-09): two docs with the SAME client_id + the same ops
+/// export identical bytes (basis of cross-impl parity); the 53-bit guard rejects at the
+/// boundary; the valid upper edge (2^53 - 1) is accepted.
 #[test]
 fn seed_client_id_is_deterministic_and_bounded() {
     unsafe {
         let field = b"body";
         let text = b"hola";
 
-        // Mismo client_id + mismas ops → export byte-idéntico.
+        // Same client_id + same ops → byte-identical export.
         let mut a: *mut Doc = ptr::null_mut();
         let mut b: *mut Doc = ptr::null_mut();
         assert_eq!(weft_doc_new_with_client_id(42, &mut a), WEFT_OK);
@@ -249,14 +249,14 @@ fn seed_client_id_is_deterministic_and_bounded() {
         assert_eq!(
             std::slice::from_raw_parts(pa, la),
             std::slice::from_raw_parts(pb, lb),
-            "misma siembra + mismas ops debe exportar bytes idénticos"
+            "same seed + same ops must export byte-identical bytes"
         );
         weft_buf_free(pa, la);
         weft_buf_free(pb, lb);
         weft_doc_free(a);
         weft_doc_free(b);
 
-        // Guard de 53 bits: 2^53 se rechaza, 2^53 - 1 se acepta.
+        // 53-bit guard: 2^53 is rejected, 2^53 - 1 is accepted.
         let mut over: *mut Doc = ptr::null_mut();
         assert_eq!(
             weft_doc_new_with_client_id(1u64 << 53, &mut over),
@@ -289,7 +289,7 @@ fn malformed_update_that_panics_yrs_is_contained_not_ub() {
     }
 }
 
-/// Panic-safety en la frontera (SC-009): solo con la feature `test-hooks`.
+/// Panic-safety at the boundary (SC-009): only with the `test-hooks` feature.
 #[cfg(feature = "test-hooks")]
 #[test]
 fn test_panic_is_caught_at_boundary() {

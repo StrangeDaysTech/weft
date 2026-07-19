@@ -3,13 +3,13 @@ using Weft.Server.Protocol;
 namespace Weft.Server.Tests;
 
 /// <summary>
-/// Vectores del encoding lib0 y del framing y-sync (T043), más el test del cap de tamaño de mensaje
-/// (FU-002 parte a). Los vectores de bytes son el formato de wire de <c>y-protocols</c>/<c>y-websocket</c>:
-/// se afirman byte a byte para blindar la compatibilidad con clientes Yjs.
+/// Vectors for the lib0 encoding and the y-sync framing (T043), plus the message size cap test
+/// (FU-002 part a). The byte vectors are the wire format of <c>y-protocols</c>/<c>y-websocket</c>:
+/// they are asserted byte by byte to harden compatibility with Yjs clients.
 /// </summary>
 public sealed class Lib0EncodingTests
 {
-    // --- Varint: vectores conocidos (little-endian, bit 0x80 de continuación) ---
+    // --- Varint: known vectors (little-endian, 0x80 continuation bit) ---
 
     [Theory]
     [InlineData(0u, new byte[] { 0x00 })]
@@ -59,7 +59,7 @@ public sealed class Lib0EncodingTests
         Assert.True(r.AtEnd);
     }
 
-    // --- Framing y-sync: vectores conocidos ---
+    // --- y-sync framing: known vectors ---
 
     [Fact]
     public void EncodeSyncStep1_produces_known_frame()
@@ -123,14 +123,14 @@ public sealed class Lib0EncodingTests
         Assert.True(decoded.Payload.IsEmpty);
     }
 
-    // --- Cap de tamaño de mensaje (FU-002 parte a) ---
+    // --- Message size cap (FU-002 part a) ---
 
     [Fact]
     public void Decode_rejects_frame_exceeding_size_cap_before_parsing()
     {
         byte[] frame = SyncProtocol.EncodeUpdate(new byte[100]);
 
-        // El mismo frame pasa con el cap por defecto y se rechaza con un cap por debajo de su tamaño.
+        // The same frame passes with the default cap and is rejected with a cap below its size.
         _ = SyncProtocol.Decode(frame);
         var ex = Assert.Throws<MalformedMessageException>(
             () => SyncProtocol.Decode(frame, maxMessageBytes: 10));
@@ -140,13 +140,13 @@ public sealed class Lib0EncodingTests
     [Fact]
     public void Decode_rejects_lying_length_prefix_without_allocating()
     {
-        // SYNC · Update · longitud declarada = uint.MaxValue (≈4 GiB) pero SIN payload: la guarda estructural
-        // rechaza antes de asignar nada (el DoS de amplificación de memoria que describe FU-002).
+        // SYNC · Update · declared length = uint.MaxValue (≈4 GiB) but WITHOUT payload: the structural guard
+        // rejects before allocating anything (the memory-amplification DoS that FU-002 describes).
         byte[] frame = [0x00, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F];
         Assert.Throws<MalformedMessageException>(() => SyncProtocol.Decode(frame));
     }
 
-    // --- Frames malformados → MalformedMessageException (relay: cierre 1002) ---
+    // --- Malformed frames → MalformedMessageException (relay: close 1002) ---
 
     [Fact]
     public void Decode_rejects_unknown_message_type()
@@ -158,7 +158,7 @@ public sealed class Lib0EncodingTests
     [Fact]
     public void Decode_rejects_unknown_sync_subtype()
     {
-        // SYNC(0) · sub-tipo 9 (desconocido)
+        // SYNC(0) · sub-type 9 (unknown)
         byte[] frame = [0x00, 0x09, 0x00];
         Assert.Throws<MalformedMessageException>(() => SyncProtocol.Decode(frame));
     }
@@ -166,21 +166,21 @@ public sealed class Lib0EncodingTests
     [Fact]
     public void Decode_rejects_trailing_bytes()
     {
-        byte[] frame = [0x00, 0x02, 0x01, 0xAA, 0xFF]; // un byte de más tras el payload
+        byte[] frame = [0x00, 0x02, 0x01, 0xAA, 0xFF]; // one byte too many after the payload
         Assert.Throws<MalformedMessageException>(() => SyncProtocol.Decode(frame));
     }
 
     [Fact]
     public void Decode_rejects_truncated_varint()
     {
-        byte[] frame = [0x80]; // continuación sin byte final
+        byte[] frame = [0x80]; // continuation without a final byte
         Assert.Throws<MalformedMessageException>(() => SyncProtocol.Decode(frame));
     }
 
     [Fact]
     public void ReadVarUint_rejects_overflow_beyond_32_bits()
     {
-        // 5.º byte aporta bits por encima de 32 → sobredimensionado.
+        // 5th byte contributes bits above 32 → oversized.
         byte[] bytes = [0x80, 0x80, 0x80, 0x80, 0x10];
         Assert.Throws<MalformedMessageException>(() =>
         {

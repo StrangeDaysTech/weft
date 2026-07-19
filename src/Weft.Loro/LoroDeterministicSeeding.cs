@@ -1,8 +1,8 @@
 namespace Weft.Loro;
 
 /// <summary>
-/// Siembra determinista para <see cref="LoroEngine"/>: fija el <c>peer_id</c> del documento. El
-/// dominio válido es todo <c>ulong</c> salvo <see cref="ulong.MaxValue"/> (reservado por Loro).
+/// Deterministic seeding for <see cref="LoroEngine"/>: pins the document's <c>peer_id</c>. The
+/// valid domain is every <c>ulong</c> except <see cref="ulong.MaxValue"/> (reserved by Loro).
 /// </summary>
 internal sealed class LoroDeterministicSeeding : IDeterministicSeeding
 {

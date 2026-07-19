@@ -1,34 +1,34 @@
 namespace Weft.Server.Protocol;
 
-/// <summary>Tipo de mensaje de wire de primer nivel (<c>y-protocols</c>).</summary>
+/// <summary>Top-level wire message type (<c>y-protocols</c>).</summary>
 public enum MessageType
 {
-    /// <summary>Sincronización de documento (sub-tipado por <see cref="SyncMessageType"/>).</summary>
+    /// <summary>Document synchronization (sub-typed by <see cref="SyncMessageType"/>).</summary>
     Sync = 0,
 
-    /// <summary>Estado efímero por cliente (<c>y-awareness</c>); nunca se persiste.</summary>
+    /// <summary>Ephemeral per-client state (<c>y-awareness</c>); never persisted.</summary>
     Awareness = 1,
 }
 
-/// <summary>Sub-tipo de un mensaje <see cref="MessageType.Sync"/> (protocolo <c>y-sync</c>).</summary>
+/// <summary>Sub-type of a <see cref="MessageType.Sync"/> message (<c>y-sync</c> protocol).</summary>
 public enum SyncMessageType
 {
-    /// <summary>SyncStep1: "esto conozco" — lleva el state vector del emisor.</summary>
+    /// <summary>SyncStep1: "here's what I know" — carries the sender's state vector.</summary>
     Step1 = 0,
 
-    /// <summary>SyncStep2: respuesta con el delta (update) que le falta al emisor del state vector.</summary>
+    /// <summary>SyncStep2: reply with the delta (update) the state-vector sender is missing.</summary>
     Step2 = 1,
 
-    /// <summary>Update incremental en vivo.</summary>
+    /// <summary>Live incremental update.</summary>
     Update = 2,
 }
 
 /// <summary>
-/// Un mensaje y-sync decodificado. <c>ref struct</c>: <see cref="Payload"/> es una vista zero-copy del frame
-/// de origen (el state vector para <see cref="SyncMessageType.Step1"/>; el update para
-/// <see cref="SyncMessageType.Step2"/>/<see cref="SyncMessageType.Update"/>; el update de awareness para
-/// <see cref="MessageType.Awareness"/>). Los bytes de payload son <b>opacos</b> para esta capa: se entregan
-/// tal cual al broker/decoder de yrs aguas arriba (CHARTER-05).
+/// A decoded y-sync message. <c>ref struct</c>: <see cref="Payload"/> is a zero-copy view of the source
+/// frame (the state vector for <see cref="SyncMessageType.Step1"/>; the update for
+/// <see cref="SyncMessageType.Step2"/>/<see cref="SyncMessageType.Update"/>; the awareness update for
+/// <see cref="MessageType.Awareness"/>). The payload bytes are <b>opaque</b> to this layer: they are handed
+/// as-is to the broker/yrs decoder upstream (CHARTER-05).
 /// </summary>
 public readonly ref struct SyncMessage
 {
@@ -39,45 +39,45 @@ public readonly ref struct SyncMessage
         Payload = payload;
     }
 
-    /// <summary>Tipo de primer nivel.</summary>
+    /// <summary>Top-level type.</summary>
     public MessageType Type { get; }
 
-    /// <summary>Sub-tipo; solo significativo cuando <see cref="Type"/> es <see cref="MessageType.Sync"/>.</summary>
+    /// <summary>Sub-type; only meaningful when <see cref="Type"/> is <see cref="MessageType.Sync"/>.</summary>
     public SyncMessageType SyncType { get; }
 
-    /// <summary>Payload opaco (state vector / update / awareness).</summary>
+    /// <summary>Opaque payload (state vector / update / awareness).</summary>
     public ReadOnlySpan<byte> Payload { get; }
 }
 
 /// <summary>
-/// Framing <c>y-sync</c> sobre el encoding lib0 (<see cref="Lib0Encoding"/>), compatible con clientes Yjs
-/// estándar. Estructura del wire (todo entero es varint):
+/// <c>y-sync</c> framing over the lib0 encoding (<see cref="Lib0Encoding"/>), compatible with standard Yjs
+/// clients. Wire structure (every integer is a varint):
 /// <code>
 /// SYNC      := 0 &lt;syncType&gt; &lt;VarUint8Array payload&gt;
 /// AWARENESS := 1 &lt;VarUint8Array payload&gt;
 /// </code>
 /// </summary>
 /// <remarks>
-/// El decoder aplica el cap de tamaño de frame (FU-002 parte a) <b>antes</b> de parsear y rechaza tipos
-/// desconocidos, varints truncados/sobredimensionados y bytes sobrantes con
-/// <see cref="MalformedMessageException"/>. No interpreta el payload: eso es responsabilidad del relay/decoder
-/// yrs (CHARTER-05). Esta capa es puro transporte.
+/// The decoder applies the frame-size cap (FU-002 part a) <b>before</b> parsing and rejects unknown types,
+/// truncated/oversized varints and trailing bytes with <see cref="MalformedMessageException"/>. It does not
+/// interpret the payload: that is the responsibility of the relay/yrs decoder (CHARTER-05). This layer is
+/// pure transport.
 /// </remarks>
 public static class SyncProtocol
 {
-    /// <summary>Codifica <c>SyncStep1(stateVector)</c> — lo envía quien se conecta.</summary>
+    /// <summary>Encodes <c>SyncStep1(stateVector)</c> — sent by whoever connects.</summary>
     public static byte[] EncodeSyncStep1(ReadOnlySpan<byte> stateVector) =>
         EncodeSync(SyncMessageType.Step1, stateVector);
 
-    /// <summary>Codifica <c>SyncStep2(update)</c> — el delta que responde a un SyncStep1.</summary>
+    /// <summary>Encodes <c>SyncStep2(update)</c> — the delta that answers a SyncStep1.</summary>
     public static byte[] EncodeSyncStep2(ReadOnlySpan<byte> update) =>
         EncodeSync(SyncMessageType.Step2, update);
 
-    /// <summary>Codifica <c>Update(update)</c> — un update incremental en vivo.</summary>
+    /// <summary>Encodes <c>Update(update)</c> — a live incremental update.</summary>
     public static byte[] EncodeUpdate(ReadOnlySpan<byte> update) =>
         EncodeSync(SyncMessageType.Update, update);
 
-    /// <summary>Codifica un mensaje <c>AWARENESS(update)</c> (estado efímero por cliente).</summary>
+    /// <summary>Encodes an <c>AWARENESS(update)</c> message (ephemeral per-client state).</summary>
     public static byte[] EncodeAwareness(ReadOnlySpan<byte> awarenessUpdate)
     {
         var w = new Lib0Encoding.Lib0Writer();
@@ -96,24 +96,24 @@ public static class SyncProtocol
     }
 
     /// <summary>
-    /// Decodifica un frame WebSocket binario. Rechaza (con <see cref="MalformedMessageException"/>) el frame
-    /// que exceda <paramref name="maxMessageBytes"/> antes de parsear, cualquier tipo/sub-tipo desconocido,
-    /// varints inválidos y bytes sobrantes tras el mensaje.
+    /// Decodes a binary WebSocket frame. Rejects (with <see cref="MalformedMessageException"/>) a frame that
+    /// exceeds <paramref name="maxMessageBytes"/> before parsing, any unknown type/sub-type, invalid varints
+    /// and trailing bytes after the message.
     /// </summary>
-    /// <param name="frame">Bytes crudos del frame WebSocket.</param>
+    /// <param name="frame">Raw bytes of the WebSocket frame.</param>
     /// <param name="maxMessageBytes">
-    /// Cap de tamaño del frame (FU-002 parte a). Por defecto <see cref="Lib0Encoding.DefaultMaxMessageBytes"/>.
+    /// Frame-size cap (FU-002 part a). Defaults to <see cref="Lib0Encoding.DefaultMaxMessageBytes"/>.
     /// </param>
-    /// <returns>El mensaje decodificado; <see cref="SyncMessage.Payload"/> es una vista de <paramref name="frame"/>.</returns>
+    /// <returns>The decoded message; <see cref="SyncMessage.Payload"/> is a view over <paramref name="frame"/>.</returns>
     public static SyncMessage Decode(
         ReadOnlySpan<byte> frame,
         int maxMessageBytes = Lib0Encoding.DefaultMaxMessageBytes)
     {
-        // Guarda de tamaño (FU-002 parte a): rechazar el frame sobredimensionado ANTES de tocar el decoder.
+        // Size guard (FU-002 part a): reject the oversized frame BEFORE touching the decoder.
         if (frame.Length > maxMessageBytes)
         {
             throw new MalformedMessageException(
-                $"El frame ({frame.Length} bytes) excede el cap de {maxMessageBytes} bytes.");
+                $"The frame ({frame.Length} bytes) exceeds the cap of {maxMessageBytes} bytes.");
         }
 
         var r = new Lib0Encoding.Lib0Reader(frame);
@@ -127,7 +127,7 @@ public static class SyncProtocol
                 uint rawSync = r.ReadVarUint();
                 if (rawSync > (uint)SyncMessageType.Update)
                 {
-                    throw new MalformedMessageException($"Sub-tipo SYNC desconocido: {rawSync}.");
+                    throw new MalformedMessageException($"Unknown SYNC sub-type: {rawSync}.");
                 }
 
                 ReadOnlySpan<byte> payload = r.ReadVarUint8Array();
@@ -143,13 +143,13 @@ public static class SyncProtocol
             }
 
             default:
-                throw new MalformedMessageException($"Tipo de mensaje desconocido: {rawType}.");
+                throw new MalformedMessageException($"Unknown message type: {rawType}.");
         }
 
         if (!r.AtEnd)
         {
             throw new MalformedMessageException(
-                $"Bytes sobrantes tras el mensaje: {r.Remaining} byte(s) sin consumir.");
+                $"Trailing bytes after the message: {r.Remaining} byte(s) left unconsumed.");
         }
 
         return message;
