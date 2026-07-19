@@ -249,7 +249,7 @@ fn seed_client_id_is_deterministic_and_bounded() {
         assert_eq!(
             std::slice::from_raw_parts(pa, la),
             std::slice::from_raw_parts(pb, lb),
-            "misma siembra + mismas ops debe exportar bytes idénticos"
+            "same seed + same ops must export byte-identical bytes"
         );
         weft_buf_free(pa, la);
         weft_buf_free(pb, lb);

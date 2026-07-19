@@ -80,12 +80,12 @@ public sealed class HeaderBindingParityTests
 
         Assert.True(
             soloEnHeader.Length == 0,
-            $"[{shim}] el header declara funciones que el binding no tiene: {string.Join(", ", soloEnHeader)}. " +
-            $"Si se añadió al shim, decláralas en NativeMethods; si se quitaron, bórralas del header.");
+            $"[{shim}] the header declares functions the binding does not have: {string.Join(", ", soloEnHeader)}. " +
+            $"If they were added to the shim, declare them in NativeMethods; if they were removed, delete them from the header.");
         Assert.True(
             soloEnBinding.Length == 0,
-            $"[{shim}] el binding declara funciones que el header no tiene: {string.Join(", ", soloEnBinding)}. " +
-            $"El header es la fuente de verdad del contrato: actualízalo.");
+            $"[{shim}] the binding declares functions the header does not have: {string.Join(", ", soloEnBinding)}. " +
+            $"The header is the source of truth for the contract: update it.");
     }
 
     [Theory]
@@ -106,13 +106,13 @@ public sealed class HeaderBindingParityTests
             string esperado = MapReturn(shim, name, c.ReturnType);
             if (!string.Equals(esperado, net.ReturnType, StringComparison.Ordinal))
             {
-                divergencias.Add($"{name}: retorno header={c.ReturnType}→{esperado} vs binding={net.ReturnType}");
+                divergencias.Add($"{name}: return header={c.ReturnType}→{esperado} vs binding={net.ReturnType}");
             }
 
             if (c.Parameters.Count != net.Parameters.Count)
             {
                 divergencias.Add(
-                    $"{name}: aridad header={c.Parameters.Count} vs binding={net.Parameters.Count}");
+                    $"{name}: arity header={c.Parameters.Count} vs binding={net.Parameters.Count}");
                 continue;
             }
 
@@ -129,7 +129,7 @@ public sealed class HeaderBindingParityTests
 
         Assert.True(
             divergencias.Count == 0,
-            $"[{shim}] {divergencias.Count} divergencia(s) header↔binding:{Environment.NewLine}" +
+            $"[{shim}] {divergencias.Count} divergence(s) header↔binding:{Environment.NewLine}" +
             string.Join(Environment.NewLine, divergencias));
     }
 
@@ -176,14 +176,14 @@ public sealed class HeaderBindingParityTests
         TypeMap.TryGetValue(cType, out string? net)
             ? net
             : throw new InvalidOperationException(
-                $"[{shim}] tipo de retorno C sin mapear en {fn}: '{cType}'. Añádelo a TypeMap con su " +
-                "forma .NET, no lo ignores.");
+                $"[{shim}] unmapped C return type in {fn}: '{cType}'. Add it to TypeMap with its " +
+                ".NET shape, do not ignore it.");
 
     private static string MapParam(string shim, string fn, int index, string cType) =>
         TypeMap.TryGetValue(cType, out string? net)
             ? net
             : throw new InvalidOperationException(
-                $"[{shim}] tipo de parámetro C sin mapear en {fn} #{index}: '{cType}'. Añádelo a TypeMap.");
+                $"[{shim}] unmapped C parameter type in {fn} #{index}: '{cType}'. Add it to TypeMap.");
 
     // ── Reflection over the binding ──
 
@@ -194,7 +194,7 @@ public sealed class HeaderBindingParityTests
             : typeof(YrsEngine).Assembly;
 
         Type type = asm.GetType(typeName, throwOnError: true)
-            ?? throw new InvalidOperationException($"No se encontró el tipo {typeName}.");
+            ?? throw new InvalidOperationException($"Type {typeName} was not found.");
 
         Dictionary<string, CFunction> result = new(StringComparer.Ordinal);
         foreach (MethodInfo m in type.GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
@@ -291,9 +291,9 @@ public sealed class HeaderBindingParityTests
             if (!m.Success)
             {
                 throw new InvalidOperationException(
-                    $"El parser no entiende esta declaración del header y NO la va a ignorar: '{stmt}'. " +
-                    "Amplía el parser o simplifica el header — ignorarla en silencio crearía un hueco " +
-                    "de verificación (R1 de CHARTER-12).");
+                    $"The parser does not understand this header declaration and will NOT ignore it: '{stmt}'. " +
+                    "Extend the parser or simplify the header — silently ignoring it would create a " +
+                    "verification gap (R1 of CHARTER-12).");
             }
 
             string name = m.Groups["name"].Value;
@@ -343,6 +343,6 @@ public sealed class HeaderBindingParityTests
             }
         }
 
-        throw new FileNotFoundException($"No se encontró '{relative}' desde el binario del test.");
+        throw new FileNotFoundException($"'{relative}' was not found from the test binary.");
     }
 }

@@ -181,7 +181,7 @@ public sealed class DocumentBroker : IAsyncDisposable
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // a failed sweep must not kill the background sweep (it would never evict again).
-                    System.Diagnostics.Debug.WriteLine($"[DocumentBroker] barrido falló: {ex}");
+                    System.Diagnostics.Debug.WriteLine($"[DocumentBroker] sweep failed: {ex}");
                 }
             }
         }

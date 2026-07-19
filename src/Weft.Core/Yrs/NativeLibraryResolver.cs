@@ -17,8 +17,8 @@ internal static class NativeLibraryResolver
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Usage", "CA2255:The 'ModuleInitializer' attribute should not be used in libraries",
-        Justification = "Registro único del DllImportResolver nativo antes de cualquier P/Invoke; " +
-                        "patrón idiomático y deliberado para un binding nativo por RID.")]
+        Justification = "Single registration of the native DllImportResolver before any P/Invoke; " +
+                        "idiomatic and deliberate pattern for a per-RID native binding.")]
     [ModuleInitializer]
     internal static void Register()
     {
@@ -106,7 +106,7 @@ internal static class NativeLibraryResolver
         {
             NativeLibrary.Free(handle);
             throw new WeftException(
-                $"El binario nativo '{source}' no exporta weft_abi_version: no es un shim de Weft válido.");
+                $"The native binary '{source}' does not export weft_abi_version: it is not a valid Weft shim.");
         }
 
         uint actual = ((delegate* unmanaged<uint>)fn)();
@@ -114,8 +114,8 @@ internal static class NativeLibraryResolver
         {
             NativeLibrary.Free(handle);
             throw new WeftException(
-                $"ABI del shim nativo '{source}' = {actual}, se esperaba {ExpectedAbiVersion}. " +
-                "Reinstala el paquete de Weft con los binarios nativos correctos.");
+                $"ABI of the native shim '{source}' = {actual}, expected {ExpectedAbiVersion}. " +
+                "Reinstall the Weft package with the correct native binaries.");
         }
     }
 }

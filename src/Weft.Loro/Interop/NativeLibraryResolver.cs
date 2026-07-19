@@ -13,7 +13,7 @@ internal static class NativeLibraryResolver
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Usage", "CA2255:The 'ModuleInitializer' attribute should not be used in libraries",
-        Justification = "Registro único del DllImportResolver nativo; patrón idiomático de binding por RID.")]
+        Justification = "Single registration of the native DllImportResolver; idiomatic per-RID binding pattern.")]
     [ModuleInitializer]
     internal static void Register()
     {
@@ -95,14 +95,14 @@ internal static class NativeLibraryResolver
         if (!NativeLibrary.TryGetExport(handle, "weft_loro_abi_version", out nint fn))
         {
             NativeLibrary.Free(handle);
-            throw new WeftException($"El binario nativo '{source}' no exporta weft_loro_abi_version.");
+            throw new WeftException($"The native binary '{source}' does not export weft_loro_abi_version.");
         }
         uint actual = ((delegate* unmanaged<uint>)fn)();
         if (actual != ExpectedAbiVersion)
         {
             NativeLibrary.Free(handle);
             throw new WeftException(
-                $"ABI del shim Loro '{source}' = {actual}, se esperaba {ExpectedAbiVersion}.");
+                $"ABI of the Loro shim '{source}' = {actual}, expected {ExpectedAbiVersion}.");
         }
     }
 }

@@ -108,7 +108,7 @@ Task[] workers = Enumerable.Range(0, tasks).Select(workerId => Task.Run(async ()
             Interlocked.Increment(ref errors);
             if (Interlocked.Read(ref errors) <= 5)
             {
-                Console.WriteLine($"[load-test] error en '{docId}': {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"[load-test] error on '{docId}': {ex.GetType().Name}: {ex.Message}");
             }
         }
     }
@@ -119,7 +119,7 @@ sw.Stop();
 samplerStop.Cancel();
 await sampler;
 
-Console.WriteLine($"[load-test] carga completa en {sw.Elapsed.TotalSeconds:F1}s: " +
+Console.WriteLine($"[load-test] load complete in {sw.Elapsed.TotalSeconds:F1}s: " +
                   $"ops={confirmedOps} evictions={evictions} peak-active={peakActive} errors={errors}");
 
 // -- Consistency check: reopen each document and compare its length against the inserts --
@@ -133,7 +133,7 @@ for (int idx = 0; idx < docs; idx++)
     {
         if (inconsistencias < 10)
         {
-            Console.WriteLine($"[load-test] INCONSISTENTE doc-{idx}: len={text.Length} esperado={expected}");
+            Console.WriteLine($"[load-test] INCONSISTENT doc-{idx}: len={text.Length} expected={expected}");
         }
         inconsistencias++;
     }
@@ -145,7 +145,7 @@ for (int idx = 0; idx < docs; idx++)
 //    MaxActiveDocuments transiently; the hard PASS criterion is the absolute working set, below. --
 long managed = GC.GetTotalMemory(forceFullCollection: true);
 long workingSet = Process.GetCurrentProcess().WorkingSet64;
-Console.WriteLine($"[load-test] memoria: managed-heap={managed / (1024 * 1024)}MB " +
+Console.WriteLine($"[load-test] memory: managed-heap={managed / (1024 * 1024)}MB " +
                   $"working-set={workingSet / (1024 * 1024)}MB");
 
 // Bounded memory (SC-006): with per-doc size and number of active docs both bounded, the working
@@ -156,17 +156,17 @@ bool memoryBounded = workingSetMb < workingSetLimitMb;
 bool consistent = inconsistencias == 0;
 bool noErrors = Interlocked.Read(ref errors) == 0;
 
-Console.WriteLine($"[load-test] consistencia={(consistent ? "OK" : $"FAIL ({inconsistencias})")} " +
-                  $"memoria-acotada={(memoryBounded ? "OK" : $"FAIL (working-set {workingSetMb}MB >= {workingSetLimitMb}MB)")} " +
-                  $"sin-errores={(noErrors ? "OK" : "FAIL")}");
+Console.WriteLine($"[load-test] consistency={(consistent ? "OK" : $"FAIL ({inconsistencias})")} " +
+                  $"memory-bounded={(memoryBounded ? "OK" : $"FAIL (working-set {workingSetMb}MB >= {workingSetLimitMb}MB)")} " +
+                  $"no-errors={(noErrors ? "OK" : "FAIL")}");
 
 if (consistent && memoryBounded && noErrors)
 {
-    Console.WriteLine("[load-test] RESULTADO: PASS");
+    Console.WriteLine("[load-test] RESULT: PASS");
     return 0;
 }
 
-Console.WriteLine("[load-test] RESULTADO: FAIL");
+Console.WriteLine("[load-test] RESULT: FAIL");
 return 1;
 
 static int ArgInt(string[] args, string name, int fallback)

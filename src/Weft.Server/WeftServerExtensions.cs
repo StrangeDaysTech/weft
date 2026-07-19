@@ -52,15 +52,15 @@ public static class WeftServerExtensions
             if (!probe.IsService(typeof(IWeftAuthorizer)))
             {
                 throw new InvalidOperationException(
-                    "AddWeftServer requiere registrar un IWeftAuthorizer antes de MapWeft: la autorización nunca es " +
-                    "opcional ni por-defecto-permisiva (SC-010).");
+                    "AddWeftServer requires registering an IWeftAuthorizer before MapWeft: authorization is never " +
+                    "optional nor permissive-by-default (SC-010).");
             }
 
             if (!probe.IsService(typeof(IDocumentStore)))
             {
                 throw new InvalidOperationException(
-                    "AddWeftServer requiere registrar un IDocumentStore antes de MapWeft " +
-                    "(InMemoryDocumentStore/FileSystemDocumentStore o un adaptador EFCore/Redis).");
+                    "AddWeftServer requires registering an IDocumentStore before MapWeft " +
+                    "(InMemoryDocumentStore/FileSystemDocumentStore or an EFCore/Redis adapter).");
             }
         }
 

@@ -113,7 +113,7 @@ public static class SyncProtocol
         if (frame.Length > maxMessageBytes)
         {
             throw new MalformedMessageException(
-                $"El frame ({frame.Length} bytes) excede el cap de {maxMessageBytes} bytes.");
+                $"The frame ({frame.Length} bytes) exceeds the cap of {maxMessageBytes} bytes.");
         }
 
         var r = new Lib0Encoding.Lib0Reader(frame);
@@ -127,7 +127,7 @@ public static class SyncProtocol
                 uint rawSync = r.ReadVarUint();
                 if (rawSync > (uint)SyncMessageType.Update)
                 {
-                    throw new MalformedMessageException($"Sub-tipo SYNC desconocido: {rawSync}.");
+                    throw new MalformedMessageException($"Unknown SYNC sub-type: {rawSync}.");
                 }
 
                 ReadOnlySpan<byte> payload = r.ReadVarUint8Array();
@@ -143,13 +143,13 @@ public static class SyncProtocol
             }
 
             default:
-                throw new MalformedMessageException($"Tipo de mensaje desconocido: {rawType}.");
+                throw new MalformedMessageException($"Unknown message type: {rawType}.");
         }
 
         if (!r.AtEnd)
         {
             throw new MalformedMessageException(
-                $"Bytes sobrantes tras el mensaje: {r.Remaining} byte(s) sin consumir.");
+                $"Trailing bytes after the message: {r.Remaining} byte(s) left unconsumed.");
         }
 
         return message;

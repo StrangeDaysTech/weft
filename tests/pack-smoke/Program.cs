@@ -10,7 +10,7 @@ using Weft.Yrs;
 Console.WriteLine($"Weft pack-smoke — RID: {System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}");
 
 ICrdtEngine engine = YrsEngine.Instance;
-Console.WriteLine($"  motor nativo resuelto: {engine.Name}");
+Console.WriteLine($"  native engine resolved: {engine.Name}");
 
 var store = new VersionStore(engine, new InMemoryBlobStore());
 using ICrdtDoc doc = engine.CreateDoc();
@@ -19,21 +19,21 @@ VersionId version = await store.PublishAsync(doc);
 
 string text = doc.GetText("titulo");
 string versionText = version.ToString();
-Console.WriteLine($"  texto:   \"{text}\"");
-Console.WriteLine($"  versión: {versionText}");
+Console.WriteLine($"  text:    \"{text}\"");
+Console.WriteLine($"  version: {versionText}");
 
 if (text != "hola weft")
 {
-    Console.Error.WriteLine($"✗ FALLO: texto inesperado (\"{text}\")");
+    Console.Error.WriteLine($"✗ FAILURE: unexpected text (\"{text}\")");
     return 1;
 }
 
 // The VersionId is the hex SHA-256 of the deterministic export (64 chars); an empty/short hash = breakage.
 if (string.IsNullOrWhiteSpace(versionText) || versionText.Length < 32)
 {
-    Console.Error.WriteLine($"✗ FALLO: VersionId vacío o demasiado corto (\"{versionText}\")");
+    Console.Error.WriteLine($"✗ FAILURE: VersionId empty or too short (\"{versionText}\")");
     return 1;
 }
 
-Console.WriteLine("✓ pack-smoke OK: nativo resuelto desde el paquete, edit→publish verde.");
+Console.WriteLine("✓ pack-smoke OK: native resolved from the package, edit→publish green.");
 return 0;

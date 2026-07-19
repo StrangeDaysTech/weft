@@ -93,13 +93,13 @@ public sealed class DeltaSizeBenchmark
 
         // A benchmark reports its measurement: the number is the deliverable, not just the green/red.
         _output.WriteLine(
-            $"SC-004 · escenario de reconexión: estado completo={estadoCompleto.Length} B, " +
-            $"delta={delta.Length} B, reducción={reduccion:P1} (umbral ≥ 90 %). " +
-            $"Referencia histórica del spike03: 523 B → 29 B (94,5 %).");
+            $"SC-004 · reconnection scenario: full state={estadoCompleto.Length} B, " +
+            $"delta={delta.Length} B, reduction={reduccion:P1} (threshold ≥ 90 %). " +
+            $"Historical reference from spike03: 523 B → 29 B (94.5 %).");
 
         Assert.True(
             reduccion >= 0.90,
-            $"SC-004: delta={delta.Length} B vs estado completo={estadoCompleto.Length} B → " +
-            $"reducción medida {reduccion:P1}, se exige ≥ 90 %.");
+            $"SC-004: delta={delta.Length} B vs full state={estadoCompleto.Length} B → " +
+            $"measured reduction {reduccion:P1}, ≥ 90 % is required.");
     }
 }

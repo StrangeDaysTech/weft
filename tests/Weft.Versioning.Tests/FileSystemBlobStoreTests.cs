@@ -53,7 +53,7 @@ public sealed class FileSystemBlobStoreTests : IDisposable
 
         string hex = id.ToString();
         string expected = Path.Combine(_root, hex[..2], hex[2..4], hex);
-        Assert.True(File.Exists(expected), $"Se esperaba el blob en {expected}");
+        Assert.True(File.Exists(expected), $"Expected the blob at {expected}");
     }
 
     [Fact]

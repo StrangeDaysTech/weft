@@ -173,7 +173,7 @@ public sealed class WeftServer : IWeftServer, IAsyncDisposable
         if (_blobStore is null)
         {
             throw new InvalidOperationException(
-                "PublishAsync requiere un IBlobStore registrado en el contenedor del consumidor.");
+                "PublishAsync requires an IBlobStore registered in the consumer's container.");
         }
 
         await using DocumentSession session = await _broker.OpenAsync(docId, LoadDocStateAsync, ct)

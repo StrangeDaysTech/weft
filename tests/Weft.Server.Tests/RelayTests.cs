@@ -358,14 +358,14 @@ public sealed class RelayTests
         // FRESH client (empty SV): the server sends it the full state (≫20 KB).
         await using YClient fresh = await YClient.ConnectAsync(server, "doc");
         Assert.True(await WaitUntilAsync(() => fresh.Text().Length == 20_000, TimeSpan.FromSeconds(5)),
-            $"fresh no sincronizó: len={fresh.Text().Length}");
+            $"fresh did not sync: len={fresh.Text().Length}");
         Assert.True(fresh.BytesReceived > 20_000, $"fresh={fresh.BytesReceived}");
 
         // UP-TO-DATE client (seeded with the state → full SV): the server has nothing new to send it.
         await using YClient upToDate = await YClient.ConnectAsync(server, "doc", seedState: fullState);
         await Task.Delay(150); // let the initial sync arrive
         Assert.True(upToDate.BytesReceived * 4 < fresh.BytesReceived,
-            $"upToDate={upToDate.BytesReceived} fresh={fresh.BytesReceived} (delta en reconexión ≪ estado completo)");
+            $"upToDate={upToDate.BytesReceived} fresh={fresh.BytesReceived} (reconnection delta ≪ full state)");
     }
 
     [Fact]
@@ -394,7 +394,7 @@ public sealed class RelayTests
         // The reader survives the handshake (its SyncStep2 is ignored, does not close it) and receives the writer's update.
         await writer.EditAsync(0, "shared");
         Assert.True(await WaitUntilAsync(() => reader.Text() == "shared", TimeSpan.FromSeconds(5)),
-            $"el lector ReadOnly no recibió el update: text='{reader.Text()}' close={reader.CloseStatus}");
+            $"the ReadOnly reader did not receive the update: text='{reader.Text()}' close={reader.CloseStatus}");
         Assert.Null(reader.CloseStatus); // still connected after receiving updates
 
         // But if the reader tries to write (live Update), it closes with 1008.
@@ -447,7 +447,7 @@ public sealed class RelayTests
         // Liveness: an edit from presence converges on observer → both connections alive and joined to the hub.
         await presence.EditAsync(0, "live");
         Assert.True(await WaitUntilAsync(() => observer.Text() == "live", TimeSpan.FromSeconds(5)),
-            $"no se estableció liveness: observer='{observer.Text()}'");
+            $"liveness was not established: observer='{observer.Text()}'");
 
         // Awareness with clock 0 for a new clientID (common in a Yjs client's first awareness).
         await presence.SendAwarenessAsync(AwarenessUpdate(777, 0, "{\"user\":\"Z\"}"));
@@ -456,7 +456,7 @@ public sealed class RelayTests
         // (without the fix, TrackClients would have thrown and faulted the connection → this edit would never arrive).
         await presence.EditAsync(4, " more");
         Assert.True(await WaitUntilAsync(() => observer.Text() == "live more", TimeSpan.FromSeconds(5)),
-            $"presence dejó de relayar tras el awareness clock-0 (¿crasheó?): observer='{observer.Text()}' close={presence.CloseStatus}");
+            $"presence stopped relaying after the clock-0 awareness (did it crash?): observer='{observer.Text()}' close={presence.CloseStatus}");
         Assert.Null(presence.CloseStatus);
     }
 
@@ -567,7 +567,7 @@ public sealed class RelayTests
 
             if (Interlocked.Exchange(ref _failNext, 0) == 1)
             {
-                throw new IOException("fallo de append inyectado (test)");
+                throw new IOException("injected append failure (test)");
             }
 
             TaskCompletionSource? gate = _gate;
@@ -657,7 +657,7 @@ public sealed class RelayTests
         bool sawBeforePersist = await WaitUntilAsync(() => b.Text() == "rápido", TimeSpan.FromSeconds(5));
         store.Release();
 
-        Assert.True(sawBeforePersist, $"b='{b.Text()}' — el modo heredado difunde antes de persistir");
+        Assert.True(sawBeforePersist, $"b='{b.Text()}' — the legacy mode broadcasts before persisting");
     }
 
     [Fact]
@@ -676,7 +676,7 @@ public sealed class RelayTests
 
         // While the append is blocked, the peer must not see anything.
         bool leakedEarly = await WaitUntilAsync(() => b.Text() == "durable", TimeSpan.FromMilliseconds(400));
-        Assert.False(leakedEarly, "persist-before-broadcast NO debe difundir antes de que el append confirme");
+        Assert.False(leakedEarly, "persist-before-broadcast must NOT broadcast before the append confirms");
 
         // On releasing the append, it converges.
         store.Release();

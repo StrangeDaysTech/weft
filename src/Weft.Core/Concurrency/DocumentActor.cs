@@ -103,7 +103,7 @@ internal sealed class DocumentActor
 
     private Exception ClosedReason() =>
         _fault ?? new ObjectDisposedException(nameof(DocumentSession),
-            $"El documento '{DocId}' fue desalojado o el broker se cerró.");
+            $"The document '{DocId}' was evicted or the broker was closed.");
 
     private async Task RunAsync()
     {
@@ -171,7 +171,7 @@ internal sealed class DocumentActor
                     // (not leaving native memory dangling takes priority over not losing the snapshot). The hook's
                     // failure is the consumer's responsibility; we surface it via traces for observability.
                     System.Diagnostics.Debug.WriteLine(
-                        $"[DocumentActor] OnEvicting falló para '{DocId}': {ex.GetType().Name}: {ex.Message}");
+                        $"[DocumentActor] OnEvicting failed for '{DocId}': {ex.GetType().Name}: {ex.Message}");
                 }
             }
             _state = DocumentActorState.Evicted;
@@ -218,7 +218,7 @@ internal sealed class DocumentActor
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    $"[DocumentActor] handler de UpdateApplied lanzó para '{DocId}': {ex.GetType().Name}: {ex.Message}");
+                    $"[DocumentActor] UpdateApplied handler threw for '{DocId}': {ex.GetType().Name}: {ex.Message}");
             }
         }
     }

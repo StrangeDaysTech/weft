@@ -447,5 +447,5 @@ pub extern "C" fn weft_abi_version() -> u32 {
 #[cfg(feature = "test-hooks")]
 #[no_mangle]
 pub extern "C" fn weft_test_panic() -> i32 {
-    guard(|| panic!("weft_test_panic: panic deliberado para verificar la frontera"))
+    guard(|| panic!("weft_test_panic: deliberate panic to verify the boundary"))
 }

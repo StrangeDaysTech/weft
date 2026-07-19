@@ -22,7 +22,7 @@ public readonly struct VersionId : IEquatable<VersionId>
     {
         if (!TryParse(hex, out VersionId id))
         {
-            throw new FormatException("Un VersionId debe ser 64 caracteres hexadecimales (SHA-256).");
+            throw new FormatException("A VersionId must be 64 hexadecimal characters (SHA-256).");
         }
         return id;
     }

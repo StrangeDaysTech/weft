@@ -161,6 +161,6 @@ public abstract class VersioningSuiteBase
         // (c) The final blob does not grow monotonically with the length of the history:
         //     its size stays modest despite 25 edit cycles (GC active, not tombstones).
         Assert.True(snapshots[^1].Length < 4096,
-            $"El blob final ({snapshots[^1].Length} B) sugiere acumulación de historial (¿GC desactivado?).");
+            $"The final blob ({snapshots[^1].Length} B) suggests history accumulation (GC disabled?).");
     }
 }

@@ -327,7 +327,7 @@ public sealed class RedisDocumentStoreContractTests : DocumentStoreContractSuite
     {
         Skip.IfNot(
             _fixture.Available,
-            "Redis/Valkey no disponible en WEFT_TEST_REDIS/localhost:6379 — test omitido (corre local con el servidor levantado).");
+            "Redis/Valkey not available at WEFT_TEST_REDIS/localhost:6379 — test skipped (run locally with the server up).");
 
         string prefix = "weft-test:" + Guid.NewGuid().ToString("N") + ":";
         return new RedisDocumentStore(_fixture.Connection!, prefix, RedisConnectionFixture.TestDb);

@@ -64,8 +64,8 @@ public sealed class VersionStore
         if (target.EngineName != branch.EngineName)
         {
             throw new ArgumentException(
-                $"No se pueden mezclar documentos de motores distintos: destino '{target.EngineName}', " +
-                $"rama '{branch.EngineName}'. El formato de update no es intercambiable entre motores.",
+                $"Cannot merge documents from different engines: target '{target.EngineName}', " +
+                $"branch '{branch.EngineName}'. The update format is not interchangeable between engines.",
                 nameof(branch));
         }
         target.ApplyUpdate(branch.ExportState());
@@ -79,8 +79,8 @@ public sealed class VersionStore
         if (target.EngineName != _engine.Name)
         {
             throw new ArgumentException(
-                $"El documento destino pertenece al motor '{target.EngineName}', pero el almacén decodifica " +
-                $"con '{_engine.Name}'. El formato de update no es intercambiable entre motores.",
+                $"The target document belongs to engine '{target.EngineName}', but the store decodes " +
+                $"with '{_engine.Name}'. The update format is not interchangeable between engines.",
                 nameof(target));
         }
         byte[] blob = await LoadVerifiedAsync(branchVersion, ct).ConfigureAwait(false);
@@ -92,12 +92,12 @@ public sealed class VersionStore
         byte[]? blob = await _blobs.GetAsync(version, ct).ConfigureAwait(false);
         if (blob is null)
         {
-            throw new KeyNotFoundException($"No existe una versión publicada con id {version}.");
+            throw new KeyNotFoundException($"No published version exists with id {version}.");
         }
         if (VersionId.FromBlob(blob) != version)
         {
             throw new BlobIntegrityException(
-                $"El blob almacenado para {version} no verifica contra su hash (corrupción).");
+                $"The stored blob for {version} does not verify against its hash (corruption).");
         }
         return blob;
     }

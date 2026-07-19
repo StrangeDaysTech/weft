@@ -25,7 +25,7 @@ internal static class RelayLoad
 {
     public static async Task<int> RunAsync(int edits)
     {
-        Console.WriteLine($"[relay-load] editor→observador vía relay real, {edits} ediciones/modo, FileSystemDocumentStore + fsync");
+        Console.WriteLine($"[relay-load] editor→observer via real relay, {edits} edits/mode, FileSystemDocumentStore + fsync");
 
         LatencyStats persist = await MeasureAsync(DurabilityMode.PersistThenBroadcast, edits);
         LatencyStats broadcast = await MeasureAsync(DurabilityMode.BroadcastThenPersist, edits);

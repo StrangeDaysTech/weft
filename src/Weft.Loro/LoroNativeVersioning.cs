@@ -29,7 +29,7 @@ internal sealed class LoroNativeVersioning : INativeVersioning
         ArgumentNullException.ThrowIfNull(doc);
         return doc as LoroDoc
             ?? throw new ArgumentException(
-                $"El versionado nativo de Loro requiere un documento de Loro, no '{doc.GetType().Name}' (motor '{doc.EngineName}').",
+                $"Loro native versioning requires a Loro document, not '{doc.GetType().Name}' (engine '{doc.EngineName}').",
                 nameof(doc));
     }
 }

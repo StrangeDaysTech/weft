@@ -31,8 +31,8 @@ public sealed class PanicSafetyTests
     {
         Assert.True(
             File.Exists(NativeLibraryPath),
-            $"El cdylib con feature test-hooks no se encontró en {NativeLibraryPath}. " +
-            "Compila: cargo build --release --features test-hooks en native/.");
+            $"The cdylib with the test-hooks feature was not found at {NativeLibraryPath}. " +
+            "Build it: cargo build --release --features test-hooks in native/.");
 
         nint handle = NativeLibrary.Load(NativeLibraryPath);
         try

@@ -34,7 +34,7 @@ public sealed class CorruptUpdateException : WeftException
 {
     /// <summary>Creates the exception with a default message.</summary>
     public CorruptUpdateException()
-        : base("El blob o update no es decodificable (formato corrupto o incompatible).") { }
+        : base("The blob or update is not decodable (corrupt or incompatible format).") { }
 
     /// <summary>Creates the exception with an explicit message.</summary>
     public CorruptUpdateException(string message) : base(message) { }

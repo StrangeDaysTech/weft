@@ -76,7 +76,7 @@ public static class Lib0Encoding
             {
                 if (_pos >= _buffer.Length)
                 {
-                    throw new MalformedMessageException("varint truncado: fin del buffer antes de cerrar el número.");
+                    throw new MalformedMessageException("truncated varint: end of buffer before the number was closed.");
                 }
 
                 byte b = _buffer[_pos++];
@@ -84,7 +84,7 @@ public static class Lib0Encoding
                 // bits above bit 31.
                 if (shift > 28 || (shift == 28 && (b & 0x7F) > 0x0F))
                 {
-                    throw new MalformedMessageException("varint sobredimensionado: excede 32 bits.");
+                    throw new MalformedMessageException("oversized varint: exceeds 32 bits.");
                 }
 
                 value |= (uint)(b & 0x7F) << shift;
@@ -108,7 +108,7 @@ public static class Lib0Encoding
             if (len > (uint)Remaining)
             {
                 throw new MalformedMessageException(
-                    $"VarUint8Array declara {len} bytes pero solo quedan {Remaining} en el frame.");
+                    $"VarUint8Array declares {len} bytes but only {Remaining} remain in the frame.");
             }
 
             ReadOnlySpan<byte> slice = _buffer.Slice(_pos, (int)len);

@@ -260,12 +260,12 @@ public sealed class DeterminismTests
             }
         }
 
-        throw new DirectoryNotFoundException("No se encontró tests/determinism-yjs/ desde el binario del test.");
+        throw new DirectoryNotFoundException("tests/determinism-yjs/ not found from the test binary.");
     }
 
     private static CorpusSpec LoadCorpus(string path) =>
         JsonSerializer.Deserialize<CorpusSpec>(File.ReadAllText(path), CorpusJson)
-        ?? throw new InvalidOperationException($"corpus vacío: {path}");
+        ?? throw new InvalidOperationException($"empty corpus: {path}");
 
     private static string GoldenHash(string path, string key)
     {

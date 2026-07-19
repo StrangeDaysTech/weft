@@ -225,7 +225,7 @@ public sealed class FileSystemDocumentStore : IDocumentStore
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            System.Diagnostics.Debug.WriteLine($"[FileSystemDocumentStore] fsync de directorio '{dir}' omitido: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[FileSystemDocumentStore] directory fsync of '{dir}' skipped: {ex.Message}");
         }
     }
 

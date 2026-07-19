@@ -506,5 +506,5 @@ pub extern "C" fn weft_loro_abi_version() -> u32 {
 #[cfg(feature = "test-hooks")]
 #[no_mangle]
 pub extern "C" fn weft_loro_test_panic() -> i32 {
-    guard(|| panic!("weft_loro_test_panic: panic deliberado"))
+    guard(|| panic!("weft_loro_test_panic: deliberate panic"))
 }

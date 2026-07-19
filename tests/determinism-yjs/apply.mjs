@@ -41,7 +41,7 @@ for (const step of corpus.ops) {
   } else if (step.op === 'del') {
     text.delete(step.index, step.len);
   } else {
-    throw new Error(`op desconocida: ${step.op}`);
+    throw new Error(`unknown op: ${step.op}`);
   }
 }
 
@@ -62,9 +62,9 @@ const update = Y.encodeStateAsUpdate(replicas[0]);
 const hash = createHash('sha256').update(Buffer.from(update)).digest('hex');
 
 const finalText = replicas[0].getText(corpus.type).toString();
-console.log(`Yjs  corpus:           ${corpusFile}`);
-console.log(`Yjs  texto convergido: "${finalText}"`);
-console.log(`Yjs  export SHA-256:   ${hash}`);
+console.log(`Yjs  corpus:          ${corpusFile}`);
+console.log(`Yjs  converged text:  "${finalText}"`);
+console.log(`Yjs  export SHA-256:  ${hash}`);
 
 // Self-check against the committed golden (golden.json[goldenKey]). Catches Yjs drift: if Yjs bumps
 // and changes the encoding, the emitted hash stops matching the golden. The real BLOCKING yrs↔Yjs
@@ -76,12 +76,12 @@ const golden = override
   ?? (existsSync(goldenPath) ? JSON.parse(readFileSync(goldenPath, 'utf8'))[goldenKey] : undefined);
 if (golden) {
   if (golden === hash) {
-    console.log(`✓ El hash de Yjs coincide con el golden comprometido (${goldenKey}).`);
+    console.log(`✓ Yjs hash matches the committed golden (${goldenKey}).`);
   } else {
-    console.log(`⚠ DIVERGENCIA (no-bloqueante): Yjs difiere del golden (${goldenKey}).`);
+    console.log(`⚠ DIVERGENCE (non-blocking): Yjs differs from the golden (${goldenKey}).`);
     console.log(`   golden: ${golden}`);
-    console.log('   Posible drift de Yjs (bump con impacto de encoding). Regenerar golden. Ver README.');
+    console.log('   Possible Yjs drift (bump with encoding impact). Regenerate golden. See README.');
   }
 } else {
-  console.log('ℹ Sin golden.json ni WEFT_GOLDEN_HASH: harness informativo (solo emite el hash de Yjs).');
+  console.log('ℹ No golden.json nor WEFT_GOLDEN_HASH: informative harness (only emits the Yjs hash).');
 }
