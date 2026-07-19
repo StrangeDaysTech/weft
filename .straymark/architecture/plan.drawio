@@ -1,0 +1,97 @@
+<mxfile host="straymark" type="device">
+  <diagram name="Architecture" id="straymark-architecture">
+    <mxGraphModel dx="1024" dy="768" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object label="Native FFI (weft-yrs-ffi / weft-loro-ffi)" straymark_component_id="native" id="comp-native">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+            <mxGeometry x="450" y="30" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Weft.Core" straymark_component_id="src-weft-core" id="comp-src-weft-core">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+            <mxGeometry x="450" y="130" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Weft.Versioning" straymark_component_id="src-weft-versioning" id="comp-src-weft-versioning">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="450" y="230" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Weft.Loro" straymark_component_id="src-weft-loro" id="comp-src-weft-loro">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="450" y="330" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Weft.Server" straymark_component_id="src-weft-server" id="comp-src-weft-server">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="450" y="430" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Weft.Server.Persistence.EFCore" straymark_component_id="src-weft-server-persistence-efcore" id="comp-src-weft-server-persistence-efcore">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="280" y="530" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Weft.Server.Persistence.Redis" straymark_component_id="src-weft-server-persistence-redis" id="comp-src-weft-server-persistence-redis">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="620" y="530" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Samples" straymark_component_id="samples" id="comp-samples">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="280" y="640" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Tests" straymark_component_id="tests" id="comp-tests">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="620" y="740" width="200" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="edge-core-native" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-core" target="comp-native">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-versioning-core" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-versioning" target="comp-src-weft-core">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-loro-core" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-loro" target="comp-src-weft-core">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-loro-native" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-src-weft-loro" target="comp-native">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-server-core" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-server" target="comp-src-weft-core">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-server-versioning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-server" target="comp-src-weft-versioning">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-efcore-server" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-server-persistence-efcore" target="comp-src-weft-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-redis-server" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" edge="1" parent="1" source="comp-src-weft-server-persistence-redis" target="comp-src-weft-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-samples-versioning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-samples" target="comp-src-weft-versioning">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-samples-server" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-samples" target="comp-src-weft-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-tests-core" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-tests" target="comp-src-weft-core">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-tests-versioning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-tests" target="comp-src-weft-versioning">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-tests-server" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-tests" target="comp-src-weft-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-tests-loro" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;dashed=1;" edge="1" parent="1" source="comp-tests" target="comp-src-weft-loro">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-14-durabilidad-relay
-status: in-progress
+status: closed
+closed_at: 2026-07-19
 effort_estimate: L
 trigger: "El operador decide implementar FU-010 como último Charter del vaciado del backlog antes del publish (T060), con tres decisiones tomadas: fsync EN scope, default PersistThenBroadcast, y cobertura de carga del relay (hoy inexistente). Al cerrar, el backlog queda en 1 open (FU-015, bloqueado upstream)."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Durabilidad del relay — persist-before-broadcast + fsync
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: L.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: L.
 >
 > **Origin:** FU-010 (AIDEC-2026-07-13-001 §5, auditoría de CHARTER-05 F3). El relay hace hoy
 > **broadcast-then-persist**; este Charter lo invierte, endurece la durabilidad del store con fsync, y

@@ -1,6 +1,7 @@
 ---
 charter_id: CHARTER-13-siembra-cross-engine
-status: in-progress
+status: closed
+closed_at: 2026-07-19
 effort_estimate: S
 trigger: "El operador decide implementar FU-016 (diferido en CHARTER-09) como parte del vaciado del backlog antes del publish (T060). Segundo de tres Charters de ese vaciado, tras CHARTER-12. La investigación previa resolvió las dos incógnitas que hacían de FU-016 un coste M: la API real de set_peer_id de loro 1.13.6 y el default de record_timestamp — ambas verificadas en las fuentes pinneadas, lo que baja el coste a S."
 originating_spec: specs/001-weft-crdt-versioning/spec.md
@@ -10,7 +11,7 @@ design_provenance: new
 
 # Charter: Siembra de réplica cross-engine — IDeterministicSeeding + peer_id de Loro
 
-> **Status (mirrored from frontmatter — source of truth is above):** in-progress. Effort: S.
+> **Status (mirrored from frontmatter — source of truth is above):** closed. Effort: S.
 >
 > **Origin:** FU-016. CHARTER-09 expuso la siembra de client-id como capacidad **concreta de
 > `YrsEngine`** (`CreateDoc(ulong)`), no en `ICrdtEngine`, porque el gate `determinism-yjs` es
