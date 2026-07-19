@@ -1,4 +1,4 @@
-//! Fuzz target: `weft_loro_doc_apply_update` con bytes arbitrarios sobre un doc vivo (research R14).
+//! Fuzz target: `weft_loro_doc_apply_update` with arbitrary bytes over a live doc (research R14).
 #![no_main]
 
 use std::ptr;

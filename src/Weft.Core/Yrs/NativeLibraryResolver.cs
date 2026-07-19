@@ -5,13 +5,13 @@ using System.Runtime.InteropServices;
 namespace Weft.Yrs;
 
 /// <summary>
-/// Resuelve el cdylib <c>weft_yrs_ffi</c> por RID (research R11) y verifica que su
-/// <c>weft_abi_version</c> coincide con la esperada por este binding — desalineación
-/// paquete/binario falla ruidosamente al cargar, no de forma silenciosa.
+/// Resolves the <c>weft_yrs_ffi</c> cdylib by RID (research R11) and verifies that its
+/// <c>weft_abi_version</c> matches the one expected by this binding — a package/binary
+/// mismatch fails loudly at load time, not silently.
 /// </summary>
 internal static class NativeLibraryResolver
 {
-    // ABI v2 (CHARTER-09): añade weft_doc_new_with_client_id (siembra determinista, FU-012).
+    // ABI v2 (CHARTER-09): adds weft_doc_new_with_client_id (deterministic seeding, FU-012).
     private const uint ExpectedAbiVersion = 2;
     private static int _registered;
 
@@ -32,7 +32,7 @@ internal static class NativeLibraryResolver
     {
         if (libraryName != NativeMethods.Lib)
         {
-            return nint.Zero; // otras libs las resuelve el runtime
+            return nint.Zero; // other libs are resolved by the runtime
         }
 
         string fileName = NativeFileName();
@@ -45,7 +45,7 @@ internal static class NativeLibraryResolver
             }
         }
 
-        // Fallback: rutas por defecto del runtime (NATIVE_DLL_SEARCH_DIRECTORIES).
+        // Fallback: runtime default paths (NATIVE_DLL_SEARCH_DIRECTORIES).
         if (NativeLibrary.TryLoad(NativeMethods.Lib, assembly, searchPath, out nint fallback))
         {
             VerifyAbi(fallback, NativeMethods.Lib);
@@ -58,7 +58,7 @@ internal static class NativeLibraryResolver
     private static IEnumerable<string> Candidates(string fileName)
     {
         string baseDir = AppContext.BaseDirectory;
-        string rid = RuntimeInformation.RuntimeIdentifier; // p. ej. "linux-x64" o "fedora.44-x64"
+        string rid = RuntimeInformation.RuntimeIdentifier; // e.g. "linux-x64" or "fedora.44-x64"
         string portable = PortableRid();
 
         yield return Path.Combine(baseDir, "runtimes", rid, "native", fileName);
@@ -69,7 +69,7 @@ internal static class NativeLibraryResolver
         yield return Path.Combine(baseDir, fileName);
     }
 
-    /// <summary>RID portable canónico (SO + arquitectura) para el layout de paquete NuGet.</summary>
+    /// <summary>Canonical portable RID (OS + architecture) for the NuGet package layout.</summary>
     private static string PortableRid()
     {
         string os =

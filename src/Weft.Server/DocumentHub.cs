@@ -6,10 +6,10 @@ using Weft.Server.Protocol;
 namespace Weft.Server;
 
 /// <summary>
-/// Punto de encuentro de todas las conexiones de un mismo documento. Mantiene <b>una</b>
-/// <see cref="DocumentSession"/> por documento (el refcount de sesiones mantiene el documento residente
-/// mientras haya conexiones). Aplica cada update, lo persiste y difunde su delta; el orden entre persistir y
-/// difundir lo fija <see cref="WeftServerOptions.Durability"/> (FU-010).
+/// Meeting point of all connections for a single document. Keeps <b>one</b>
+/// <see cref="DocumentSession"/> per document (the session refcount keeps the document resident
+/// while there are connections). Applies each update, persists it and broadcasts its delta; the order between
+/// persisting and broadcasting is set by <see cref="WeftServerOptions.Durability"/> (FU-010).
 /// </summary>
 internal sealed class DocumentHub : IAsyncDisposable
 {
@@ -24,26 +24,26 @@ internal sealed class DocumentHub : IAsyncDisposable
         Session = session;
         _store = store;
         _durability = durability;
-        // El broadcast es EXPLÍCITO (ApplyAndPersistAsync), no vía el evento UpdateApplied: capturar el
-        // delta como valor de retorno del turno permite ordenar append/broadcast según el modo y es
-        // race-free entre conexiones concurrentes del mismo documento. El evento se conserva para otros
-        // consumidores de DocumentSession, pero el relay ya no depende de él.
+        // The broadcast is EXPLICIT (ApplyAndPersistAsync), not via the UpdateApplied event: capturing the
+        // delta as the return value of the turn allows ordering append/broadcast according to the mode and is
+        // race-free between concurrent connections of the same document. The event is kept for other
+        // DocumentSession consumers, but the relay no longer depends on it.
     }
 
-    /// <summary>Identificador del documento.</summary>
+    /// <summary>Document identifier.</summary>
     public string DocId { get; }
 
-    /// <summary>Sesión async compartida del documento (turno del actor serializado, P-V).</summary>
+    /// <summary>Shared async session of the document (serialized actor turn, P-V).</summary>
     public DocumentSession Session { get; }
 
-    /// <summary>Conexiones activas del documento.</summary>
+    /// <summary>Active connections of the document.</summary>
     public int ConnectionCount => _connections.Count;
 
     public void Add(WeftConnection connection) => _connections.TryAdd(connection, 0);
 
     public void Remove(WeftConnection connection) => _connections.TryRemove(connection, out _);
 
-    /// <summary>Pide el cierre de todas las conexiones del documento (su teardown las retira del hub).</summary>
+    /// <summary>Requests the close of all the document's connections (their teardown removes them from the hub).</summary>
     public void DisconnectAll()
     {
         foreach (WeftConnection c in _connections.Keys)
@@ -53,8 +53,8 @@ internal sealed class DocumentHub : IAsyncDisposable
     }
 
     /// <summary>
-    /// Difunde un frame a las conexiones del documento, opcionalmente excluyendo el origen. Cada envío se aísla:
-    /// un fallo/backpressure de una conexión (que la cierra) no afecta a los pares.
+    /// Broadcasts a frame to the document's connections, optionally excluding the origin. Each send is isolated:
+    /// a failure/backpressure of one connection (which closes it) does not affect the peers.
     /// </summary>
     public void Broadcast(byte[] frame, WeftConnection? exclude)
     {
@@ -68,15 +68,15 @@ internal sealed class DocumentHub : IAsyncDisposable
     }
 
     /// <summary>
-    /// Aplica un update entrante al documento (turno del actor), lo persiste y difunde su delta. El orden
-    /// entre persistir y difundir lo fija <see cref="WeftServerOptions.Durability"/> (FU-010).
+    /// Applies an incoming update to the document (actor turn), persists it and broadcasts its delta. The order
+    /// between persisting and broadcasting is set by <see cref="WeftServerOptions.Durability"/> (FU-010).
     /// </summary>
     /// <remarks>
-    /// En <see cref="DurabilityMode.PersistThenBroadcast"/>, si el append falla, el update ya está en el
-    /// documento vivo pero NUNCA se difundió: los pares quedarían callados y desactualizados para siempre
-    /// (la próxima edición difunde solo su delta, no el que faltó). Por eso un fallo de append cierra
-    /// TODAS las conexiones del documento (el llamador las cierra con 1011): reconectan, mandan SyncStep1
-    /// y el servidor —autoritativo, que sí tiene el update— reenvía el estado. Convergencia recuperada.
+    /// In <see cref="DurabilityMode.PersistThenBroadcast"/>, if the append fails, the update is already in the
+    /// live document but was NEVER broadcast: the peers would stay silent and out of date forever
+    /// (the next edit broadcasts only its own delta, not the one that was missed). That is why an append
+    /// failure closes ALL the document's connections (the caller closes them with 1011): they reconnect, send
+    /// SyncStep1, and the server —authoritative, which does hold the update— resends the state. Convergence recovered.
     /// </remarks>
     public async ValueTask ApplyAndPersistAsync(byte[] update, CancellationToken ct)
     {
@@ -89,15 +89,15 @@ internal sealed class DocumentHub : IAsyncDisposable
             return;
         }
 
-        // PersistThenBroadcast (default): persistir antes de que ningún par lo vea.
+        // PersistThenBroadcast (default): persist before any peer sees it.
         try
         {
             await _store.AppendUpdateAsync(DocId, update, ct).ConfigureAwait(false);
         }
         catch
         {
-            // El update quedó aplicado pero sin difundir: cerrar el documento entero fuerza el re-sync
-            // autoritativo. Relanzar deja que el llamador cierre esta conexión con 1011.
+            // The update stayed applied but not broadcast: closing the whole document forces the authoritative
+            // re-sync. Rethrowing lets the caller close this connection with 1011.
             DisconnectAll();
             throw;
         }
@@ -105,9 +105,9 @@ internal sealed class DocumentHub : IAsyncDisposable
         BroadcastDelta(delta);
     }
 
-    // El delta se difunde a TODAS las conexiones del documento. Reaplicar su propio delta en el origen es un
-    // no-op CRDT idempotente (los clientes Yjs lo toleran), lo que evita rastrear el origen dentro del turno del
-    // actor (que sería una carrera). El coste es un eco al emisor; aceptable para v1.
+    // The delta is broadcast to ALL the document's connections. Reapplying its own delta at the origin is an
+    // idempotent CRDT no-op (Yjs clients tolerate it), which avoids tracking the origin inside the actor turn
+    // (which would be a race). The cost is an echo to the sender; acceptable for v1.
     private void BroadcastDelta(byte[] delta)
     {
         if (delta.Length == 0)
@@ -119,8 +119,8 @@ internal sealed class DocumentHub : IAsyncDisposable
     }
 
     /// <summary>
-    /// Cierra el hub: desuscribe el broadcast, consolida un snapshot (compaction) y libera la sesión (lo que
-    /// permite al broker desalojar el documento por inactividad). Idempotente.
+    /// Closes the hub: unsubscribes the broadcast, consolidates a snapshot (compaction) and releases the session
+    /// (which lets the broker evict the document for inactivity). Idempotent.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
@@ -131,14 +131,14 @@ internal sealed class DocumentHub : IAsyncDisposable
 
         try
         {
-            // Snapshot de consolidación: el estado completo dentro del turno del actor reemplaza los updates
-            // acumulados en el store (compaction). Best-effort: un fallo no debe romper el cierre de la sesión.
+            // Consolidation snapshot: the full state within the actor turn replaces the updates
+            // accumulated in the store (compaction). Best-effort: a failure must not break the session close.
             byte[] snapshot = await Session.ExportStateAsync().ConfigureAwait(false);
             await _store.SaveSnapshotAsync(DocId, snapshot).ConfigureAwait(false);
         }
         catch
         {
-            // El desalojo del broker (OnEvicting) también persiste; la durabilidad no depende solo de aquí.
+            // The broker's eviction (OnEvicting) also persists; durability does not depend on this alone.
         }
         finally
         {

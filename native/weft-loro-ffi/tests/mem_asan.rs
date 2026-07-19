@@ -1,7 +1,7 @@
-//! Suite de integración del shim `weft-loro-ffi` (gate P-II, simétrica a weft-yrs-ffi):
-//! round-trip, convergencia, rutas de error tipificadas y estrés de memoria (≥2000 iteraciones).
+//! Integration suite for the `weft-loro-ffi` shim (P-II gate, symmetric to weft-yrs-ffi):
+//! round-trip, convergence, typed error paths and memory stress (≥2000 iterations).
 //!
-//! Gate de memoria:
+//! Memory gate:
 //! ```bash
 //! RUSTFLAGS="-Zsanitizer=address" cargo +nightly test -p weft-loro-ffi --features test-hooks \
 //!   --target x86_64-unknown-linux-gnu
@@ -178,11 +178,11 @@ fn stress_all_functions_2000_iterations() {
     }
 }
 
-/// Siembra de peer_id (FU-016): reachability, guard del valor reservado y sin fugas (ASan/LSan).
+/// peer_id seeding (FU-016): reachability, reserved-value guard and no leaks (ASan/LSan).
 #[test]
 fn seeded_peer_id_reachable_guarded_and_nonleaking() {
     unsafe {
-        // Camino feliz: peer_id fijo → doc válido, editable, liberable sin fugas.
+        // Happy path: fixed peer_id → valid doc, editable, freeable without leaks.
         let mut doc: *mut LoroDoc = ptr::null_mut();
         assert_eq!(weft_loro_doc_new_with_peer_id(42, &mut doc), WEFT_OK);
         assert!(!doc.is_null());
@@ -193,7 +193,7 @@ fn seeded_peer_id_reachable_guarded_and_nonleaking() {
         );
         weft_loro_doc_free(doc);
 
-        // Valor reservado (u64::MAX) → OUT_OF_BOUNDS, sin asignar doc (out queda intacto).
+        // Reserved value (u64::MAX) → OUT_OF_BOUNDS, without allocating a doc (out stays intact).
         let mut reserved: *mut LoroDoc = ptr::null_mut();
         assert_eq!(
             weft_loro_doc_new_with_peer_id(u64::MAX, &mut reserved),
@@ -201,7 +201,7 @@ fn seeded_peer_id_reachable_guarded_and_nonleaking() {
         );
         assert!(reserved.is_null());
 
-        // out_doc nulo → NULL_ARG.
+        // null out_doc → NULL_ARG.
         assert_eq!(
             weft_loro_doc_new_with_peer_id(1, ptr::null_mut()),
             WEFT_ERR_NULL_ARG
@@ -209,7 +209,7 @@ fn seeded_peer_id_reachable_guarded_and_nonleaking() {
     }
 }
 
-/// Probes nativos (INativeVersioning, FU-006): reachability + sin fugas (ASan) + sin mutar el caller.
+/// Native probes (INativeVersioning, FU-006): reachability + no leaks (ASan) + no mutation of the caller.
 #[test]
 fn native_versioning_probes_reachable_and_nonleaking() {
     unsafe {
@@ -220,7 +220,7 @@ fn native_versioning_probes_reachable_and_nonleaking() {
         assert_eq!(weft_loro_doc_new(&mut doc), WEFT_OK);
         weft_loro_text_insert(doc, field.as_ptr(), field.len(), 0, text.as_ptr(), text.len());
 
-        // Shallow snapshot: no vacío, recargable.
+        // Shallow snapshot: non-empty, reloadable.
         let (mut sp, mut sl) = (ptr::null_mut(), 0usize);
         assert_eq!(weft_loro_shallow_snapshot(doc, &mut sp, &mut sl), WEFT_OK);
         assert!(sl > 0);
@@ -233,7 +233,7 @@ fn native_versioning_probes_reachable_and_nonleaking() {
         weft_loro_doc_free(reloaded);
         weft_loro_buf_free(sp, sl);
 
-        // Diff probe: JSON con el campo y el conteo.
+        // Diff probe: JSON with the field and the count.
         let (mut dp, mut dl) = (ptr::null_mut(), 0usize);
         assert_eq!(
             weft_loro_native_diff_probe(doc, field.as_ptr(), field.len(), &mut dp, &mut dl),
@@ -243,7 +243,7 @@ fn native_versioning_probes_reachable_and_nonleaking() {
         assert!(diff_json.contains("\"containers_changed\""));
         weft_loro_buf_free(dp, dl);
 
-        // Branch/merge probe: reporta convergencia y NO muta el doc del caller.
+        // Branch/merge probe: reports convergence and does NOT mutate the caller's doc.
         let (mut bp, mut bl) = (ptr::null_mut(), 0usize);
         assert_eq!(
             weft_loro_native_branch_merge_probe(doc, field.as_ptr(), field.len(), &mut bp, &mut bl),
@@ -253,7 +253,7 @@ fn native_versioning_probes_reachable_and_nonleaking() {
         assert!(branch_json.contains("\"converged\":true"), "el merge nativo debe converger");
         weft_loro_buf_free(bp, bl);
 
-        // El texto del caller sigue intacto (el probe forkea, no muta el original).
+        // The caller's text remains intact (the probe forks, does not mutate the original).
         let (mut rp, mut rl) = (ptr::null_mut(), 0usize);
         weft_loro_text_read(doc, field.as_ptr(), field.len(), &mut rp, &mut rl);
         let caller_text = std::str::from_utf8(std::slice::from_raw_parts(rp, rl)).unwrap();

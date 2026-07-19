@@ -1,11 +1,11 @@
 namespace Weft.Concurrency;
 
 /// <summary>
-/// Fachada asíncrona de un documento gestionado por el <see cref="DocumentBroker"/>. Espejo de
-/// <see cref="ICrdtDoc"/> donde cada llamada se encola al actor del documento y se ejecuta serializada
-/// (constitución P-V). Varias sesiones pueden compartir el mismo documento; todas reciben el evento
-/// <see cref="UpdateApplied"/>. No expone el <see cref="ICrdtDoc"/> subyacente salvo, transitoriamente,
-/// dentro del delegado de <see cref="ExecuteAsync{T}"/>.
+/// Asynchronous facade of a document managed by the <see cref="DocumentBroker"/>. Mirror of
+/// <see cref="ICrdtDoc"/> where each call is enqueued to the document's actor and executed serialized
+/// (constitution P-V). Several sessions can share the same document; all receive the
+/// <see cref="UpdateApplied"/> event. It does not expose the underlying <see cref="ICrdtDoc"/> except,
+/// transiently, inside the delegate of <see cref="ExecuteAsync{T}"/>.
 /// </summary>
 public sealed class DocumentSession : IAsyncDisposable
 {
@@ -18,17 +18,17 @@ public sealed class DocumentSession : IAsyncDisposable
         DocId = actor.DocId;
     }
 
-    /// <summary>Identificador lógico del documento.</summary>
+    /// <summary>Logical identifier of the document.</summary>
     public string DocId { get; }
 
     /// <summary>
-    /// Se dispara tras cada update aplicado al documento (propio o importado por otra sesión), con el
-    /// delta correspondiente. Pensado para relay/persistencia (M2). El handler se invoca dentro del turno
-    /// del actor: no debe bloquear esperando otra operación del mismo documento.
+    /// Fires after each update applied to the document (own or imported by another session), with the
+    /// corresponding delta. Intended for relay/persistence (M2). The handler is invoked within the actor's
+    /// turn: it must not block waiting for another operation of the same document.
     /// </summary>
     public event Action<DocumentSession, ReadOnlyMemory<byte>>? UpdateApplied;
 
-    /// <summary>Inserta texto en el campo indicado (encolado y serializado).</summary>
+    /// <summary>Inserts text into the given field (enqueued and serialized).</summary>
     public async ValueTask InsertTextAsync(string field, int index, string text, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(field);
@@ -39,7 +39,7 @@ public sealed class DocumentSession : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
-    /// <summary>Borra texto del campo indicado (encolado y serializado).</summary>
+    /// <summary>Deletes text from the given field (enqueued and serialized).</summary>
     public async ValueTask DeleteTextAsync(string field, int index, int length, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(field);
@@ -50,7 +50,7 @@ public sealed class DocumentSession : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
-    /// <summary>Lee el contenido completo del campo indicado.</summary>
+    /// <summary>Reads the full content of the given field.</summary>
     public ValueTask<string> GetTextAsync(string field, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(field);
@@ -58,48 +58,48 @@ public sealed class DocumentSession : IAsyncDisposable
         return _actor.EnqueueAsync(doc => doc.GetText(field), mutating: false, ct);
     }
 
-    /// <summary>Exporta el estado completo del documento (base del content-addressing).</summary>
+    /// <summary>Exports the full state of the document (basis of content-addressing).</summary>
     public ValueTask<byte[]> ExportStateAsync(CancellationToken ct = default)
     {
         ThrowIfDisposed();
         return _actor.EnqueueAsync(doc => doc.ExportState(), mutating: false, ct);
     }
 
-    /// <summary>Exporta el state vector ("qué conozco") para sync incremental.</summary>
+    /// <summary>Exports the state vector ("what I know") for incremental sync.</summary>
     public ValueTask<byte[]> ExportStateVectorAsync(CancellationToken ct = default)
     {
         ThrowIfDisposed();
         return _actor.EnqueueAsync(doc => doc.ExportStateVector(), mutating: false, ct);
     }
 
-    /// <summary>Exporta el delta con los cambios que el emisor del state vector no conoce.</summary>
+    /// <summary>Exports the delta with the changes the sender of the state vector does not know.</summary>
     public ValueTask<byte[]> ExportUpdateSinceAsync(ReadOnlyMemory<byte> stateVector, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        byte[] sv = stateVector.ToArray(); // copia defensiva: el buffer del llamador puede cambiar antes del turno
+        byte[] sv = stateVector.ToArray(); // defensive copy: the caller's buffer may change before the turn
         return _actor.EnqueueAsync(doc => doc.ExportUpdateSince(sv), mutating: false, ct);
     }
 
-    /// <summary>Fusiona un update/estado de otra réplica (convergente); dispara <see cref="UpdateApplied"/>.</summary>
+    /// <summary>Merges an update/state from another replica (convergent); fires <see cref="UpdateApplied"/>.</summary>
     public async ValueTask ApplyUpdateAsync(ReadOnlyMemory<byte> update, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        byte[] u = update.ToArray(); // copia defensiva (ver ExportUpdateSinceAsync)
+        byte[] u = update.ToArray(); // defensive copy (see ExportUpdateSinceAsync)
         await _actor.EnqueueAsync(doc => { doc.ApplyUpdate(u); return true; }, mutating: true, ct)
             .ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Aplica un update y DEVUELVE su delta en el mismo turno del actor. Pensado para el relay con
-    /// persist-before-broadcast (FU-010): el delta se captura como valor de retorno —race-free frente a
-    /// varias conexiones concurrentes del mismo documento— para difundirlo tras persistir, en vez de
-    /// depender del evento <see cref="UpdateApplied"/> (que se dispara dentro del turno, antes de
-    /// persistir). El delta es vacío si el update no aportó cambios nuevos (idempotente).
+    /// Applies an update and RETURNS its delta within the same actor turn. Intended for the relay with
+    /// persist-before-broadcast (FU-010): the delta is captured as a return value —race-free against
+    /// several concurrent connections of the same document— to broadcast it after persisting, instead of
+    /// relying on the <see cref="UpdateApplied"/> event (which fires within the turn, before
+    /// persisting). The delta is empty if the update brought no new changes (idempotent).
     /// </summary>
     public ValueTask<byte[]> ApplyAndCaptureDeltaAsync(ReadOnlyMemory<byte> update, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        byte[] u = update.ToArray(); // copia defensiva (ver ExportUpdateSinceAsync)
+        byte[] u = update.ToArray(); // defensive copy (see ExportUpdateSinceAsync)
         return _actor.EnqueueAsync(
             doc =>
             {
@@ -112,9 +112,9 @@ public sealed class DocumentSession : IAsyncDisposable
     }
 
     /// <summary>
-    /// Ejecuta un delegado como turno atómico respecto a las demás operaciones del mismo documento
-    /// (transacción lógica). El <see cref="ICrdtDoc"/> recibido NO debe capturarse ni usarse fuera del
-    /// delegado: solo es válido durante la ejecución del turno.
+    /// Executes a delegate as an atomic turn with respect to the other operations of the same document
+    /// (logical transaction). The received <see cref="ICrdtDoc"/> must NOT be captured or used outside the
+    /// delegate: it is only valid during the execution of the turn.
     /// </summary>
     public ValueTask<T> ExecuteAsync<T>(Func<ICrdtDoc, T> operation, CancellationToken ct = default)
     {
@@ -129,8 +129,8 @@ public sealed class DocumentSession : IAsyncDisposable
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
-    /// <summary>Cierra la sesión: deja de recibir eventos y libera su referencia en el actor. No desaloja
-    /// el documento (su ciclo de vida lo gestiona el broker por inactividad/LRU).</summary>
+    /// <summary>Closes the session: stops receiving events and releases its reference in the actor. It does not
+    /// evict the document (its lifecycle is managed by the broker via idle/LRU).</summary>
     public ValueTask DisposeAsync()
     {
         if (_disposed)

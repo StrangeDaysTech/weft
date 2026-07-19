@@ -4,9 +4,9 @@ using Weft.Versioning.Blobs;
 namespace Weft.Versioning.Tests;
 
 /// <summary>
-/// Suite parametrizada de versionado (T027): las 7 postcondiciones de contracts/versioning-api.md.
-/// Es abstracta; cada subclase concreta fija el motor (P-IV: la misma suite corre idéntica sobre
-/// YrsEngine Y LoroEngine — postcondición 6, por herencia).
+/// Parameterized versioning suite (T027): the 7 postconditions of contracts/versioning-api.md.
+/// It is abstract; each concrete subclass fixes the engine (P-IV: the same suite runs identically over
+/// YrsEngine AND LoroEngine — postcondition 6, by inheritance).
 /// </summary>
 public abstract class VersioningSuiteBase
 {
@@ -18,7 +18,7 @@ public abstract class VersioningSuiteBase
         return (new VersionStore(Engine, blobs), blobs);
     }
 
-    /// <summary>Sincroniza dos réplicas por deltas incrementales hasta converger.</summary>
+    /// <summary>Synchronizes two replicas via incremental deltas until they converge.</summary>
     private static void SyncBidirectional(ICrdtDoc a, ICrdtDoc b)
     {
         byte[] svA = a.ExportStateVector();
@@ -27,7 +27,7 @@ public abstract class VersioningSuiteBase
         b.ApplyUpdate(a.ExportUpdateSince(svB));
     }
 
-    // Postcondición 1: Publish x2 sin cambios → mismo VersionId, un solo blob (dedup).
+    // Postcondition 1: Publish x2 with no changes → same VersionId, a single blob (dedup).
     [Fact]
     public async Task Publish_twice_same_content_dedups()
     {
@@ -42,7 +42,7 @@ public abstract class VersioningSuiteBase
         Assert.Equal(1, blobs.Count);
     }
 
-    // Postcondición 2: Checkout(Publish(doc)) → ExportState byte-idéntico al blob publicado.
+    // Postcondition 2: Checkout(Publish(doc)) → ExportState byte-identical to the published blob.
     [Fact]
     public async Task Checkout_roundtrip_is_byte_identical()
     {
@@ -58,7 +58,7 @@ public abstract class VersioningSuiteBase
         Assert.Equal("hola áéí mundo", restored.GetText("body"));
     }
 
-    // Postcondición 3: réplicas convergidas publican el MISMO VersionId (SC-002).
+    // Postcondition 3: converged replicas publish the SAME VersionId (SC-002).
     [Fact]
     public async Task Converged_replicas_publish_same_version_id()
     {
@@ -75,7 +75,7 @@ public abstract class VersioningSuiteBase
         Assert.Equal(ida, idb);
     }
 
-    // Postcondición 4: Diff(a,a) sin cambios; Diff(a,b) refleja las ediciones.
+    // Postcondition 4: Diff(a,a) with no changes; Diff(a,b) reflects the edits.
     [Fact]
     public async Task Diff_reflects_edits()
     {
@@ -84,8 +84,8 @@ public abstract class VersioningSuiteBase
         doc.InsertText("body", 0, "el gato duerme");
         VersionId v1 = await store.PublishAsync(doc);
 
-        doc.DeleteText("body", 3, 4);          // borra "gato"
-        doc.InsertText("body", 3, "perro");    // inserta "perro"
+        doc.DeleteText("body", 3, 4);          // deletes "gato"
+        doc.InsertText("body", 3, "perro");    // inserts "perro"
         VersionId v2 = await store.PublishAsync(doc);
 
         Assert.False((await store.DiffAsync(v1, v1, "body")).HasChanges);
@@ -95,7 +95,7 @@ public abstract class VersioningSuiteBase
         Assert.Contains(diff.Segments, s => s.Op == DiffOp.Inserted && s.Text.Contains("perro"));
     }
 
-    // Postcondición 5: merge de ramas concurrentes conmutativo (mismo resultado, cualquier orden).
+    // Postcondition 5: commutative merge of concurrent branches (same result, any order).
     [Fact]
     public async Task Merge_is_commutative()
     {
@@ -104,13 +104,13 @@ public abstract class VersioningSuiteBase
         baseDoc.InsertText("body", 0, "base ");
         VersionId baseVersion = await store.PublishAsync(baseDoc);
 
-        // Dos ramas independientes desde la base, con ediciones concurrentes.
+        // Two independent branches from the base, with concurrent edits.
         using ICrdtDoc branch1 = await store.BranchAsync(baseVersion);
         using ICrdtDoc branch2 = await store.BranchAsync(baseVersion);
         branch1.InsertText("body", 0, "uno ");
         branch2.InsertText("body", 0, "dos ");
 
-        // Orden A: target = branch1, merge branch2. Orden B: target = branch2, merge branch1.
+        // Order A: target = branch1, merge branch2. Order B: target = branch2, merge branch1.
         using ICrdtDoc ordA = await store.BranchAsync(baseVersion);
         ordA.ApplyUpdate(branch1.ExportState());
         store.Merge(ordA, branch2);
@@ -125,8 +125,8 @@ public abstract class VersioningSuiteBase
         Assert.Equal(idA, idB);
     }
 
-    // Postcondición 7: compactación por construcción (FR-012). Muchas versiones con ciclos
-    // insert+delete → todas recuperables byte-idéntico y tamaño acotado (GC del motor activo).
+    // Postcondition 7: compaction by construction (FR-012). Many versions with insert+delete
+    // cycles → all recoverable byte-identical and bounded in size (engine GC active).
     [Fact]
     public async Task Compaction_versions_recoverable_and_bounded()
     {
@@ -138,7 +138,7 @@ public abstract class VersioningSuiteBase
         for (int i = 0; i < 25; i++)
         {
             doc.InsertText("body", 0, $"edición-{i} ");
-            // Cancela parte del contenido para generar historial que el GC puede recuperar.
+            // Cancel part of the content to generate history that the GC can reclaim.
             if (i % 2 == 1)
             {
                 doc.DeleteText("body", 0, 4);
@@ -148,18 +148,18 @@ public abstract class VersioningSuiteBase
             snapshots.Add(doc.ExportState());
         }
 
-        // (a) Todas las versiones recuperables byte-idéntico por su hash.
+        // (a) All versions recoverable byte-identical by their hash.
         for (int i = 0; i < ids.Count; i++)
         {
             using ICrdtDoc restored = await store.CheckoutAsync(ids[i]);
             Assert.Equal(snapshots[i], restored.ExportState());
         }
 
-        // (b) Dedup: no más blobs que versiones distintas publicadas.
+        // (b) Dedup: no more blobs than distinct published versions.
         Assert.True(blobs.Count <= ids.Count);
 
-        // (c) El blob final no crece de forma monótona con la longitud del historial:
-        //     su tamaño se mantiene modesto pese a 25 ciclos de edición (GC activo, no tombstones).
+        // (c) The final blob does not grow monotonically with the length of the history:
+        //     its size stays modest despite 25 edit cycles (GC active, not tombstones).
         Assert.True(snapshots[^1].Length < 4096,
             $"El blob final ({snapshots[^1].Length} B) sugiere acumulación de historial (¿GC desactivado?).");
     }

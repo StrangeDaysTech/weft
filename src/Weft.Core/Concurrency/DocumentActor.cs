@@ -2,27 +2,27 @@ using System.Threading.Channels;
 
 namespace Weft.Concurrency;
 
-/// <summary>Estado observable del actor de un documento (constitución P-V).</summary>
+/// <summary>Observable state of a document's actor (constitution P-V).</summary>
 internal enum DocumentActorState
 {
-    /// <summary>Acepta y procesa operaciones.</summary>
+    /// <summary>Accepts and processes operations.</summary>
     Active,
 
-    /// <summary>Seleccionado para desalojo; drenando la cola pendiente antes de liberar.</summary>
+    /// <summary>Selected for eviction; draining the pending queue before releasing.</summary>
     Idle,
 
-    /// <summary>Terminado con normalidad; documento persistido (si había hook) y liberado.</summary>
+    /// <summary>Terminated normally; document persisted (if there was a hook) and released.</summary>
     Evicted,
 
-    /// <summary>Terminado por fallo irrecuperable; documento liberado sin persistir.</summary>
+    /// <summary>Terminated by unrecoverable fault; document released without persisting.</summary>
     Faulted,
 }
 
 /// <summary>
-/// Serializa TODO el acceso a un <see cref="ICrdtDoc"/> nativo mediante un único lector que drena un
-/// canal de operaciones (patrón actor, constitución P-V). Nunca ejecuta dos operaciones del mismo
-/// documento a la vez; libera el documento exactamente una vez al terminar. <c>internal</c>: se usa a
-/// través de <see cref="DocumentBroker"/> y <see cref="DocumentSession"/>.
+/// Serializes ALL access to a native <see cref="ICrdtDoc"/> through a single reader that drains a
+/// channel of operations (actor pattern, constitution P-V). Never executes two operations of the same
+/// document at once; releases the document exactly once when finished. <c>internal</c>: used
+/// through <see cref="DocumentBroker"/> and <see cref="DocumentSession"/>.
 /// </summary>
 internal sealed class DocumentActor
 {
@@ -44,8 +44,8 @@ internal sealed class DocumentActor
         _onEvicting = onEvicting;
         _channel = Channel.CreateUnbounded<IWorkItem>(new UnboundedChannelOptions
         {
-            SingleReader = true,   // un único lector: la garantía de serialización (P-V)
-            SingleWriter = false,  // varias sesiones/hilos encolan
+            SingleReader = true,   // a single reader: the serialization guarantee (P-V)
+            SingleWriter = false,  // several sessions/threads enqueue
         });
         _runLoop = Task.Run(RunAsync);
     }
@@ -54,7 +54,7 @@ internal sealed class DocumentActor
 
     internal DocumentActorState State => _state;
 
-    /// <summary>Milisegundos transcurridos desde la última operación procesada (para desalojo idle).</summary>
+    /// <summary>Milliseconds elapsed since the last processed operation (for idle eviction).</summary>
     internal long IdleMilliseconds => Environment.TickCount64 - Interlocked.Read(ref _lastActivityTick);
 
     internal int SessionCount
@@ -73,8 +73,8 @@ internal sealed class DocumentActor
     }
 
     /// <summary>
-    /// Encola una operación sobre el documento y devuelve su resultado de forma asíncrona. La operación
-    /// se ejecuta dentro del turno del actor (nunca concurrente con otra del mismo documento).
+    /// Enqueues an operation on the document and returns its result asynchronously. The operation
+    /// executes within the actor's turn (never concurrent with another of the same document).
     /// </summary>
     internal ValueTask<T> EnqueueAsync<T>(Func<ICrdtDoc, T> op, bool mutating, CancellationToken ct)
     {
@@ -87,9 +87,9 @@ internal sealed class DocumentActor
     }
 
     /// <summary>
-    /// Inicia el desalojo cooperativo: no acepta más operaciones, drena las pendientes, persiste con el
-    /// hook (si aplica) y libera el documento. El <see cref="Task"/> devuelto completa cuando el documento
-    /// ha sido liberado.
+    /// Starts the cooperative eviction: accepts no more operations, drains the pending ones, persists with the
+    /// hook (if applicable) and releases the document. The returned <see cref="Task"/> completes when the document
+    /// has been released.
     /// </summary>
     internal Task BeginEvictionAsync()
     {
@@ -113,7 +113,7 @@ internal sealed class DocumentActor
             {
                 if (_fault is not null)
                 {
-                    item.Fail(_fault); // tras faultear, drenamos la cola fallando cada pendiente
+                    item.Fail(_fault); // after faulting, we drain the queue failing each pending item
                     continue;
                 }
 
@@ -136,8 +136,8 @@ internal sealed class DocumentActor
                 }
                 catch (Exception ex)
                 {
-                    // La operación falló DENTRO del turno: el estado del documento puede ser inválido.
-                    // El item ya propagó la excepción a su llamador; el actor entra en Faulted y drena.
+                    // The operation failed WITHIN the turn: the document state may be invalid.
+                    // The item already propagated the exception to its caller; the actor enters Faulted and drains.
                     _fault = ex;
                     _state = DocumentActorState.Faulted;
                     _channel.Writer.TryComplete();
@@ -152,10 +152,10 @@ internal sealed class DocumentActor
 
     private async ValueTask FinalizeAsync()
     {
-        // Persistencia solo en desalojo grácil (no en fallo): drenar → OnEvicting → liberar.
-        // `_fault` es la señal AUTORITATIVA de fallo: si es no-nulo, el documento está en estado
-        // desconocido y no debe persistirse, independientemente de `_state` (que otro hilo pudo dejar
-        // en Idle al iniciar el desalojo justo antes de que el turno faultease).
+        // Persistence only on graceful eviction (not on fault): drain → OnEvicting → release.
+        // `_fault` is the AUTHORITATIVE fault signal: if non-null, the document is in an
+        // unknown state and must not be persisted, regardless of `_state` (which another thread may have left
+        // in Idle when starting the eviction right before the turn faulted).
         if (_fault is null)
         {
             if (_onEvicting is not null)
@@ -167,9 +167,9 @@ internal sealed class DocumentActor
                 }
                 catch (Exception ex)
                 {
-                    // La persistencia es best-effort: si el hook falla, igual liberamos el documento
-                    // (no dejar memoria nativa colgada prima sobre no perder el snapshot). El fallo del
-                    // hook es responsabilidad del consumidor; lo exponemos por trazas para observabilidad.
+                    // Persistence is best-effort: if the hook fails, we release the document anyway
+                    // (not leaving native memory dangling takes priority over not losing the snapshot). The hook's
+                    // failure is the consumer's responsibility; we surface it via traces for observability.
                     System.Diagnostics.Debug.WriteLine(
                         $"[DocumentActor] OnEvicting falló para '{DocId}': {ex.GetType().Name}: {ex.Message}");
                 }
@@ -177,7 +177,7 @@ internal sealed class DocumentActor
             _state = DocumentActorState.Evicted;
         }
 
-        _doc.Dispose(); // exactamente una vez: el bucle termina una sola vez (P-I)
+        _doc.Dispose(); // exactly once: the loop terminates only once (P-I)
     }
 
     private bool AnySessionWantsUpdates()
@@ -209,8 +209,8 @@ internal sealed class DocumentActor
         var mem = new ReadOnlyMemory<byte>(delta);
         foreach (DocumentSession s in snapshot)
         {
-            // Un handler de UpdateApplied que lanza NO debe faultear el documento para todas las sesiones:
-            // el bug es del consumidor (relay/persistencia de M2), no del publicador. Se aísla y se traza.
+            // An UpdateApplied handler that throws must NOT fault the document for all sessions:
+            // the bug is the consumer's (relay/persistence of M2), not the publisher's. It is isolated and traced.
             try
             {
                 s.RaiseUpdateApplied(mem);
@@ -223,7 +223,7 @@ internal sealed class DocumentActor
         }
     }
 
-    // -- Unidades de trabajo encoladas --
+    // -- Enqueued work items --
 
     private interface IWorkItem
     {
@@ -254,7 +254,7 @@ internal sealed class DocumentActor
         {
             if (_ct.IsCancellationRequested)
             {
-                _tcs.TrySetCanceled(_ct); // cancelación no faultea el actor
+                _tcs.TrySetCanceled(_ct); // cancellation does not fault the actor
                 return;
             }
             try
@@ -263,8 +263,8 @@ internal sealed class DocumentActor
             }
             catch (Exception ex)
             {
-                _tcs.TrySetException(ex); // el llamador ve la excepción causal...
-                throw;                    // ...y el actor faultea (turno abortado)
+                _tcs.TrySetException(ex); // the caller sees the causal exception...
+                throw;                    // ...and the actor faults (turn aborted)
             }
         }
 

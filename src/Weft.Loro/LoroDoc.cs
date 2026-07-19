@@ -4,7 +4,7 @@ using Weft.Loro.Interop;
 
 namespace Weft.Loro;
 
-/// <summary>Documento CRDT respaldado por Loro. Envoltorio gestionado sobre el shim weft-loro-ffi.</summary>
+/// <summary>CRDT document backed by Loro. Managed wrapper over the weft-loro-ffi shim.</summary>
 internal sealed class LoroDoc : ICrdtDoc
 {
     private readonly DocHandle _handle;
@@ -99,9 +99,9 @@ internal sealed class LoroDoc : ICrdtDoc
         FfiStatus.ThrowIfError(NativeMethods.weft_loro_doc_apply_update(lease.Ptr, update, (nuint)update.Length));
     }
 
-    // ── Versionado nativo (INativeVersioning vía LoroNativeVersioning — CHARTER-10/FU-006) ──
-    // Probes DEMOSTRATIVOS de la capacidad nativa de Loro. Su salida NO es determinista y NO alimenta
-    // VersionId (usar ExportState para eso). No mutan este documento (el branch/merge forkea aparte).
+    // ── Native versioning (INativeVersioning via LoroNativeVersioning — CHARTER-10/FU-006) ──
+    // DEMONSTRATIVE probes of Loro's native capability. Their output is NOT deterministic and does NOT feed
+    // VersionId (use ExportState for that). They do not mutate this document (branch/merge forks separately).
 
     internal byte[] ShallowSnapshotNative()
     {

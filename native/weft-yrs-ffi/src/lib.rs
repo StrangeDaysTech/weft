@@ -1,24 +1,24 @@
-//! # weft-yrs-ffi — shim C-ABI propio de Weft sobre `yrs`
+//! # weft-yrs-ffi — Weft's own C-ABI shim over `yrs`
 //!
-//! ABI estable y propia (constitución P-I): la superficie es nuestra; un bump de `yrs` cambia
-//! este archivo, jamás la ABI. Consumido por `Weft.Core` vía P/Invoke. Contrato completo en
-//! `include/weft_ffi.h` y `specs/001-weft-crdt-versioning/contracts/ffi-abi.md`.
+//! Stable, owned ABI (constitution P-I): the surface is ours; a `yrs` bump changes
+//! this file, never the ABI. Consumed by `Weft.Core` via P/Invoke. Full contract in
+//! `include/weft_ffi.h` and `specs/001-weft-crdt-versioning/contracts/ffi-abi.md`.
 //!
-//! ## Contrato de ownership (LEER ANTES DE CONSUMIR)
+//! ## Ownership contract (READ BEFORE CONSUMING)
 //!
-//! * **`WeftDoc*`** (aquí `*mut Doc`): lo crea `weft_doc_new`/`weft_doc_load` y SOLO se libera
-//!   con `weft_doc_free`, exactamente una vez. Nunca con el GC/`Marshal` de .NET (sería UB).
-//! * **Buffers de salida** (`out_ptr`/`out_len`): los asigna el shim como `Box<[u8]>`; el
-//!   llamador los libera SOLO con `weft_buf_free(ptr, len)` con los mismos ptr/len.
-//! * **Buffers de entrada** (`ptr`+`len`): prestados; el shim los lee durante la llamada y no
-//!   toma posesión ni retiene el puntero tras el retorno.
+//! * **`WeftDoc*`** (here `*mut Doc`): created by `weft_doc_new`/`weft_doc_load` and freed ONLY
+//!   with `weft_doc_free`, exactly once. Never with .NET's GC/`Marshal` (would be UB).
+//! * **Output buffers** (`out_ptr`/`out_len`): allocated by the shim as `Box<[u8]>`; the
+//!   caller frees them ONLY with `weft_buf_free(ptr, len)` using the same ptr/len.
+//! * **Input buffers** (`ptr`+`len`): borrowed; the shim reads them during the call and does
+//!   not take ownership nor retain the pointer after return.
 //!
-//! ## Reglas transversales
-//! * **Panics**: cada cuerpo va envuelto en `catch_unwind`; un panic retorna `WEFT_ERR_PANIC`,
-//!   jamás cruza la frontera C (sería UB).
-//! * **Thread-safety**: ninguna función que reciba `WeftDoc*` es thread-safe respecto al mismo
-//!   doc (`yrs` no es Send+Sync). El llamador serializa por documento. `weft_buf_free` sí lo es.
-//! * **Índices**: `u32` en UTF-16 code units (semántica de yrs); fuera de rango →
+//! ## Cross-cutting rules
+//! * **Panics**: every body is wrapped in `catch_unwind`; a panic returns `WEFT_ERR_PANIC`,
+//!   never crosses the C boundary (would be UB).
+//! * **Thread-safety**: no function taking `WeftDoc*` is thread-safe with respect to the same
+//!   doc (`yrs` is not Send+Sync). The caller serializes per document. `weft_buf_free` is.
+//! * **Indices**: `u32` in UTF-16 code units (yrs semantics); out of range →
 //!   `WEFT_ERR_OUT_OF_BOUNDS`.
 
 use std::os::raw::c_uchar;
@@ -28,9 +28,9 @@ use yrs::updates::decoder::Decode;
 use yrs::updates::encoder::Encode;
 use yrs::{ClientID, Doc, GetString, OffsetKind, Options, ReadTxn, StateVector, Text, Transact, Update};
 
-/// Crea un `Doc` con índices en **UTF-16 code units** (no el default de yrs, que es bytes UTF-8).
-/// Consistente con `string` de .NET y con Yjs (clientes de editor); crítico para que
-/// insert/delete por índice sean correctos con texto no-ASCII.
+/// Creates a `Doc` with indices in **UTF-16 code units** (not yrs's default, which is UTF-8 bytes).
+/// Consistent with .NET `string` and with Yjs (editor clients); critical so that
+/// index-based insert/delete are correct with non-ASCII text.
 fn new_doc() -> Doc {
     let opts = Options {
         offset_kind: OffsetKind::Utf16,
@@ -39,11 +39,11 @@ fn new_doc() -> Doc {
     Doc::with_options(opts)
 }
 
-/// Como [`new_doc`] pero con un `client_id` FIJO (siembra determinista para paridad
-/// cross-implementación; FU-012/CHARTER-09). Mismo `OffsetKind::Utf16`.
+/// Like [`new_doc`] but with a FIXED `client_id` (deterministic seeding for cross-implementation
+/// parity; FU-012/CHARTER-09). Same `OffsetKind::Utf16`.
 fn new_doc_with_client_id(client_id: u64) -> Doc {
-    // El guard `< 2^53` en la frontera (CLIENT_ID_MAX_EXCLUSIVE) garantiza que `ClientID::new`
-    // no dispare su `debug_assert!(value & MASK == 0)` ni corrompa el id en release.
+    // The `< 2^53` guard at the boundary (CLIENT_ID_MAX_EXCLUSIVE) ensures `ClientID::new`
+    // neither trips its `debug_assert!(value & MASK == 0)` nor corrupts the id in release.
     let opts = Options {
         client_id: ClientID::new(client_id),
         offset_kind: OffsetKind::Utf16,
@@ -52,11 +52,11 @@ fn new_doc_with_client_id(client_id: u64) -> Doc {
     Doc::with_options(opts)
 }
 
-/// Cota superior (exclusiva) del `client_id`: yrs 0.26+ codifica los client IDs en **53 bits**
-/// (antes 64). Un id `>= 2^53` no round-trippea por el encoding → se rechaza en la frontera.
+/// Upper bound (exclusive) for `client_id`: yrs 0.26+ encodes client IDs in **53 bits**
+/// (formerly 64). An id `>= 2^53` does not round-trip through the encoding → rejected at the boundary.
 const CLIENT_ID_MAX_EXCLUSIVE: u64 = 1 << 53;
 
-// ── Códigos de estado (deben coincidir con weft_ffi.h y el mapeo de excepciones en C#) ──
+// ── Status codes (must match weft_ffi.h and the exception mapping in C#) ──
 pub const WEFT_OK: i32 = 0;
 pub const WEFT_ERR_NULL_ARG: i32 = -1;
 pub const WEFT_ERR_DECODE: i32 = -2;
@@ -65,13 +65,13 @@ pub const WEFT_ERR_UTF8: i32 = -4;
 pub const WEFT_ERR_OUT_OF_BOUNDS: i32 = -5;
 pub const WEFT_ERR_PANIC: i32 = -127;
 
-/// Versión de la ABI. Se incrementa ante CUALQUIER cambio de firma o semántica; `Weft.Core` la
-/// verifica al cargar el cdylib y lanza si no coincide con la esperada.
+/// ABI version. Incremented on ANY signature or semantic change; `Weft.Core`
+/// checks it when loading the cdylib and throws if it does not match the expected one.
 const WEFT_ABI_VERSION: u32 = 2;
 
-// ── Helpers internos (no expuestos por la C-ABI) ────────────────────────────────────────────
+// ── Internal helpers (not exposed by the C-ABI) ────────────────────────────────────────────
 
-/// Envuelve el cuerpo de una fn FFI para que ningún panic cruce la frontera C.
+/// Wraps the body of an FFI fn so that no panic crosses the C boundary.
 fn guard<F: FnOnce() -> i32>(f: F) -> i32 {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(code) => code,
@@ -79,10 +79,10 @@ fn guard<F: FnOnce() -> i32>(f: F) -> i32 {
     }
 }
 
-/// Reconstruye un `&str` prestado desde (ptr, len). None si ptr es null o no es UTF-8.
+/// Reconstructs a borrowed `&str` from (ptr, len). None if ptr is null or not UTF-8.
 ///
 /// # Safety
-/// `ptr` debe apuntar a `len` bytes válidos y vivos durante la llamada.
+/// `ptr` must point to `len` valid bytes that stay alive during the call.
 unsafe fn borrow_str<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a str> {
     if ptr.is_null() && len != 0 {
         return None;
@@ -95,10 +95,10 @@ unsafe fn borrow_str<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a str> {
     std::str::from_utf8(bytes).ok()
 }
 
-/// Reconstruye un `&[u8]` prestado desde (ptr, len). None solo si ptr es null con len != 0.
+/// Reconstructs a borrowed `&[u8]` from (ptr, len). None only if ptr is null with len != 0.
 ///
 /// # Safety
-/// `ptr` debe apuntar a `len` bytes válidos y vivos durante la llamada.
+/// `ptr` must point to `len` valid bytes that stay alive during the call.
 unsafe fn borrow_bytes<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a [u8]> {
     if ptr.is_null() {
         return if len == 0 { Some(&[]) } else { None };
@@ -106,29 +106,29 @@ unsafe fn borrow_bytes<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a [u8]> 
     Some(std::slice::from_raw_parts(ptr, len))
 }
 
-/// Entrega un `Vec<u8>` a través de out-params, cediendo su posesión al llamador.
-/// La memoria se recupera con `weft_buf_free(ptr, len)`.
+/// Hands out a `Vec<u8>` through out-params, transferring its ownership to the caller.
+/// The memory is reclaimed with `weft_buf_free(ptr, len)`.
 ///
 /// # Safety
-/// `out_ptr` y `out_len` deben ser punteros escribibles no nulos.
+/// `out_ptr` and `out_len` must be non-null writable pointers.
 unsafe fn hand_out_buffer(data: Vec<u8>, out_ptr: *mut *mut c_uchar, out_len: *mut usize) -> i32 {
     if out_ptr.is_null() || out_len.is_null() {
         return WEFT_ERR_NULL_ARG;
     }
-    // Box<[u8]>: ptr+len bastan para reconstruir y liberar sin conocer la capacity.
+    // Box<[u8]>: ptr+len are enough to reconstruct and free without knowing the capacity.
     let mut boxed = data.into_boxed_slice();
     let len = boxed.len();
     let ptr = boxed.as_mut_ptr();
-    std::mem::forget(boxed); // se recupera en weft_buf_free
+    std::mem::forget(boxed); // reclaimed in weft_buf_free
     *out_ptr = ptr;
     *out_len = len;
     WEFT_OK
 }
 
-/// `*mut Doc` → `&Doc` prestado (sin tomar posesión).
+/// `*mut Doc` → borrowed `&Doc` (without taking ownership).
 ///
 /// # Safety
-/// `doc` debe provenir de `weft_doc_new`/`weft_doc_load` y no haber sido liberado.
+/// `doc` must come from `weft_doc_new`/`weft_doc_load` and must not have been freed.
 unsafe fn doc_ref<'a>(doc: *mut Doc) -> Option<&'a Doc> {
     if doc.is_null() {
         None
@@ -137,13 +137,13 @@ unsafe fn doc_ref<'a>(doc: *mut Doc) -> Option<&'a Doc> {
     }
 }
 
-// ── Ciclo de vida del documento ─────────────────────────────────────────────────────────────
+// ── Document lifecycle ─────────────────────────────────────────────────────────────
 
-/// Crea un documento CRDT nuevo y vacío (GC del motor SIEMPRE activo). Escribe el puntero opaco
-/// en `out_doc`. Liberar SOLO con `weft_doc_free`.
+/// Creates a new, empty CRDT document (engine GC ALWAYS on). Writes the opaque pointer
+/// into `out_doc`. Free ONLY with `weft_doc_free`.
 ///
 /// # Safety
-/// `out_doc` debe ser un puntero escribible no nulo.
+/// `out_doc` must be a non-null writable pointer.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_new(out_doc: *mut *mut Doc) -> i32 {
     guard(|| {
@@ -155,13 +155,13 @@ pub unsafe extern "C" fn weft_doc_new(out_doc: *mut *mut Doc) -> i32 {
     })
 }
 
-/// Crea un documento CRDT nuevo con un `client_id` **fijo** (siembra determinista para paridad
-/// cross-implementación con Yjs; FU-012). Idéntico a [`weft_doc_new`] salvo por el id controlado.
-/// `client_id` debe caber en **53 bits** (encoding de yrs 0.26+): `client_id >= 2^53` →
-/// `WEFT_ERR_OUT_OF_BOUNDS`. Liberar SOLO con `weft_doc_free`.
+/// Creates a new CRDT document with a **fixed** `client_id` (deterministic seeding for
+/// cross-implementation parity with Yjs; FU-012). Identical to [`weft_doc_new`] except for the controlled id.
+/// `client_id` must fit in **53 bits** (yrs 0.26+ encoding): `client_id >= 2^53` →
+/// `WEFT_ERR_OUT_OF_BOUNDS`. Free ONLY with `weft_doc_free`.
 ///
 /// # Safety
-/// `out_doc` debe ser un puntero escribible no nulo.
+/// `out_doc` must be a non-null writable pointer.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_new_with_client_id(client_id: u64, out_doc: *mut *mut Doc) -> i32 {
     guard(|| {
@@ -176,10 +176,10 @@ pub unsafe extern "C" fn weft_doc_new_with_client_id(client_id: u64, out_doc: *m
     })
 }
 
-/// Reconstruye un documento desde un blob exportado (update v1). Escribe el puntero en `out_doc`.
+/// Reconstructs a document from an exported blob (update v1). Writes the pointer into `out_doc`.
 ///
 /// # Safety
-/// `blob` debe apuntar a `blob_len` bytes válidos; `out_doc` escribible no nulo.
+/// `blob` must point to `blob_len` valid bytes; `out_doc` non-null writable.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_load(
     blob: *const c_uchar,
@@ -209,10 +209,10 @@ pub unsafe extern "C" fn weft_doc_load(
     })
 }
 
-/// Libera un documento. NULL es no-op. Idempotencia NO garantizada: llamar exactamente una vez.
+/// Frees a document. NULL is a no-op. Idempotency NOT guaranteed: call exactly once.
 ///
 /// # Safety
-/// `doc` debe ser null o un puntero válido de `weft_doc_new`/`weft_doc_load` no liberado antes.
+/// `doc` must be null or a valid pointer from `weft_doc_new`/`weft_doc_load` not freed before.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_free(doc: *mut Doc) {
     if doc.is_null() {
@@ -223,12 +223,12 @@ pub unsafe extern "C" fn weft_doc_free(doc: *mut Doc) {
     }));
 }
 
-// ── Texto por campo nombrado ────────────────────────────────────────────────────────────────
+// ── Text by named field ────────────────────────────────────────────────────────────────
 
-/// Inserta `text` (UTF-8) en el `Text` raíz `field`, en la posición `index` (UTF-16 units).
+/// Inserts `text` (UTF-8) into the root `Text` `field`, at position `index` (UTF-16 units).
 ///
 /// # Safety
-/// Punteros válidos por sus longitudes; `doc` válido.
+/// Pointers valid for their lengths; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_text_insert(
     doc: *mut Doc,
@@ -256,10 +256,10 @@ pub unsafe extern "C" fn weft_text_insert(
     })
 }
 
-/// Borra `len` unidades desde `index` en el `Text` raíz `field`.
+/// Deletes `len` units starting at `index` in the root `Text` `field`.
 ///
 /// # Safety
-/// Punteros válidos por sus longitudes; `doc` válido.
+/// Pointers valid for their lengths; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_text_delete(
     doc: *mut Doc,
@@ -286,11 +286,11 @@ pub unsafe extern "C" fn weft_text_delete(
     })
 }
 
-/// Lee el `Text` raíz `field` completo como UTF-8 en un buffer de salida (liberar con
+/// Reads the entire root `Text` `field` as UTF-8 into an output buffer (free with
 /// `weft_buf_free`).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_text_read(
     doc: *mut Doc,
@@ -313,13 +313,13 @@ pub unsafe extern "C" fn weft_text_read(
     })
 }
 
-// ── Estado y sincronización ─────────────────────────────────────────────────────────────────
+// ── State and synchronization ─────────────────────────────────────────────────────────────────
 
-/// Export determinista del estado completo (update v1 vs state-vector vacío). Base del
+/// Deterministic export of the full state (update v1 vs empty state-vector). Basis of
 /// content-addressing (P-III).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_export_state(
     doc: *mut Doc,
@@ -337,10 +337,10 @@ pub unsafe extern "C" fn weft_doc_export_state(
     })
 }
 
-/// State vector del documento (resumen "qué conozco" para sync incremental).
+/// State vector of the document ("what I know" summary for incremental sync).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_state_vector(
     doc: *mut Doc,
@@ -356,10 +356,10 @@ pub unsafe extern "C" fn weft_doc_state_vector(
     })
 }
 
-/// Delta de cambios que el poseedor de `sv` (state vector v1) no conoce.
+/// Delta of changes the holder of `sv` (state vector v1) does not know.
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_export_since(
     doc: *mut Doc,
@@ -384,10 +384,10 @@ pub unsafe extern "C" fn weft_doc_export_since(
     })
 }
 
-/// Aplica un update/estado de otra réplica (convergente).
+/// Applies an update/state from another replica (convergent).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_doc_apply_update(
     doc: *mut Doc,
@@ -413,14 +413,14 @@ pub unsafe extern "C" fn weft_doc_apply_update(
     })
 }
 
-// ── Memoria ─────────────────────────────────────────────────────────────────────────────────
+// ── Memory ─────────────────────────────────────────────────────────────────────────────────
 
-/// Libera un buffer devuelto por el shim (ptr+len exactamente los recibidos). NULL es no-op.
+/// Frees a buffer returned by the shim (ptr+len exactly as received). NULL is a no-op.
 /// Thread-safe.
 ///
 /// # Safety
-/// `ptr` debe ser null o provenir de una función de este shim que entregó (ptr, len), no
-/// liberado antes.
+/// `ptr` must be null or come from a function of this shim that handed out (ptr, len), not
+/// freed before.
 #[no_mangle]
 pub unsafe extern "C" fn weft_buf_free(ptr: *mut c_uchar, len: usize) {
     if ptr.is_null() {
@@ -432,18 +432,18 @@ pub unsafe extern "C" fn weft_buf_free(ptr: *mut c_uchar, len: usize) {
     }));
 }
 
-// ── Diagnóstico ─────────────────────────────────────────────────────────────────────────────
+// ── Diagnostics ─────────────────────────────────────────────────────────────────────────────
 
-/// Versión de la ABI (entero monotónico) para detectar desalineación paquete/binario.
+/// ABI version (monotonic integer) to detect package/binary misalignment.
 #[no_mangle]
 pub extern "C" fn weft_abi_version() -> u32 {
     WEFT_ABI_VERSION
 }
 
-// ── Test hooks (SOLO con la feature de Cargo `test-hooks`) ──────────────────────────────────
+// ── Test hooks (ONLY with the Cargo `test-hooks` feature) ──────────────────────────────────
 
-/// Provoca un `panic!` interno deliberado para verificar `catch_unwind` end-to-end (SC-009).
-/// NUNCA presente en binarios de release. Retorna `WEFT_ERR_PANIC` si el shim es correcto.
+/// Triggers a deliberate internal `panic!` to verify `catch_unwind` end-to-end (SC-009).
+/// NEVER present in release binaries. Returns `WEFT_ERR_PANIC` if the shim is correct.
 #[cfg(feature = "test-hooks")]
 #[no_mangle]
 pub extern "C" fn weft_test_panic() -> i32 {

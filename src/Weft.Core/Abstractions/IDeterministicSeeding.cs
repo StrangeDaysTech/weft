@@ -1,37 +1,37 @@
 namespace Weft;
 
 /// <summary>
-/// Capacidad opcional para sembrar la identidad de réplica de un documento nuevo (el <c>client_id</c>
-/// de yrs, el <c>peer_id</c> de Loro), habilitando exports reproducibles cross-run y cross-RID.
+/// Optional capability to seed the replica identity of a new document (yrs's <c>client_id</c>,
+/// Loro's <c>peer_id</c>), enabling reproducible exports cross-run and cross-RID.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Se expone como capacidad opcional —no como un método de <see cref="ICrdtEngine"/>— por la
-/// <b>asimetría del dominio válido</b> entre motores: yrs acepta ids <c>&lt; 2^53</c> (encoding de 53
-/// bits), Loro acepta todo <c>ulong</c> salvo <c>ulong.MaxValue</c> (reservado). Un método único no
-/// podría enunciar un contrato uniforme sobre ese dominio, forzando al llamador a ramificar por motor
-/// — la fuga que la constitución P-IV existe para evitar. <see cref="MaxReplicaIdExclusive"/> hace del
-/// dominio parte del contrato. Es el mismo patrón que <see cref="ICrdtEngine.NativeVersioning"/>.
+/// It is exposed as an optional capability —not as a method of <see cref="ICrdtEngine"/>— because of the
+/// <b>asymmetry of the valid domain</b> between engines: yrs accepts ids <c>&lt; 2^53</c> (53-bit
+/// encoding), Loro accepts every <c>ulong</c> except <c>ulong.MaxValue</c> (reserved). A single method
+/// could not state a uniform contract over that domain, forcing the caller to branch by engine
+/// — the leak the constitution P-IV exists to prevent. <see cref="MaxReplicaIdExclusive"/> makes the
+/// domain part of the contract. It is the same pattern as <see cref="ICrdtEngine.NativeVersioning"/>.
 /// </para>
 /// <para>
-/// <b>Uso previsto: determinismo de test/corpus, NO identidad de producción.</b> Reusar la misma
-/// identidad de réplica entre escritores concurrentes rompe la garantía CRDT (Loro lo documenta como
-/// corrupción del documento). El relay y el broker crean documentos con
-/// <see cref="ICrdtEngine.CreateDoc()"/>, que asigna una identidad aleatoria; no siembran.
+/// <b>Intended use: test/corpus determinism, NOT production identity.</b> Reusing the same
+/// replica identity across concurrent writers breaks the CRDT guarantee (Loro documents it as
+/// document corruption). The relay and the broker create documents with
+/// <see cref="ICrdtEngine.CreateDoc()"/>, which assigns a random identity; they do not seed.
 /// </para>
 /// </remarks>
 public interface IDeterministicSeeding
 {
     /// <summary>
-    /// Cota superior EXCLUSIVA de la identidad de réplica válida para este motor. yrs: <c>1UL &lt;&lt;
-    /// 53</c>. Loro: <see cref="ulong.MaxValue"/> (todo <c>ulong</c> salvo el valor reservado).
+    /// EXCLUSIVE upper bound of the valid replica identity for this engine. yrs: <c>1UL &lt;&lt;
+    /// 53</c>. Loro: <see cref="ulong.MaxValue"/> (every <c>ulong</c> except the reserved value).
     /// </summary>
     ulong MaxReplicaIdExclusive { get; }
 
     /// <summary>
-    /// Crea un documento vacío con la identidad de réplica <paramref name="replicaId"/> fija.
+    /// Creates an empty document with the fixed replica identity <paramref name="replicaId"/>.
     /// </summary>
-    /// <param name="replicaId">Identidad de réplica; debe ser <c>&lt; <see cref="MaxReplicaIdExclusive"/></c>.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="replicaId"/> fuera del dominio válido.</exception>
+    /// <param name="replicaId">Replica identity; must be <c>&lt; <see cref="MaxReplicaIdExclusive"/></c>.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="replicaId"/> outside the valid domain.</exception>
     ICrdtDoc CreateDoc(ulong replicaId);
 }

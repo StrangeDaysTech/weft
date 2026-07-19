@@ -3,9 +3,9 @@ using Weft.Versioning;
 using Weft.Versioning.Blobs;
 using Weft.Yrs;
 
-// pack-smoke (CHARTER-07/T057, SC-007): "hello-Weft" consumido desde el .nupkg empaquetado.
-// Prueba que el binario nativo resuelve desde runtimes/<rid>/native/ en una máquina limpia y que
-// un ciclo edit→publish corre. Sale con código != 0 ante cualquier fallo (gate de CI por RID).
+// pack-smoke (CHARTER-07/T057, SC-007): "hello-Weft" consumed from the packaged .nupkg.
+// Proves that the native binary resolves from runtimes/<rid>/native/ on a clean machine and that
+// an edit→publish cycle runs. Exits with a non-zero code on any failure (per-RID CI gate).
 
 Console.WriteLine($"Weft pack-smoke — RID: {System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}");
 
@@ -28,7 +28,7 @@ if (text != "hola weft")
     return 1;
 }
 
-// El VersionId es el SHA-256 hex del export determinista (64 chars); un hash vacío/corto = ruptura.
+// The VersionId is the hex SHA-256 of the deterministic export (64 chars); an empty/short hash = breakage.
 if (string.IsNullOrWhiteSpace(versionText) || versionText.Length < 32)
 {
     Console.Error.WriteLine($"✗ FALLO: VersionId vacío o demasiado corto (\"{versionText}\")");

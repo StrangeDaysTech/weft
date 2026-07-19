@@ -3,15 +3,15 @@ using Microsoft.Win32.SafeHandles;
 namespace Weft.Yrs;
 
 /// <summary>
-/// Handle seguro para el puntero opaco <c>WeftDoc*</c>. Un <c>SafeHandle</c> resuelve de
-/// raíz las tres patologías de FFI: fuga (finalizador de respaldo), double-free (el runtime
-/// garantiza un solo <see cref="ReleaseHandle"/>) y use-after-free (ref-count durante la llamada
-/// nativa vía <see cref="HandleLease"/>).
+/// Safe handle for the opaque <c>WeftDoc*</c> pointer. A <c>SafeHandle</c> resolves at the
+/// root the three FFI pathologies: leak (backing finalizer), double-free (the runtime
+/// guarantees a single <see cref="ReleaseHandle"/>) and use-after-free (ref-count during the native
+/// call via <see cref="HandleLease"/>).
 /// </summary>
 /// <remarks>
-/// FRICCIÓN FFI (research R2): el source generator <c>[LibraryImport]</c> no marshala
-/// <c>SafeHandle</c> (SYSLIB1051). Por eso las declaraciones P/Invoke usan <c>nint</c> crudo
-/// y las llamadas prestan el puntero con <see cref="HandleLease"/>.
+/// FFI FRICTION (research R2): the source generator <c>[LibraryImport]</c> does not marshal
+/// <c>SafeHandle</c> (SYSLIB1051). That is why the P/Invoke declarations use a raw <c>nint</c>
+/// and the calls lend the pointer with <see cref="HandleLease"/>.
 /// </remarks>
 internal sealed class DocHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
@@ -19,23 +19,23 @@ internal sealed class DocHandle : SafeHandleZeroOrMinusOneIsInvalid
 
     protected override bool ReleaseHandle()
     {
-        // El documento se libera SOLO con la función del shim, nunca con el GC/Marshal (P-I).
+        // The document is freed ONLY with the shim function, never with the GC/Marshal (P-I).
         NativeMethods.weft_doc_free(handle);
         return true;
     }
 }
 
 /// <summary>
-/// Presta el puntero crudo de un <see cref="DocHandle"/> incrementando su ref-count mientras dura
-/// la llamada nativa (equivalente manual al marshalling de SafeHandle que <c>[LibraryImport]</c> no
-/// ofrece). Liberar con <c>using</c>: el ref-count se decrementa al salir del ámbito.
+/// Lends the raw pointer of a <see cref="DocHandle"/> by incrementing its ref-count for the duration
+/// of the native call (manual equivalent of the SafeHandle marshalling that <c>[LibraryImport]</c>
+/// does not offer). Release with <c>using</c>: the ref-count is decremented on leaving the scope.
 /// </summary>
 internal readonly ref struct HandleLease
 {
     private readonly DocHandle _handle;
     private readonly bool _added;
 
-    /// <summary>Puntero nativo válido durante la vida del lease.</summary>
+    /// <summary>Native pointer valid for the lifetime of the lease.</summary>
     public readonly nint Ptr;
 
     public HandleLease(DocHandle handle)

@@ -4,23 +4,23 @@ using Microsoft.EntityFrameworkCore;
 namespace Weft.Server.Persistence.EFCore;
 
 /// <summary>
-/// <see cref="IDocumentStore"/> respaldado por Entity Framework Core. Cada documento es un snapshot consolidado
-/// (a lo sumo uno) más los updates incrementales acumulados desde él, en filas de <c>WeftDocumentRecords</c>.
-/// Provider-agnóstico: el consumidor configura el provider vía <see cref="WeftDocumentStoreContext"/>.
+/// <see cref="IDocumentStore"/> backed by Entity Framework Core. Each document is a consolidated snapshot
+/// (at most one) plus the incremental updates accumulated since it, in rows of <c>WeftDocumentRecords</c>.
+/// Provider-agnostic: the consumer configures the provider via <see cref="WeftDocumentStoreContext"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Concurrencia.</b> Un <see cref="SemaphoreSlim"/> por documento serializa <b>todas</b> las operaciones de
-/// ese doc (igual que <c>FileSystemDocumentStore</c>): asigna el <c>Seq</c> monotónico sin carreras y evita la
-/// contención de escritura del backend (p. ej. <c>SQLITE_BUSY</c> bajo appends concurrentes al mismo doc).
-/// Documentos distintos usan semáforos distintos y progresan en paralelo. Cada operación abre su propio
-/// <see cref="WeftDocumentStoreContext"/> vía la factory (un <c>DbContext</c> es una unidad de trabajo de un
-/// solo uso, no es thread-safe).
+/// <b>Concurrency.</b> One <see cref="SemaphoreSlim"/> per document serializes <b>all</b> operations of
+/// that doc (like <c>FileSystemDocumentStore</c>): it assigns the monotonic <c>Seq</c> without races and avoids
+/// the backend's write contention (e.g. <c>SQLITE_BUSY</c> under concurrent appends to the same doc).
+/// Different documents use different semaphores and progress in parallel. Each operation opens its own
+/// <see cref="WeftDocumentStoreContext"/> via the factory (a <c>DbContext</c> is a single-use unit of work,
+/// not thread-safe).
 /// </para>
 /// <para>
-/// <b>Compaction.</b> <see cref="SaveSnapshotAsync"/> borra los records del doc e inserta el snapshot como base
-/// dentro de una <b>transacción</b>: un lector concurrente ve el estado previo íntegro o el nuevo, nunca una
-/// mezcla parcial.
+/// <b>Compaction.</b> <see cref="SaveSnapshotAsync"/> deletes the doc's records and inserts the snapshot as base
+/// inside a <b>transaction</b>: a concurrent reader sees either the whole previous state or the new one, never a
+/// partial mix.
 /// </para>
 /// </remarks>
 public sealed class EFCoreDocumentStore : IDocumentStore
@@ -28,7 +28,7 @@ public sealed class EFCoreDocumentStore : IDocumentStore
     private readonly IDbContextFactory<WeftDocumentStoreContext> _factory;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
 
-    /// <summary>Crea el store sobre la factory de contextos configurada por el consumidor.</summary>
+    /// <summary>Creates the store over the context factory configured by the consumer.</summary>
     public EFCoreDocumentStore(IDbContextFactory<WeftDocumentStoreContext> contextFactory)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
@@ -119,7 +119,7 @@ public sealed class EFCoreDocumentStore : IDocumentStore
             await using WeftDocumentStoreContext ctx = await _factory.CreateDbContextAsync(ct).ConfigureAwait(false);
             await using var tx = await ctx.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-            // Compaction atómica: descarta lo acumulado e inserta el snapshot como base (Seq 0).
+            // Atomic compaction: discards what was accumulated and inserts the snapshot as base (Seq 0).
             await ctx.Records.Where(r => r.DocId == docId).ExecuteDeleteAsync(ct).ConfigureAwait(false);
             ctx.Records.Add(new DocumentRecord
             {

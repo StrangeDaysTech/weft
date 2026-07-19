@@ -1,16 +1,16 @@
-//! # weft-loro-ffi — shim C-ABI de Weft sobre `loro` (adaptador dual-path, P-IV)
+//! # weft-loro-ffi — Weft's C-ABI shim over `loro` (dual-path adapter, P-IV)
 //!
-//! Réplica de la ABI de `weft-yrs-ffi` con prefijo `weft_loro_`, mapeada sobre la API de Loro.
-//! Diferencias con yrs: `LoroDoc` es Send+Sync (locking interno; el shim no añade locks), y el
-//! versionado nativo (diff/branch/shallow) se expone aparte como capacidad opcional
-//! (`INativeVersioning`). Índices en UTF-16 code units (consistente con .NET y Yjs).
+//! Replica of the `weft-yrs-ffi` ABI with the `weft_loro_` prefix, mapped onto Loro's API.
+//! Differences from yrs: `LoroDoc` is Send+Sync (internal locking; the shim adds no locks), and
+//! native versioning (diff/branch/shallow) is exposed separately as an optional capability
+//! (`INativeVersioning`). Indices in UTF-16 code units (consistent with .NET and Yjs).
 
 use std::os::raw::c_uchar;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use loro::{ExportMode, Frontiers, LoroDoc, VersionVector};
 
-// ── Códigos de estado (idénticos a weft-yrs-ffi) ──
+// ── Status codes (identical to weft-yrs-ffi) ──
 pub const WEFT_OK: i32 = 0;
 pub const WEFT_ERR_NULL_ARG: i32 = -1;
 pub const WEFT_ERR_DECODE: i32 = -2;
@@ -21,8 +21,8 @@ pub const WEFT_ERR_PANIC: i32 = -127;
 
 const WEFT_ABI_VERSION: u32 = 3;
 
-/// PeerID reservado por Loro (`loro-internal/src/loro.rs`: `set_peer_id(u64::MAX)` →
-/// `LoroError::InvalidPeerID`). Se rechaza en la frontera para no depender del error interno.
+/// PeerID reserved by Loro (`loro-internal/src/loro.rs`: `set_peer_id(u64::MAX)` →
+/// `LoroError::InvalidPeerID`). Rejected at the boundary so as not to depend on the internal error.
 const PEER_ID_RESERVED: u64 = u64::MAX;
 
 fn guard<F: FnOnce() -> i32>(f: F) -> i32 {
@@ -33,7 +33,7 @@ fn guard<F: FnOnce() -> i32>(f: F) -> i32 {
 }
 
 /// # Safety
-/// `ptr` debe apuntar a `len` bytes válidos y vivos durante la llamada.
+/// `ptr` must point to `len` valid bytes that stay alive during the call.
 unsafe fn borrow_str<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a str> {
     if ptr.is_null() && len != 0 {
         return None;
@@ -47,7 +47,7 @@ unsafe fn borrow_str<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a str> {
 }
 
 /// # Safety
-/// `ptr` debe apuntar a `len` bytes válidos y vivos durante la llamada.
+/// `ptr` must point to `len` valid bytes that stay alive during the call.
 unsafe fn borrow_bytes<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a [u8]> {
     if ptr.is_null() {
         return if len == 0 { Some(&[]) } else { None };
@@ -56,7 +56,7 @@ unsafe fn borrow_bytes<'a>(ptr: *const c_uchar, len: usize) -> Option<&'a [u8]> 
 }
 
 /// # Safety
-/// `out_ptr` y `out_len` deben ser punteros escribibles no nulos.
+/// `out_ptr` and `out_len` must be non-null writable pointers.
 unsafe fn hand_out_buffer(data: Vec<u8>, out_ptr: *mut *mut c_uchar, out_len: *mut usize) -> i32 {
     if out_ptr.is_null() || out_len.is_null() {
         return WEFT_ERR_NULL_ARG;
@@ -71,7 +71,7 @@ unsafe fn hand_out_buffer(data: Vec<u8>, out_ptr: *mut *mut c_uchar, out_len: *m
 }
 
 /// # Safety
-/// `doc` debe provenir de `weft_loro_doc_new`/`weft_loro_doc_load` y no haber sido liberado.
+/// `doc` must come from `weft_loro_doc_new`/`weft_loro_doc_load` and must not have been freed.
 unsafe fn doc_ref<'a>(doc: *mut LoroDoc) -> Option<&'a LoroDoc> {
     if doc.is_null() {
         None
@@ -80,10 +80,10 @@ unsafe fn doc_ref<'a>(doc: *mut LoroDoc) -> Option<&'a LoroDoc> {
     }
 }
 
-// ── Ciclo de vida ──
+// ── Lifecycle ──
 
 /// # Safety
-/// `out_doc` debe ser un puntero escribible no nulo.
+/// `out_doc` must be a non-null writable pointer.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_new(out_doc: *mut *mut LoroDoc) -> i32 {
     guard(|| {
@@ -95,15 +95,15 @@ pub unsafe extern "C" fn weft_loro_doc_new(out_doc: *mut *mut LoroDoc) -> i32 {
     })
 }
 
-/// Doc nuevo con `peer_id` FIJO (siembra determinista, FU-016; capacidad `IDeterministicSeeding`).
-/// Habilita exports reproducibles cross-run/cross-RID (un `LoroDoc` normal recibe un `peer_id`
-/// aleatorio). `peer_id == u64::MAX` está reservado por Loro → `WEFT_ERR_OUT_OF_BOUNDS`. ABI v3.
+/// New doc with a FIXED `peer_id` (deterministic seeding, FU-016; `IDeterministicSeeding` capability).
+/// Enables reproducible exports cross-run/cross-RID (a normal `LoroDoc` gets a random
+/// `peer_id`). `peer_id == u64::MAX` is reserved by Loro → `WEFT_ERR_OUT_OF_BOUNDS`. ABI v3.
 ///
-/// AVISO: reusar un `peer_id` entre escritores concurrentes corrompe el documento (Loro). Esta
-/// función es para uso determinista de test/corpus, no para identidad por usuario/dispositivo.
+/// WARNING: reusing a `peer_id` across concurrent writers corrupts the document (Loro). This
+/// function is for deterministic test/corpus use, not for per-user/per-device identity.
 ///
 /// # Safety
-/// `out_doc` debe ser un puntero escribible no nulo.
+/// `out_doc` must be a non-null writable pointer.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_new_with_peer_id(
     peer_id: u64,
@@ -118,8 +118,8 @@ pub unsafe extern "C" fn weft_loro_doc_new_with_peer_id(
         }
         let doc = LoroDoc::new();
         if doc.set_peer_id(peer_id).is_err() {
-            // No debería ocurrir: el único fallo documentado de set_peer_id es el valor reservado,
-            // ya filtrado arriba. Se mapea defensivamente en vez de entrar en pánico.
+            // Should not happen: the only documented failure of set_peer_id is the reserved value,
+            // already filtered above. Mapped defensively instead of panicking.
             return WEFT_ERR_APPLY;
         }
         *out_doc = Box::into_raw(Box::new(doc));
@@ -128,7 +128,7 @@ pub unsafe extern "C" fn weft_loro_doc_new_with_peer_id(
 }
 
 /// # Safety
-/// `blob` debe apuntar a `blob_len` bytes válidos; `out_doc` escribible no nulo.
+/// `blob` must point to `blob_len` valid bytes; `out_doc` non-null writable.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_load(
     blob: *const c_uchar,
@@ -152,7 +152,7 @@ pub unsafe extern "C" fn weft_loro_doc_load(
 }
 
 /// # Safety
-/// `doc` debe ser null o un puntero válido no liberado antes.
+/// `doc` must be null or a valid pointer not freed before.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_free(doc: *mut LoroDoc) {
     if doc.is_null() {
@@ -161,10 +161,10 @@ pub unsafe extern "C" fn weft_loro_doc_free(doc: *mut LoroDoc) {
     let _ = catch_unwind(AssertUnwindSafe(|| drop(Box::from_raw(doc))));
 }
 
-// ── Texto por campo nombrado (índices UTF-16) ──
+// ── Text by named field (UTF-16 indices) ──
 
 /// # Safety
-/// Punteros válidos por sus longitudes; `doc` válido.
+/// Pointers valid for their lengths; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_text_insert(
     doc: *mut LoroDoc,
@@ -194,7 +194,7 @@ pub unsafe extern "C" fn weft_loro_text_insert(
 }
 
 /// # Safety
-/// Punteros válidos por sus longitudes; `doc` válido.
+/// Pointers valid for their lengths; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_text_delete(
     doc: *mut LoroDoc,
@@ -223,7 +223,7 @@ pub unsafe extern "C" fn weft_loro_text_delete(
 }
 
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_text_read(
     doc: *mut LoroDoc,
@@ -244,15 +244,15 @@ pub unsafe extern "C" fn weft_loro_text_read(
     })
 }
 
-// ── Estado y sincronización ──
+// ── State and synchronization ──
 
-/// Export determinista del estado completo para content-addressing (P-III). Usa `all_updates`
-/// (no `Snapshot`): el snapshot incluye metadata dependiente de la réplica (peer-ids, orden interno)
-/// y NO es byte-determinista entre réplicas convergidas; `all_updates` serializa el oplog de forma
-/// canónica → réplicas convergidas producen bytes idénticos (mismo VersionId, SC-002).
+/// Deterministic export of the full state for content-addressing (P-III). Uses `all_updates`
+/// (not `Snapshot`): the snapshot includes replica-dependent metadata (peer-ids, internal order)
+/// and is NOT byte-deterministic across converged replicas; `all_updates` serializes the oplog
+/// canonically → converged replicas produce identical bytes (same VersionId, SC-002).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_export_state(
     doc: *mut LoroDoc,
@@ -271,10 +271,10 @@ pub unsafe extern "C" fn weft_loro_doc_export_state(
     })
 }
 
-/// State vector del documento (VersionVector codificado).
+/// State vector of the document (encoded VersionVector).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_state_vector(
     doc: *mut LoroDoc,
@@ -290,10 +290,10 @@ pub unsafe extern "C" fn weft_loro_doc_state_vector(
     })
 }
 
-/// Delta de cambios que el poseedor de `sv` no conoce.
+/// Delta of changes the holder of `sv` does not know.
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_export_since(
     doc: *mut LoroDoc,
@@ -321,10 +321,10 @@ pub unsafe extern "C" fn weft_loro_doc_export_since(
     })
 }
 
-/// Aplica un update/snapshot de otra réplica (convergente).
+/// Applies an update/snapshot from another replica (convergent).
 ///
 /// # Safety
-/// Ver contrato del módulo.
+/// See the module contract.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_doc_apply_update(
     doc: *mut LoroDoc,
@@ -345,14 +345,14 @@ pub unsafe extern "C" fn weft_loro_doc_apply_update(
     })
 }
 
-// ── Versionado nativo (INativeVersioning, capacidad opcional — CHARTER-10/FU-006) ──
+// ── Native versioning (INativeVersioning, optional capability — CHARTER-10/FU-006) ──
 //
-// Probes DEMOSTRATIVOS de la capacidad de versionado nativo de Loro (diff/fork/shallow snapshot) que
-// yrs no tiene. NO son content-addressing: su salida NO es byte-determinista entre réplicas (el shallow
-// snapshot y los frontiers llevan metadata de réplica) y NO alimenta VersionId (que usa export_state /
-// all_updates). Exhiben que Loro PUEDE versionar nativamente; el JSON se arma a mano (sin serde).
+// DEMONSTRATIVE probes of Loro's native versioning capability (diff/fork/shallow snapshot) that
+// yrs lacks. They are NOT content-addressing: their output is NOT byte-deterministic across replicas (the
+// shallow snapshot and the frontiers carry replica metadata) and does NOT feed VersionId (which uses
+// export_state / all_updates). They exhibit that Loro CAN version natively; the JSON is built by hand (no serde).
 
-/// Escapa una cadena para incrustarla como valor JSON (comillas, backslash y controles).
+/// Escapes a string to embed it as a JSON value (quotes, backslash and control chars).
 fn json_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     for c in s.chars() {
@@ -369,11 +369,11 @@ fn json_escape(s: &str) -> String {
     out
 }
 
-/// Snapshot **shallow** (GC'd al estado actual) del documento. Bytes opacos, NO deterministas —
-/// probe de la capacidad nativa, no un blob citable. Liberar con `weft_loro_buf_free`.
+/// **Shallow** snapshot (GC'd to the current state) of the document. Opaque bytes, NOT deterministic —
+/// a probe of the native capability, not a citable blob. Free with `weft_loro_buf_free`.
 ///
 /// # Safety
-/// `out_ptr`/`out_len` escribibles no nulos; `doc` válido.
+/// `out_ptr`/`out_len` non-null writable; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_shallow_snapshot(
     doc: *mut LoroDoc,
@@ -392,11 +392,11 @@ pub unsafe extern "C" fn weft_loro_shallow_snapshot(
     })
 }
 
-/// Probe del **diff nativo**: describe (JSON) el diff de Loro entre frontiers vacíos y el estado
-/// actual para el campo dado (nº de containers cambiados + longitud del texto). Demostrativo.
+/// **Native diff** probe: describes (JSON) Loro's diff between empty frontiers and the current
+/// state for the given field (number of changed containers + text length). Demonstrative.
 ///
 /// # Safety
-/// Punteros válidos por sus longitudes; `doc` válido.
+/// Pointers valid for their lengths; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_native_diff_probe(
     doc: *mut LoroDoc,
@@ -429,11 +429,11 @@ pub unsafe extern "C" fn weft_loro_native_diff_probe(
     })
 }
 
-/// Probe de **fork/merge nativo**: forkea el doc, edita el fork, y lo mergea (import) en una copia
-/// aparte — SIN mutar el `doc` del caller — reportando (JSON) si el merge convergió. Demostrativo.
+/// **Native fork/merge** probe: forks the doc, edits the fork, and merges it (import) into a
+/// separate copy — WITHOUT mutating the caller's `doc` — reporting (JSON) whether the merge converged. Demonstrative.
 ///
 /// # Safety
-/// Punteros válidos por sus longitudes; `doc` válido.
+/// Pointers valid for their lengths; `doc` valid.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_native_branch_merge_probe(
     doc: *mut LoroDoc,
@@ -451,7 +451,7 @@ pub unsafe extern "C" fn weft_loro_native_branch_merge_probe(
         };
         doc.commit();
 
-        // Branch: fork + edición local (marcador ① fuera del texto del caller).
+        // Branch: fork + local edit (marker ① outside the caller's text).
         const MARK: &str = "\u{2460}";
         let branch = doc.fork();
         if branch.get_text(field).insert_utf16(0, MARK).is_err() {
@@ -459,7 +459,7 @@ pub unsafe extern "C" fn weft_loro_native_branch_merge_probe(
         }
         branch.commit();
 
-        // Merge: importar la edición del branch en una copia independiente del doc (no toca al caller).
+        // Merge: import the branch's edit into an independent copy of the doc (does not touch the caller).
         let target = doc.fork();
         let Ok(update) = branch.export(ExportMode::all_updates()) else {
             return WEFT_ERR_APPLY;
@@ -479,10 +479,10 @@ pub unsafe extern "C" fn weft_loro_native_branch_merge_probe(
     })
 }
 
-// ── Memoria ──
+// ── Memory ──
 
 /// # Safety
-/// `ptr` debe ser null o provenir de una función de este shim, no liberado antes.
+/// `ptr` must be null or come from a function of this shim, not freed before.
 #[no_mangle]
 pub unsafe extern "C" fn weft_loro_buf_free(ptr: *mut c_uchar, len: usize) {
     if ptr.is_null() {
@@ -493,7 +493,7 @@ pub unsafe extern "C" fn weft_loro_buf_free(ptr: *mut c_uchar, len: usize) {
     }));
 }
 
-// ── Diagnóstico ──
+// ── Diagnostics ──
 
 #[no_mangle]
 pub extern "C" fn weft_loro_abi_version() -> u32 {
@@ -502,7 +502,7 @@ pub extern "C" fn weft_loro_abi_version() -> u32 {
 
 // ── Test hooks ──
 
-/// Provoca un panic deliberado para verificar catch_unwind (SC-009).
+/// Triggers a deliberate panic to verify catch_unwind (SC-009).
 #[cfg(feature = "test-hooks")]
 #[no_mangle]
 pub extern "C" fn weft_loro_test_panic() -> i32 {

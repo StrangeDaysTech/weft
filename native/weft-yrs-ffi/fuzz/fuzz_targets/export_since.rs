@@ -1,16 +1,16 @@
-//! Fuzz target: `weft_doc_export_since` con un state vector arbitrario (regresión R6).
+//! Fuzz target: `weft_doc_export_since` with an arbitrary state vector (R6 regression).
 //!
-//! Ejercita la ruta RESIDUAL `state_vector::decode` (`yrs/src/state_vector.rs:120`,
-//! `HashMap::with_capacity(len)` sin acotar) — la única brecha de amplificación de memoria de
-//! yrs que NO cubre el `try_reserve` ya presente en `Update::decode`. `weft_doc_export_since`
-//! decodifica el SV crudo vía `StateVector::decode_v1` antes de calcular el delta, así que un SV
-//! adversarial (`[255,255,255,122]`: 4 bytes que declaran una longitud gigante) llega directo al
-//! sitio residual.
+//! Exercises the RESIDUAL path `state_vector::decode` (`yrs/src/state_vector.rs:120`,
+//! `HashMap::with_capacity(len)` unbounded) — the only memory-amplification gap in
+//! yrs NOT covered by the `try_reserve` already present in `Update::decode`. `weft_doc_export_since`
+//! decodes the raw SV via `StateVector::decode_v1` before computing the delta, so an adversarial
+//! SV (`[255,255,255,122]`: 4 bytes declaring a gigantic length) reaches the residual site
+//! directly.
 //!
-//! Invariante: ningún input cruza la frontera como panic ni UB — el shim lo contiene como código
-//! de error (`WEFT_ERR_DECODE` en glibc por overcommit; el `abort` de `handle_alloc_error` solo en
-//! hosts memory-constrained duros / allocators eager). Informativo hasta que se adopte el fix
-//! upstream (`try_reserve`, FU-015); prueba la regresión cuando el bump aterrice.
+//! Invariant: no input crosses the boundary as panic or UB — the shim contains it as an error
+//! code (`WEFT_ERR_DECODE` on glibc via overcommit; the `abort` of `handle_alloc_error` only on
+//! hard memory-constrained hosts / eager allocators). Informative until the upstream fix
+//! (`try_reserve`, FU-015) is adopted; it tests the regression once the bump lands.
 #![no_main]
 
 use std::ptr;
@@ -23,8 +23,8 @@ use yrs::Doc;
 static INIT: Once = Once::new();
 
 fuzz_target!(|data: &[u8]| {
-    // Ver doc_load.rs: silenciamos el hook de libfuzzer-sys que aborta en panic, para ejercitar
-    // el catch_unwind del shim como en producción. Un SIGSEGV/UB real sigue detectándose.
+    // See doc_load.rs: we silence libfuzzer-sys's hook that aborts on panic, to exercise
+    // the shim's catch_unwind as in production. A real SIGSEGV/UB is still detected.
     INIT.call_once(|| std::panic::set_hook(Box::new(|_| {})));
 
     unsafe {
@@ -34,11 +34,11 @@ fuzz_target!(|data: &[u8]| {
         }
         let mut out_ptr: *mut u8 = ptr::null_mut();
         let mut out_len: usize = 0;
-        // `data` es el state vector crudo → `StateVector::decode_v1` (ruta residual R6). El código
-        // de retorno es irrelevante para el fuzzer; lo que importa es que no haya UB.
+        // `data` is the raw state vector → `StateVector::decode_v1` (residual path R6). The return
+        // code is irrelevant to the fuzzer; what matters is that there is no UB.
         let code = weft_doc_export_since(doc, data.as_ptr(), data.len(), &mut out_ptr, &mut out_len);
-        // En éxito el shim entregó un buffer nativo: liberarlo con weft_buf_free (ASan detectaría
-        // fugas si no; el GC jamás toca esta memoria).
+        // On success the shim handed out a native buffer: free it with weft_buf_free (ASan would
+        // detect leaks otherwise; the GC never touches this memory).
         if code == WEFT_OK && !out_ptr.is_null() {
             weft_buf_free(out_ptr, out_len);
         }

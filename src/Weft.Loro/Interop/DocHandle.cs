@@ -2,7 +2,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Weft.Loro.Interop;
 
-/// <summary>Handle seguro para el puntero opaco <c>WeftLoroDoc*</c> (mismo patrón que Weft.Yrs).</summary>
+/// <summary>Safe handle for the opaque <c>WeftLoroDoc*</c> pointer (same pattern as Weft.Yrs).</summary>
 internal sealed class DocHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
     public DocHandle(nint handle) : base(ownsHandle: true) => SetHandle(handle);
@@ -14,7 +14,7 @@ internal sealed class DocHandle : SafeHandleZeroOrMinusOneIsInvalid
     }
 }
 
-/// <summary>Presta el puntero crudo con ref-count durante la llamada nativa (SYSLIB1051, research R2).</summary>
+/// <summary>Leases the raw pointer with ref-count for the duration of the native call (SYSLIB1051, research R2).</summary>
 internal readonly ref struct HandleLease
 {
     private readonly DocHandle _handle;

@@ -4,17 +4,17 @@ using Weft.Versioning.Blobs;
 namespace Weft.Versioning;
 
 /// <summary>
-/// Publicar/cargar/comparar/ramificar/mezclar versiones de documentos, content-addressed y
-/// engine-agnóstico (constitución P-IV: depende solo de las abstracciones de Weft.Core).
-/// Thread-safe (sin estado mutable propio; la serialización del doc vivo es responsabilidad del
-/// llamador o del DocumentBroker).
+/// Publish/load/compare/branch/merge document versions, content-addressed and
+/// engine-agnostic (constitution P-IV: depends only on the Weft.Core abstractions).
+/// Thread-safe (no mutable state of its own; serializing the live doc is the responsibility of the
+/// caller or of the DocumentBroker).
 /// </summary>
 public sealed class VersionStore
 {
     private readonly ICrdtEngine _engine;
     private readonly IBlobStore _blobs;
 
-    /// <summary>Crea el almacén de versiones sobre un motor y un almacén de blobs.</summary>
+    /// <summary>Creates the version store over an engine and a blob store.</summary>
     public VersionStore(ICrdtEngine engine, IBlobStore blobs)
     {
         ArgumentNullException.ThrowIfNull(engine);
@@ -23,7 +23,7 @@ public sealed class VersionStore
         _blobs = blobs;
     }
 
-    /// <summary>Exporta, hashea y persiste el documento. Devuelve la identidad citable.</summary>
+    /// <summary>Exports, hashes and persists the document. Returns the citable identity.</summary>
     public async ValueTask<VersionId> PublishAsync(ICrdtDoc doc, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(doc);
@@ -33,16 +33,16 @@ public sealed class VersionStore
         return id;
     }
 
-    /// <summary>Reconstruye un documento vivo desde una versión publicada (verifica integridad).</summary>
-    /// <exception cref="KeyNotFoundException">La versión no existe en el almacén.</exception>
-    /// <exception cref="BlobIntegrityException">El blob almacenado no verifica contra su hash.</exception>
+    /// <summary>Rebuilds a live document from a published version (verifies integrity).</summary>
+    /// <exception cref="KeyNotFoundException">The version does not exist in the store.</exception>
+    /// <exception cref="BlobIntegrityException">The stored blob does not verify against its hash.</exception>
     public async ValueTask<ICrdtDoc> CheckoutAsync(VersionId version, CancellationToken ct = default)
     {
         byte[] blob = await LoadVerifiedAsync(version, ct).ConfigureAwait(false);
         return _engine.LoadDoc(blob);
     }
 
-    /// <summary>Diff de texto por palabras entre dos versiones publicadas, en un campo dado.</summary>
+    /// <summary>Word-level text diff between two published versions, in a given field.</summary>
     public async ValueTask<TextDiff> DiffAsync(VersionId a, VersionId b, string field, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(field);
@@ -51,12 +51,12 @@ public sealed class VersionStore
         return TextDiff.Compute(da.GetText(field), db.GetText(field));
     }
 
-    /// <summary>Rama: documento vivo independiente partiendo de la versión base (alias de Checkout).</summary>
+    /// <summary>Branch: independent live document starting from the base version (alias of Checkout).</summary>
     public ValueTask<ICrdtDoc> BranchAsync(VersionId from, CancellationToken ct = default) =>
         CheckoutAsync(from, ct);
 
-    /// <summary>Merge CRDT: importa el estado de la rama en el destino (convergente, sin conflictos).</summary>
-    /// <exception cref="ArgumentException">Los documentos pertenecen a motores distintos (yrs↔Loro).</exception>
+    /// <summary>CRDT merge: imports the branch state into the target (convergent, conflict-free).</summary>
+    /// <exception cref="ArgumentException">The documents belong to different engines (yrs↔Loro).</exception>
     public void Merge(ICrdtDoc target, ICrdtDoc branch)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -71,8 +71,8 @@ public sealed class VersionStore
         target.ApplyUpdate(branch.ExportState());
     }
 
-    /// <summary>Merge CRDT desde una versión publicada hacia un documento vivo destino.</summary>
-    /// <exception cref="ArgumentException">El destino pertenece a un motor distinto al del almacén.</exception>
+    /// <summary>CRDT merge from a published version into a target live document.</summary>
+    /// <exception cref="ArgumentException">The target belongs to a different engine than the store.</exception>
     public async ValueTask MergeAsync(ICrdtDoc target, VersionId branchVersion, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(target);

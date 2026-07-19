@@ -5,20 +5,20 @@ using Weft.Yrs;
 namespace Weft.Core.Tests;
 
 /// <summary>
-/// Contrato de concurrencia del <see cref="DocumentBroker"/> (T040, US2, constitución P-V): serialización
-/// estricta por documento, orden FIFO por sesión, desalojo→persistencia→reapertura, propagación de fallo y
-/// semántica de dispose. Los casos de serialización/fallo usan un motor de prueba que instrumenta la
-/// concurrencia; los de ciclo de vida usan el motor yrs real.
+/// Concurrency contract of the <see cref="DocumentBroker"/> (T040, US2, constitution P-V): strict
+/// per-document serialization, FIFO ordering per session, eviction→persistence→reopen, fault
+/// propagation and dispose semantics. The serialization/fault cases use a test engine that
+/// instruments concurrency; the lifecycle ones use the real yrs engine.
 /// </summary>
 /// <remarks>
-/// El <c>Category=Concurrency</c> es el que selecciona el comando de US2 en <c>quickstart.md</c>;
-/// sin él ese filtro no casaba con ningún test y el paso del runbook pasaba en verde ejecutando
-/// cero tests (detectado en el pase de validación de T063, CHARTER-11).
+/// The <c>Category=Concurrency</c> is what the US2 command in <c>quickstart.md</c> selects;
+/// without it that filter matched no test and the runbook step passed green while running
+/// zero tests (detected in the T063 validation pass, CHARTER-11).
 /// </remarks>
 [Trait("Category", "Concurrency")]
 public sealed class DocumentBrokerTests
 {
-    // -- Serialización (Acceptance Scenario 1): nunca dos operaciones simultáneas del mismo documento --
+    // -- Serialization (Acceptance Scenario 1): never two simultaneous operations on the same document --
 
     [Fact]
     public async Task Operations_on_same_document_never_run_concurrently()
@@ -37,11 +37,11 @@ public sealed class DocumentBrokerTests
         await Task.WhenAll(writers);
 
         TrackingDoc doc = Assert.Single(engine.Docs);
-        Assert.Equal(1, doc.PeakConcurrency);            // el actor serializó todo el acceso
+        Assert.Equal(1, doc.PeakConcurrency);            // the actor serialized all access
         Assert.Equal(50 * 20, (await session.GetTextAsync("body")).Length);
     }
 
-    // -- FIFO por sesión: las operaciones encoladas se aplican en el orden de encolado --
+    // -- FIFO per session: enqueued operations are applied in enqueue order --
 
     [Fact]
     public async Task Operations_from_a_session_apply_in_FIFO_order()
@@ -52,7 +52,7 @@ public sealed class DocumentBrokerTests
         var pending = new List<Task>();
         for (int i = 0; i < 10; i++)
         {
-            // encolado síncrono en orden; inserta el dígito i en la posición i
+            // synchronous enqueue in order; inserts digit i at position i
             pending.Add(session.InsertTextAsync("body", i, i.ToString()).AsTask());
         }
         await Task.WhenAll(pending);
@@ -60,7 +60,7 @@ public sealed class DocumentBrokerTests
         Assert.Equal("0123456789", await session.GetTextAsync("body"));
     }
 
-    // -- Acceptance Scenario 2: desalojo por inactividad → OnEvicting → reapertura desde lo persistido --
+    // -- Acceptance Scenario 2: idle eviction → OnEvicting → reopen from what was persisted --
 
     [Fact]
     public async Task Idle_document_is_evicted_persisted_and_can_be_reopened()
@@ -70,7 +70,7 @@ public sealed class DocumentBrokerTests
         var options = new DocumentBrokerOptions
         {
             IdleEviction = TimeSpan.FromMilliseconds(20),
-            IdleSweepInterval = TimeSpan.FromHours(1), // barrido automático desactivado: lo disparamos manual
+            IdleSweepInterval = TimeSpan.FromHours(1), // automatic sweep disabled: we trigger it manually
             OnEvicting = (id, state, ct) =>
             {
                 persisted = state;
@@ -82,21 +82,21 @@ public sealed class DocumentBrokerTests
 
         DocumentSession session = await broker.OpenAsync("doc-1");
         await session.InsertTextAsync("body", 0, "hola");
-        await session.DisposeAsync();          // sin sesiones vivas → candidato a desalojo
-        await Task.Delay(60);                  // superar IdleEviction (20ms)
-        await broker.SweepOnceAsync();         // fuerza el barrido (no esperar al timer)
+        await session.DisposeAsync();          // no live sessions → eviction candidate
+        await Task.Delay(60);                  // exceed IdleEviction (20ms)
+        await broker.SweepOnceAsync();         // force the sweep (don't wait for the timer)
 
         Assert.Equal(1, evictions);
         Assert.NotNull(persisted);
         Assert.Equal(0, broker.ActiveDocumentCount);
 
-        // Reabrir con un loader que devuelve el estado persistido → contenido restaurado.
+        // Reopen with a loader that returns the persisted state → content restored.
         await using DocumentSession reopened = await broker.OpenAsync(
             "doc-1", (id, ct) => ValueTask.FromResult<byte[]?>(persisted));
         Assert.Equal("hola", await reopened.GetTextAsync("body"));
     }
 
-    // -- LRU: al superar el máximo, se desaloja el menos recientemente usado (sin sesiones vivas) --
+    // -- LRU: when the maximum is exceeded, the least recently used is evicted (with no live sessions) --
 
     [Fact]
     public async Task Over_capacity_evicts_least_recently_used_without_sessions()
@@ -104,12 +104,12 @@ public sealed class DocumentBrokerTests
         var options = new DocumentBrokerOptions
         {
             MaxActiveDocuments = 2,
-            IdleEviction = TimeSpan.FromHours(1), // aislar: solo queremos ver el desalojo por LRU
+            IdleEviction = TimeSpan.FromHours(1), // isolate: we only want to see LRU eviction
         };
         await using var broker = new DocumentBroker(YrsEngine.Instance, options);
 
-        // Tres documentos, cerrando cada sesión (sin sesiones vivas → elegibles para LRU). El delay
-        // separa los timestamps de inactividad, así 'a' es el menos recientemente usado.
+        // Three documents, closing each session (no live sessions → eligible for LRU). The delay
+        // separates the idle timestamps, so 'a' is the least recently used.
         foreach (string id in new[] { "a", "b", "c" })
         {
             DocumentSession s = await broker.OpenAsync(id);
@@ -118,13 +118,13 @@ public sealed class DocumentBrokerTests
             await Task.Delay(EvictionGrace);
         }
 
-        Assert.Equal(3, broker.ActiveDocumentCount); // el límite es suave hasta el barrido
+        Assert.Equal(3, broker.ActiveDocumentCount); // the limit is soft until the sweep
         await broker.SweepOnceAsync();
-        Assert.Equal(2, broker.ActiveDocumentCount); // 'a' (LRU) desalojado
+        Assert.Equal(2, broker.ActiveDocumentCount); // 'a' (LRU) evicted
 
-        // Verificar la IDENTIDAD del desalojado, no solo el conteo: 'a' (LRU, sin OnEvicting/loader) se
-        // perdió → reabrir da documento vacío; 'b' y 'c' siguen activos con su contenido. Un LRU que
-        // hubiera desalojado el MRU pasaría el assert de conteo pero fallaría estos.
+        // Verify the IDENTITY of the evicted one, not just the count: 'a' (LRU, without OnEvicting/loader)
+        // was lost → reopening gives an empty document; 'b' and 'c' remain active with their content. An
+        // LRU that had evicted the MRU would pass the count assert but fail these.
         await using (DocumentSession ra = await broker.OpenAsync("a"))
         {
             Assert.Equal("", await ra.GetTextAsync("body"));
@@ -139,7 +139,7 @@ public sealed class DocumentBrokerTests
         }
     }
 
-    // -- Un handler de UpdateApplied que lanza NO debe faultear el actor (finding G, para M2) --
+    // -- An UpdateApplied handler that throws must NOT fault the actor (finding G, for M2) --
 
     [Fact]
     public async Task Throwing_UpdateApplied_handler_does_not_fault_the_actor()
@@ -148,23 +148,23 @@ public sealed class DocumentBrokerTests
         await using DocumentSession session = await broker.OpenAsync("doc");
         session.UpdateApplied += (_, _) => throw new InvalidOperationException("handler boom");
 
-        // La inserción dispara UpdateApplied → el handler lanza, pero el actor debe seguir sano.
+        // The insertion fires UpdateApplied → the handler throws, but the actor must stay healthy.
         await session.InsertTextAsync("body", 0, "hola");
         Assert.Equal("hola", await session.GetTextAsync("body"));
 
-        // Operaciones subsiguientes siguen funcionando (el actor no faulteó).
+        // Subsequent operations keep working (the actor did not fault).
         await session.InsertTextAsync("body", 0, "! ");
         Assert.Equal("! hola", await session.GetTextAsync("body"));
     }
 
-    // -- UpdateApplied se dispara con un delta aplicable, para otras sesiones del mismo doc (finding J) --
+    // -- UpdateApplied fires with an applicable delta, for other sessions of the same doc (finding J) --
 
     [Fact]
     public async Task UpdateApplied_fires_with_applicable_delta_for_other_sessions()
     {
         await using var broker = new DocumentBroker(YrsEngine.Instance);
         await using DocumentSession writer = await broker.OpenAsync("doc");
-        await using DocumentSession observer = await broker.OpenAsync("doc"); // misma doc, otra sesión
+        await using DocumentSession observer = await broker.OpenAsync("doc"); // same doc, another session
 
         var gotDelta = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         observer.UpdateApplied += (_, delta) => gotDelta.TrySetResult(delta.ToArray());
@@ -174,13 +174,13 @@ public sealed class DocumentBrokerTests
         byte[] applied = await gotDelta.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.NotEmpty(applied);
 
-        // El delta es aplicable a un documento fresco y reproduce el texto (superficie de relay para M2).
+        // The delta is applicable to a fresh document and reproduces the text (relay surface for M2).
         using ICrdtDoc fresh = YrsEngine.Instance.CreateDoc();
         fresh.ApplyUpdate(applied);
         Assert.Equal("hola", fresh.GetText("body"));
     }
 
-    // -- Actor en fallo irrecuperable: propaga la excepción causal a las operaciones pendientes/futuras --
+    // -- Actor in unrecoverable fault: propagates the causal exception to pending/future operations --
 
     [Fact]
     public async Task Faulted_actor_propagates_causal_exception()
@@ -191,8 +191,8 @@ public sealed class DocumentBrokerTests
         var boom = new InvalidOperationException("boom");
         var gate = new TaskCompletionSource();
 
-        // Turno que bloquea el actor hasta 'gate' y luego lanza: garantiza que 'pending' quede encolada
-        // DETRÁS antes de que el fallo ocurra (test determinista).
+        // A turn that blocks the actor until 'gate' and then throws: guarantees that 'pending' is enqueued
+        // BEHIND before the fault occurs (deterministic test).
         Task<int> faulting = session.ExecuteAsync<int>(_ => { gate.Task.Wait(); throw boom; }).AsTask();
         Task<string> pending = session.GetTextAsync("body").AsTask();
         gate.SetResult();
@@ -204,13 +204,13 @@ public sealed class DocumentBrokerTests
         Assert.Same(boom, fromFaulting);
         Assert.Same(boom, fromPending);
 
-        // Operaciones futuras también fallan con la misma causal.
+        // Future operations also fail with the same causal exception.
         InvalidOperationException fromFuture =
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await session.GetTextAsync("body"));
         Assert.Same(boom, fromFuture);
     }
 
-    // -- Dispose semantics: error predecible de la plataforma, nunca crash (Acceptance Scenario 3) --
+    // -- Dispose semantics: predictable platform error, never a crash (Acceptance Scenario 3) --
 
     [Fact]
     public async Task Using_a_disposed_session_throws_ObjectDisposedException()
@@ -238,7 +238,7 @@ public sealed class DocumentBrokerTests
 
     private static readonly TimeSpan EvictionGrace = TimeSpan.FromMilliseconds(300);
 
-    // -- Motor de prueba que instrumenta la concurrencia observada por documento --
+    // -- Test engine that instruments the concurrency observed per document --
 
     private sealed class TrackingEngine : ICrdtEngine
     {
@@ -306,7 +306,7 @@ public sealed class DocumentBrokerTests
             InterlockedMax(ref _peak, now);
             try
             {
-                Thread.SpinWait(100); // ensanchar la ventana para delatar cualquier solape
+                Thread.SpinWait(100); // widen the window to expose any overlap
                 return body();
             }
             finally

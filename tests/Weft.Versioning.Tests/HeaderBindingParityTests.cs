@@ -7,57 +7,57 @@ using Weft.Yrs;
 namespace Weft.Versioning.Tests;
 
 /// <summary>
-/// Paridad entre el header C (fuente de verdad del contrato) y las declaraciones
-/// <c>[LibraryImport]</c> del binding, para <b>ambos</b> shims (FU-017, CHARTER-12).
+/// Parity between the C header (source of truth for the contract) and the
+/// <c>[LibraryImport]</c> declarations of the binding, for <b>both</b> shims (FU-017, CHARTER-12).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Por qué existe.</b> Hasta CHARTER-12, `NativeMethods.cs` y `weft_ffi.h` afirmaban ambos que
-/// «un test de CI valida que las declaraciones coinciden con este header». <b>No existía</b>: ni
-/// para yrs ni para Loro. La afirmación llevaba meses en el árbol y llegó a engañar a quien redactó
-/// FU-017, que pedía «replicar para Loro el test que yrs sí tiene». Este archivo es ese test,
-/// creado por primera vez, y es lo que vuelve ciertos aquellos comentarios.
+/// <b>Why it exists.</b> Until CHARTER-12, `NativeMethods.cs` and `weft_ffi.h` both claimed that
+/// «a CI test validates that the declarations match this header». <b>It did not exist</b>: neither
+/// for yrs nor for Loro. The claim had been in the tree for months and even misled whoever wrote
+/// FU-017, which asked to «replicate for Loro the test that yrs does have». This file is that test,
+/// created for the first time, and it is what makes those comments true.
 /// </para>
 /// <para>
-/// <b>Qué cubre.</b> Que el conjunto de funciones declaradas en el header y el declarado en el
-/// binding sea el <b>mismo</b> (ninguna sobra, ninguna falta), y que para cada una coincidan la
-/// aridad, el orden y los tipos de los parámetros y el tipo de retorno, según el mapa C↔.NET de
-/// <see cref="TypeMap"/> — que es el contrato de marshalling que el repo ya usa de facto.
+/// <b>What it covers.</b> That the set of functions declared in the header and the one declared in
+/// the binding is the <b>same</b> (none extra, none missing), and that for each one the arity, the
+/// order and the types of the parameters and the return type match, according to the C↔.NET map of
+/// <see cref="TypeMap"/> — which is the marshalling contract the repo already uses de facto.
 /// </para>
 /// <para>
-/// <b>Qué NO cubre, y conviene saberlo.</b> Es paridad <i>sintáctica</i>. Que `size_t` case con
-/// `nuint` no prueba que el marshalling sea correcto, ni valida la semántica, la convención de
-/// llamada, ni el contrato de ownership. Esas garantías siguen viniendo de ASan/LSan y de los tests
-/// de round-trip. Un test cuyo alcance se exagera es exactamente la clase de fallo que CHARTER-12
-/// cierra, así que este párrafo es parte del test.
+/// <b>What it does NOT cover, and is worth knowing.</b> It is <i>syntactic</i> parity. That `size_t`
+/// matches `nuint` does not prove the marshalling is correct, nor does it validate the semantics, the
+/// calling convention, or the ownership contract. Those guarantees still come from ASan/LSan and the
+/// round-trip tests. A test whose scope is overstated is exactly the class of failure that CHARTER-12
+/// closes, so this paragraph is part of the test.
 /// </para>
 /// <para>
-/// Las funciones bajo <c>#ifdef WEFT_TEST_HOOKS</c> se excluyen a propósito: existen solo con la
-/// feature de Cargo <c>test-hooks</c> y el binding no las declara (<c>PanicSafetyTests</c> las
-/// resuelve con <c>NativeLibrary.GetExport</c>). El gate que verifica que no viajan en release vive
-/// en <c>release.yml</c>.
+/// The functions under <c>#ifdef WEFT_TEST_HOOKS</c> are excluded on purpose: they exist only with
+/// the Cargo feature <c>test-hooks</c> and the binding does not declare them (<c>PanicSafetyTests</c>
+/// resolves them via <c>NativeLibrary.GetExport</c>). The gate that verifies they don't ship in
+/// release lives in <c>release.yml</c>.
 /// </para>
 /// </remarks>
 public sealed class HeaderBindingParityTests
 {
-    /// <summary>Mapa del subconjunto de C que estos headers usan → la forma .NET del binding.</summary>
+    /// <summary>Map of the subset of C that these headers use → the .NET shape of the binding.</summary>
     private static readonly Dictionary<string, string> TypeMap = new(StringComparer.Ordinal)
     {
-        // Escalares
+        // Scalars
         ["void"] = "Void",
         ["int32_t"] = "Int32",
         ["uint32_t"] = "UInt32",
         ["uint64_t"] = "UInt64",
         ["size_t"] = "UIntPtr",
-        // Punteros de salida: `T**` / `size_t*` → `out nint` / `out nuint` (byref).
+        // Output pointers: `T**` / `size_t*` → `out nint` / `out nuint` (byref).
         ["uint8_t**"] = "IntPtr&",
         ["size_t*"] = "UIntPtr&",
         ["WeftDoc**"] = "IntPtr&",
         ["WeftLoroDoc**"] = "IntPtr&",
-        // Handles opacos prestados (HandleLease, research R2).
+        // Borrowed opaque handles (HandleLease, research R2).
         ["WeftDoc*"] = "IntPtr",
         ["WeftLoroDoc*"] = "IntPtr",
-        // Bytes de ENTRADA (const) → span con pin automático; bytes crudos (no const) → puntero.
+        // INPUT bytes (const) → span with automatic pinning; raw bytes (non-const) → pointer.
         ["const uint8_t*"] = "ReadOnlySpan<Byte>",
         ["uint8_t*"] = "IntPtr",
     };
@@ -100,7 +100,7 @@ public sealed class HeaderBindingParityTests
         {
             if (!binding.TryGetValue(name, out CFunction? net))
             {
-                continue; // Lo cubre Header_y_binding_declaran_las_mismas_funciones.
+                continue; // Covered by Header_y_binding_declaran_las_mismas_funciones.
             }
 
             string esperado = MapReturn(shim, name, c.ReturnType);
@@ -134,9 +134,9 @@ public sealed class HeaderBindingParityTests
     }
 
     /// <summary>
-    /// Caso negativo: prueba que el test de arriba puede FALLAR. Un test de paridad que no sabe
-    /// detectar una divergencia sería la enésima verificación fantasma — el fallo que CHARTER-12
-    /// cierra. Sin este caso, los dos anteriores no valen nada.
+    /// Negative case: proves that the test above can FAIL. A parity test that cannot detect a
+    /// divergence would be yet another phantom verification — the failure that CHARTER-12 closes.
+    /// Without this case, the two previous ones are worth nothing.
     /// </summary>
     [Fact]
     public void El_parser_detecta_divergencias_sintéticas()
@@ -149,17 +149,17 @@ public sealed class HeaderBindingParityTests
             """);
 
         Assert.Equal(3, h.Count);
-        // Función que el binding real no tiene → la detecta el test de conjuntos.
+        // Function the real binding does not have → detected by the set test.
         Assert.Contains("weft_fantasma", h.Keys);
-        // Aridad divergente (3 vs 2 del binding real) → la detecta el test de firma.
+        // Divergent arity (3 vs 2 in the real binding) → detected by the signature test.
         Assert.Equal(3, h["weft_buf_free"].Parameters.Count);
-        // Y el mapa traduce lo que sí entiende.
+        // And the map translates what it does understand.
         Assert.Equal("IntPtr&", TypeMap[h["weft_doc_new"].Parameters[0]]);
     }
 
     /// <summary>
-    /// El parser debe reventar ante una declaración que no entiende, nunca ignorarla en silencio:
-    /// ignorar es fabricar el fantasma que este archivo persigue (R1 del Charter).
+    /// The parser must blow up on a declaration it does not understand, never silently ignore it:
+    /// ignoring it is manufacturing the phantom this file is chasing (R1 of the Charter).
     /// </summary>
     [Fact]
     public void El_parser_falla_ruidosamente_ante_una_declaración_que_no_entiende()
@@ -170,7 +170,7 @@ public sealed class HeaderBindingParityTests
         Assert.Contains("weft_", ex.Message, StringComparison.Ordinal);
     }
 
-    // ── Mapeo C → .NET ──
+    // ── C → .NET mapping ──
 
     private static string MapReturn(string shim, string fn, string cType) =>
         TypeMap.TryGetValue(cType, out string? net)
@@ -185,7 +185,7 @@ public sealed class HeaderBindingParityTests
             : throw new InvalidOperationException(
                 $"[{shim}] tipo de parámetro C sin mapear en {fn} #{index}: '{cType}'. Añádelo a TypeMap.");
 
-    // ── Reflexión sobre el binding ──
+    // ── Reflection over the binding ──
 
     private static IReadOnlyDictionary<string, CFunction> ReflectBinding(string typeName)
     {
@@ -199,8 +199,8 @@ public sealed class HeaderBindingParityTests
         Dictionary<string, CFunction> result = new(StringComparer.Ordinal);
         foreach (MethodInfo m in type.GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly))
         {
-            // Solo la superficie del shim: el generador de [LibraryImport] emite además helpers
-            // internos que no forman parte del contrato.
+            // Only the shim surface: the [LibraryImport] generator also emits internal helpers
+            // that are not part of the contract.
             if (!m.Name.StartsWith("weft_", StringComparison.Ordinal))
             {
                 continue;
@@ -229,21 +229,21 @@ public sealed class HeaderBindingParityTests
         return t.Name;
     }
 
-    // ── Parser del header ──
+    // ── Header parser ──
 
     private sealed record CFunction(string ReturnType, IReadOnlyList<string> Parameters);
 
     /// <summary>
-    /// Parser deliberadamente acotado al subconjunto de C que estos dos headers usan: declaraciones
-    /// <c>TIPO nombre(args);</c> de una superficie escrita a mano por nosotros. No es un parser de C
-    /// — no hay AST — y por eso su regla es fallar ante lo que no entiende (ver el test de arriba).
+    /// Parser deliberately scoped to the subset of C that these two headers use: declarations of the
+    /// form <c>TYPE name(args);</c> from a surface hand-written by us. It is not a C parser — there is
+    /// no AST — and that is why its rule is to fail on what it does not understand (see the test above).
     /// </summary>
     private static IReadOnlyDictionary<string, CFunction> ParseHeader(string text)
     {
-        // 1. Fuera comentarios de bloque (estos headers no usan `//`).
+        // 1. Strip block comments (these headers don't use `//`).
         text = Regex.Replace(text, @"/\*.*?\*/", " ", RegexOptions.Singleline);
 
-        // 2. Fuera las directivas de preprocesador, y fuera el bloque de test-hooks entero.
+        // 2. Strip the preprocessor directives, and strip the entire test-hooks block.
         StringBuilder sb = new();
         bool enTestHooks = false;
         foreach (string raw in text.Split('\n'))
@@ -269,17 +269,17 @@ public sealed class HeaderBindingParityTests
             }
         }
 
-        // 3. Una declaración por `;`.
+        // 3. One declaration per `;`.
         Dictionary<string, CFunction> functions = new(StringComparer.Ordinal);
         foreach (string rawStmt in sb.ToString().Split(';'))
         {
             string stmt = Regex.Replace(rawStmt, @"\s+", " ").Trim();
 
-            // Solo interesan las declaraciones del shim. Lo demás (typedef, `extern "C" {`, llaves
-            // sueltas) no menciona `weft_`. El filtro es a propósito más ancho que «una llamada a
-            // función»: cualquier declaración que mencione el prefijo tiene que ser entendida o
-            // reventar abajo — si exigiese `weft_…(` pegado, un puntero a función se colaría en
-            // silencio, que es justo el hueco que este archivo existe para impedir.
+            // Only the shim declarations matter. Everything else (typedef, `extern "C" {`, stray
+            // braces) does not mention `weft_`. The filter is deliberately wider than «a function
+            // call»: any declaration that mentions the prefix has to be understood or blow up below —
+            // if it required `weft_…(` glued together, a function pointer would slip through in
+            // silence, which is exactly the gap this file exists to prevent.
             if (!Regex.IsMatch(stmt, @"\bweft_[a-z0-9_]+"))
             {
                 continue;
@@ -316,8 +316,8 @@ public sealed class HeaderBindingParityTests
         List<string> types = [];
         foreach (string rawArg in trimmed.Split(','))
         {
-            // `const uint8_t* field` → tipo `const uint8_t*`, nombre `field`. El nombre se descarta:
-            // el contrato es posicional, no nominal.
+            // `const uint8_t* field` → type `const uint8_t*`, name `field`. The name is discarded:
+            // the contract is positional, not nominal.
             string arg = Normalize(rawArg);
             int lastSpace = arg.LastIndexOf(' ');
             types.Add(lastSpace < 0 ? arg : Normalize(arg[..lastSpace]));
@@ -326,11 +326,11 @@ public sealed class HeaderBindingParityTests
         return types;
     }
 
-    /// <summary>Colapsa espacios y pega los `*` al tipo: `uint8_t ** out` → `uint8_t** out`.</summary>
+    /// <summary>Collapses whitespace and glues the `*` to the type: `uint8_t ** out` → `uint8_t** out`.</summary>
     private static string Normalize(string s) =>
         Regex.Replace(Regex.Replace(s, @"\s+", " "), @"\s*(\*+)\s*", "$1 ").Trim();
 
-    // Localiza un archivo del repo subiendo desde el binario del test (mismo patrón que
+    // Locates a repo file by walking up from the test binary (same pattern as
     // DeterminismTests.DeterminismCorpusDir).
     private static string RepoPath(string relative)
     {

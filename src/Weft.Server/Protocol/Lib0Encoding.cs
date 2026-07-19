@@ -3,70 +3,70 @@ using System.Buffers;
 namespace Weft.Server.Protocol;
 
 /// <summary>
-/// Se lanza cuando un frame de red no respeta el formato lib0/y-sync esperado: varint truncado o
-/// sobredimensionado, longitud declarada mayor que los bytes disponibles, frame que excede el cap de
-/// tamaño, o bytes sobrantes tras un mensaje completo. El relay traduce esto a un cierre WebSocket 1002
-/// de la conexión afectada, sin impacto en los pares (edge case de spec, CHARTER-05).
+/// Thrown when a network frame does not respect the expected lib0/y-sync format: truncated or oversized
+/// varint, declared length larger than the available bytes, frame exceeding the size cap, or trailing bytes
+/// after a complete message. The relay translates this into a WebSocket 1002 close of the affected
+/// connection, with no impact on the peers (spec edge case, CHARTER-05).
 /// </summary>
 public sealed class MalformedMessageException : Exception
 {
-    /// <summary>Crea la excepción con un mensaje explícito.</summary>
+    /// <summary>Creates the exception with an explicit message.</summary>
     public MalformedMessageException(string message) : base(message) { }
 }
 
 /// <summary>
-/// Encoding lib0 (varint) compatible con <c>y-protocols</c>/<c>y-websocket</c> v1/v2. Provee el lector y el
-/// escritor de bajo nivel sobre los que se construye el framing y-sync (<see cref="SyncProtocol"/>).
+/// lib0 (varint) encoding compatible with <c>y-protocols</c>/<c>y-websocket</c> v1/v2. Provides the low-level
+/// reader and writer on top of which the y-sync framing (<see cref="SyncProtocol"/>) is built.
 /// </summary>
 /// <remarks>
 /// <para>
-/// El varint lib0 es un entero sin signo de ancho variable, grupos de 7 bits en orden little-endian, con el
-/// bit alto (<c>0x80</c>) como bandera de continuación. Un <c>VarUint8Array</c> es un varint de longitud
-/// seguido de esos bytes.
+/// The lib0 varint is a variable-width unsigned integer, groups of 7 bits in little-endian order, with the
+/// high bit (<c>0x80</c>) as the continuation flag. A <c>VarUint8Array</c> is a length varint followed by
+/// those bytes.
 /// </para>
 /// <para>
-/// <b>Frontera de confianza (P-I/P-II, FU-002 parte a).</b> Este es el primer punto que recibe bytes de red
-/// <b>no confiables</b>: antes de que cualquier update llegue al decoder de yrs (cuya amplificación de memoria
-/// es el DoS que describe FU-002). Dos guardas estructurales lo contienen: (1) el frame completo se rechaza si
-/// excede <see cref="DefaultMaxMessageBytes"/> (o el cap que pase el llamador) <b>antes</b> de parsear; y (2)
-/// <see cref="Lib0Reader.ReadVarUint8Array"/> nunca asigna ni avanza según una longitud declarada mayor que
-/// los bytes que realmente quedan — un prefijo mentiroso de pocos bytes no puede inducir una asignación
-/// gigante. Ambas fallan con <see cref="MalformedMessageException"/>, jamás con un abort.
+/// <b>Trust boundary (P-I/P-II, FU-002 part a).</b> This is the first point that receives <b>untrusted</b>
+/// network bytes: before any update reaches the yrs decoder (whose memory amplification is the DoS that
+/// FU-002 describes). Two structural guards contain it: (1) the whole frame is rejected if it exceeds
+/// <see cref="DefaultMaxMessageBytes"/> (or the cap the caller passes) <b>before</b> parsing; and (2)
+/// <see cref="Lib0Reader.ReadVarUint8Array"/> never allocates or advances based on a declared length larger
+/// than the bytes that actually remain — a lying prefix of a few bytes cannot induce a giant allocation.
+/// Both fail with <see cref="MalformedMessageException"/>, never with an abort.
 /// </para>
 /// </remarks>
 public static class Lib0Encoding
 {
     /// <summary>
-    /// Cap por defecto del tamaño de un frame WebSocket entrante (16 MiB). Configurable por el llamador:
-    /// documentos grandes legítimos consolidan vía snapshot; los updates incrementales en vivo son pequeños.
+    /// Default size cap of an incoming WebSocket frame (16 MiB). Configurable by the caller:
+    /// large legitimate documents consolidate via snapshot; live incremental updates are small.
     /// </summary>
     public const int DefaultMaxMessageBytes = 16 * 1024 * 1024;
 
     /// <summary>
-    /// Lector de bajo nivel sobre un frame en memoria. <c>ref struct</c>: los <see cref="ReadOnlySpan{T}"/>
-    /// que devuelve apuntan al buffer del frame (zero-copy), válidos mientras viva el frame de origen.
+    /// Low-level reader over an in-memory frame. <c>ref struct</c>: the <see cref="ReadOnlySpan{T}"/>
+    /// it returns point to the frame buffer (zero-copy), valid while the source frame lives.
     /// </summary>
     public ref struct Lib0Reader
     {
         private readonly ReadOnlySpan<byte> _buffer;
         private int _pos;
 
-        /// <summary>Crea un lector posicionado al inicio de <paramref name="buffer"/>.</summary>
+        /// <summary>Creates a reader positioned at the start of <paramref name="buffer"/>.</summary>
         public Lib0Reader(ReadOnlySpan<byte> buffer)
         {
             _buffer = buffer;
             _pos = 0;
         }
 
-        /// <summary>Bytes aún no consumidos.</summary>
+        /// <summary>Bytes not yet consumed.</summary>
         public readonly int Remaining => _buffer.Length - _pos;
 
-        /// <summary><c>true</c> si se consumió el frame completo.</summary>
+        /// <summary><c>true</c> if the whole frame was consumed.</summary>
         public readonly bool AtEnd => _pos >= _buffer.Length;
 
         /// <summary>
-        /// Lee un varint sin signo (hasta 32 bits). Falla si el varint se trunca al final del buffer o si
-        /// codifica un valor que no cabe en 32 bits (defensa contra prefijos degenerados).
+        /// Reads an unsigned varint (up to 32 bits). Fails if the varint is truncated at the end of the buffer
+        /// or if it encodes a value that does not fit in 32 bits (defense against degenerate prefixes).
         /// </summary>
         public uint ReadVarUint()
         {
@@ -80,8 +80,8 @@ public static class Lib0Encoding
                 }
 
                 byte b = _buffer[_pos++];
-                // Los grupos de 7 bits caben en 32 bits solo hasta shift=28 (5 bytes); el 5.º no debe aportar
-                // bits por encima del bit 31.
+                // The 7-bit groups fit in 32 bits only up to shift=28 (5 bytes); the 5th must not contribute
+                // bits above bit 31.
                 if (shift > 28 || (shift == 28 && (b & 0x7F) > 0x0F))
                 {
                     throw new MalformedMessageException("varint sobredimensionado: excede 32 bits.");
@@ -98,9 +98,9 @@ public static class Lib0Encoding
         }
 
         /// <summary>
-        /// Lee un bloque <c>VarUint8Array</c> (longitud varint + bytes) y devuelve una vista zero-copy de esos
-        /// bytes. <b>Guarda clave anti-DoS:</b> si la longitud declarada supera los bytes restantes, falla en
-        /// vez de intentar leer/asignar — un frame pequeño no puede reclamar un array gigante.
+        /// Reads a <c>VarUint8Array</c> block (varint length + bytes) and returns a zero-copy view of those
+        /// bytes. <b>Key anti-DoS guard:</b> if the declared length exceeds the remaining bytes, it fails
+        /// instead of trying to read/allocate — a small frame cannot claim a giant array.
         /// </summary>
         public ReadOnlySpan<byte> ReadVarUint8Array()
         {
@@ -118,27 +118,27 @@ public static class Lib0Encoding
     }
 
     /// <summary>
-    /// Escritor de bajo nivel con buffer creciente. El <see cref="System.Buffers.ArrayBufferWriter{T}"/>
-    /// subyacente amortiza las reasignaciones; <see cref="WrittenSpan"/>/<see cref="ToArray"/> exponen el
-    /// resultado. Un uso, un mensaje: no reutilizar entre frames.
+    /// Low-level writer with a growing buffer. The underlying <see cref="System.Buffers.ArrayBufferWriter{T}"/>
+    /// amortizes the reallocations; <see cref="WrittenSpan"/>/<see cref="ToArray"/> expose the
+    /// result. One use, one message: do not reuse across frames.
     /// </summary>
     public sealed class Lib0Writer
     {
         private readonly ArrayBufferWriter<byte> _writer = new();
 
-        /// <summary>Bytes escritos hasta el momento.</summary>
+        /// <summary>Bytes written so far.</summary>
         public int Length => _writer.WrittenCount;
 
-        /// <summary>Vista de los bytes escritos.</summary>
+        /// <summary>View of the written bytes.</summary>
         public ReadOnlySpan<byte> WrittenSpan => _writer.WrittenSpan;
 
-        /// <summary>Copia los bytes escritos en un nuevo array (el frame listo para enviar).</summary>
+        /// <summary>Copies the written bytes into a new array (the frame ready to send).</summary>
         public byte[] ToArray() => _writer.WrittenSpan.ToArray();
 
-        /// <summary>Escribe un varint sin signo (grupos de 7 bits little-endian, bit alto de continuación).</summary>
+        /// <summary>Writes an unsigned varint (little-endian 7-bit groups, high continuation bit).</summary>
         public void WriteVarUint(uint value)
         {
-            // A lo sumo 5 bytes para 32 bits.
+            // At most 5 bytes for 32 bits.
             Span<byte> tmp = stackalloc byte[5];
             int n = 0;
             while (value >= 0x80)
@@ -151,7 +151,7 @@ public static class Lib0Encoding
             _writer.Write(tmp[..n]);
         }
 
-        /// <summary>Escribe un bloque <c>VarUint8Array</c>: longitud varint seguida de los bytes.</summary>
+        /// <summary>Writes a <c>VarUint8Array</c> block: varint length followed by the bytes.</summary>
         public void WriteVarUint8Array(ReadOnlySpan<byte> bytes)
         {
             WriteVarUint((uint)bytes.Length);

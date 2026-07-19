@@ -4,10 +4,10 @@ using System.Runtime.InteropServices;
 
 namespace Weft.Loro.Interop;
 
-/// <summary>Resuelve el cdylib <c>weft_loro_ffi</c> por RID y verifica su ABI (igual que Weft.Yrs).</summary>
+/// <summary>Resolves the <c>weft_loro_ffi</c> cdylib per RID and verifies its ABI (same as Weft.Yrs).</summary>
 internal static class NativeLibraryResolver
 {
-    // ABI v2 (CHARTER-10): + probes de versionado nativo (INativeVersioning, FU-006).
+    // ABI v2 (CHARTER-10): + native versioning probes (INativeVersioning, FU-006).
     private const uint ExpectedAbiVersion = 3;
     private static int _registered;
 

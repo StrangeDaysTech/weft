@@ -1,15 +1,15 @@
 namespace Weft.Versioning.Blobs;
 
 /// <summary>
-/// Almacén content-addressed sobre el sistema de archivos (v1). Sharding <c>aa/bb/hash</c> para
-/// evitar directorios enormes; escritura atómica (temp + rename) para no dejar blobs a medias.
-/// Thread-safe: el content-addressing hace que dos escritores del mismo hash escriban lo mismo.
+/// Content-addressed store over the file system (v1). Sharding <c>aa/bb/hash</c> to
+/// avoid huge directories; atomic write (temp + rename) so blobs are never left half-written.
+/// Thread-safe: content-addressing means two writers of the same hash write the same thing.
 /// </summary>
 public sealed class FileSystemBlobStore : IBlobStore
 {
     private readonly string _root;
 
-    /// <summary>Crea el almacén enraizado en <paramref name="rootDirectory"/> (lo crea si no existe).</summary>
+    /// <summary>Creates the store rooted at <paramref name="rootDirectory"/> (creates it if it does not exist).</summary>
     public FileSystemBlobStore(string rootDirectory)
     {
         ArgumentException.ThrowIfNullOrEmpty(rootDirectory);
@@ -29,7 +29,7 @@ public sealed class FileSystemBlobStore : IBlobStore
         string path = PathFor(id);
         if (File.Exists(path))
         {
-            return; // idempotente (dedup por hash)
+            return; // idempotent (dedup by hash)
         }
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
@@ -37,8 +37,8 @@ public sealed class FileSystemBlobStore : IBlobStore
         await File.WriteAllBytesAsync(tmp, blob.ToArray(), ct).ConfigureAwait(false);
         try
         {
-            // Rename atómico dentro del mismo directorio; overwrite:false → si otro escritor ganó
-            // la carrera, ambos escribieron el MISMO contenido (content-addressed), así que da igual.
+            // Atomic rename within the same directory; overwrite:false → if another writer won
+            // the race, both wrote the SAME content (content-addressed), so it does not matter.
             File.Move(tmp, path, overwrite: false);
         }
         catch (IOException) when (File.Exists(path))

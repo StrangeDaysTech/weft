@@ -1,6 +1,6 @@
 namespace Weft.Versioning.Tests;
 
-/// <summary>Unit tests del diff LCS por palabras (T028): operaciones, determinismo, casos límite.</summary>
+/// <summary>Unit tests for the word-level LCS diff (T028): operations, determinism, edge cases.</summary>
 public sealed class TextDiffTests
 {
     [Fact]
@@ -26,7 +26,7 @@ public sealed class TextDiffTests
         Assert.True(diff.HasChanges);
         Assert.Contains(diff.Segments, s => s.Op == DiffOp.Deleted && s.Text.Contains("gato"));
         Assert.Contains(diff.Segments, s => s.Op == DiffOp.Inserted && s.Text.Contains("perro"));
-        // "el " y " duerme" permanecen iguales.
+        // "el " and " duerme" remain unchanged.
         Assert.Contains(diff.Segments, s => s.Op == DiffOp.Equal && s.Text.Contains("el"));
         Assert.Contains(diff.Segments, s => s.Op == DiffOp.Equal && s.Text.Contains("duerme"));
     }

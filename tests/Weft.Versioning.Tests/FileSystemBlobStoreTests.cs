@@ -4,9 +4,9 @@ using Weft.Versioning.Blobs;
 namespace Weft.Versioning.Tests;
 
 /// <summary>
-/// Cobertura directa de <see cref="FileSystemBlobStore"/> (FU-009 / T024): round-trip, ausencia,
-/// layout de sharding <c>aa/bb/hash</c>, idempotencia por content-addressing y limpieza de temporales.
-/// El content-addressing es puro (no depende de ningún motor): se prueba con blobs arbitrarios.
+/// Direct coverage of <see cref="FileSystemBlobStore"/> (FU-009 / T024): round-trip, absence,
+/// <c>aa/bb/hash</c> sharding layout, idempotency via content-addressing and cleanup of temporaries.
+/// Content-addressing is pure (it does not depend on any engine): it is tested with arbitrary blobs.
 /// </summary>
 public sealed class FileSystemBlobStoreTests : IDisposable
 {
@@ -63,7 +63,7 @@ public sealed class FileSystemBlobStoreTests : IDisposable
         (VersionId id, byte[] blob) = Blob("dedup por hash");
 
         await store.PutAsync(id, blob);
-        await store.PutAsync(id, blob); // no debe fallar (idempotente)
+        await store.PutAsync(id, blob); // must not fail (idempotent)
 
         string hex = id.ToString();
         string shardDir = Path.Combine(_root, hex[..2], hex[2..4]);

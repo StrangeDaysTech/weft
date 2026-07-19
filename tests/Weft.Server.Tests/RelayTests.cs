@@ -20,9 +20,9 @@ using Weft.Yrs;
 namespace Weft.Server.Tests;
 
 /// <summary>
-/// Tests de integración del relay end-to-end (T051): un <see cref="TestServer"/> hospeda el relay y clientes
-/// Yjs <b>simulados</b> (motor yrs real en ambos lados, hablando el wire y-sync vía <see cref="SyncProtocol"/>)
-/// se conectan por WebSocket. Cubre los criterios del Independent Test de US3.
+/// End-to-end relay integration tests (T051): a <see cref="TestServer"/> hosts the relay and <b>simulated</b>
+/// Yjs clients (real yrs engine on both sides, speaking the y-sync wire via <see cref="SyncProtocol"/>)
+/// connect over WebSocket. Covers the US3 Independent Test criteria.
 /// </summary>
 public sealed class RelayTests
 {
@@ -30,8 +30,8 @@ public sealed class RelayTests
 
     // ---------- Harness ----------
 
-    // Concede el acceso `fallback`, salvo que la conexión pida uno explícito por query (?access=ro|rw|deny) —
-    // esto permite mezclar un escritor ReadWrite y un lector ReadOnly sobre el mismo documento en un test.
+    // Grants the `fallback` access, unless the connection requests an explicit one via query (?access=ro|rw|deny) —
+    // this allows mixing a ReadWrite writer and a ReadOnly reader over the same document in one test.
     private sealed class FixedAuthorizer(WeftAccess fallback) : IWeftAuthorizer
     {
         public ValueTask<WeftAccess> AuthorizeAsync(HttpContext context, string docId, CancellationToken ct)
@@ -81,7 +81,7 @@ public sealed class RelayTests
         return await builder.StartAsync();
     }
 
-    /// <summary>Host del relay con async-dispose (el <c>IHost</c> concreto es IAsyncDisposable; el estático no).</summary>
+    /// <summary>Relay host with async-dispose (the concrete <c>IHost</c> is IAsyncDisposable; the static one is not).</summary>
     private sealed class RelayHost(IHost host) : IAsyncDisposable
     {
         public TestServer Server { get; } = host.GetTestServer();
@@ -107,9 +107,9 @@ public sealed class RelayTests
         DurabilityMode durability = DurabilityMode.PersistThenBroadcast)
         => new RelayHost(await BuildHostAsync(access, store, blobs, durability));
 
-    // El timeout es una cota SUPERIOR generosa para absorber la contención del runner de CI (p. ej. macOS
-    // lento), NO el objetivo de latencia de convergencia de US3 (SC-005 <1 s); la convergencia real es
-    // sub-segundo (verificada por el check headless y las corridas locales).
+    // The timeout is a generous UPPER bound to absorb CI runner contention (e.g. slow macOS),
+    // NOT the US3 convergence latency target (SC-005 <1 s); actual convergence is
+    // sub-second (verified by the headless check and local runs).
     private static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();
@@ -136,7 +136,7 @@ public sealed class RelayTests
         return SyncProtocol.EncodeAwareness(inner.WrittenSpan);
     }
 
-    /// <summary>Cliente Yjs simulado: WebSocket + un doc yrs real, hablando y-sync.</summary>
+    /// <summary>Simulated Yjs client: WebSocket + a real yrs doc, speaking y-sync.</summary>
     private sealed class YClient : IAsyncDisposable
     {
         private readonly WebSocket _ws;
@@ -163,7 +163,7 @@ public sealed class RelayTests
             string query = access is null ? "" : $"?access={access}";
             WebSocket ws = await wsc.ConnectAsync(new Uri(server.BaseAddress, $"collab/{docId}{query}"), ct);
             var client = new YClient(ws);
-            // Sync inicial: anunciamos nuestro state vector (tras sembrar el estado previo, si lo hay).
+            // Initial sync: we announce our state vector (after seeding the prior state, if any).
             byte[] sv;
             lock (client._docLock)
             {
@@ -189,7 +189,7 @@ public sealed class RelayTests
             lock (_docLock) { return _doc.ExportState(); }
         }
 
-        /// <summary>Edita localmente y difunde el delta al servidor.</summary>
+        /// <summary>Edits locally and broadcasts the delta to the server.</summary>
         public async Task EditAsync(int index, string text, CancellationToken ct = default)
         {
             byte[] delta;
@@ -203,7 +203,7 @@ public sealed class RelayTests
             await SendAsync(SyncProtocol.EncodeUpdate(delta), ct);
         }
 
-        /// <summary>Envía un estado/update crudo como mensaje Update (sin aplicarlo localmente).</summary>
+        /// <summary>Sends a raw state/update as an Update message (without applying it locally).</summary>
         public Task SendUpdateAsync(byte[] update, CancellationToken ct = default)
             => SendAsync(SyncProtocol.EncodeUpdate(update), ct);
 
@@ -350,20 +350,20 @@ public sealed class RelayTests
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore());
         TestServer server = relay.Server;
 
-        // Un cliente construye un documento grande y capturamos su estado.
+        // A client builds a large document and we capture its state.
         await using YClient writer = await YClient.ConnectAsync(server, "doc");
         await writer.EditAsync(0, new string('x', 20_000));
         byte[] fullState = writer.ExportState();
 
-        // Cliente FRESCO (SV vacío): el servidor le envía el estado completo (≫20 KB).
+        // FRESH client (empty SV): the server sends it the full state (≫20 KB).
         await using YClient fresh = await YClient.ConnectAsync(server, "doc");
         Assert.True(await WaitUntilAsync(() => fresh.Text().Length == 20_000, TimeSpan.FromSeconds(5)),
             $"fresh no sincronizó: len={fresh.Text().Length}");
         Assert.True(fresh.BytesReceived > 20_000, $"fresh={fresh.BytesReceived}");
 
-        // Cliente AL DÍA (sembrado con el estado → SV completo): el servidor no tiene nada nuevo que enviarle.
+        // UP-TO-DATE client (seeded with the state → full SV): the server has nothing new to send it.
         await using YClient upToDate = await YClient.ConnectAsync(server, "doc", seedState: fullState);
-        await Task.Delay(150); // deja llegar el sync inicial
+        await Task.Delay(150); // let the initial sync arrive
         Assert.True(upToDate.BytesReceived * 4 < fresh.BytesReceived,
             $"upToDate={upToDate.BytesReceived} fresh={fresh.BytesReceived} (delta en reconexión ≪ estado completo)");
     }
@@ -373,7 +373,7 @@ public sealed class RelayTests
     {
         await using RelayHost relay = await StartRelayAsync(WeftAccess.Deny, new InMemoryDocumentStore());
         TestServer server = relay.Server;
-        // 403 antes del upgrade → la conexión WebSocket se rechaza (0 bytes de contenido).
+        // 403 before the upgrade → the WebSocket connection is rejected (0 bytes of content).
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
             await using YClient _ = await YClient.ConnectAsync(server, "doc");
@@ -383,21 +383,21 @@ public sealed class RelayTests
     [Fact]
     public async Task ReadOnly_client_receives_updates_survives_handshake_but_closes_on_write()
     {
-        // Regresión de F1 (auditoría CHARTER-05): el ReadOnly no debe cerrarse por el SyncStep2 del handshake,
-        // solo por un Update en vivo. Sin el fix, el lector se cierra durante el handshake y este test falla.
+        // F1 regression (CHARTER-05 audit): the ReadOnly client must not close due to the handshake SyncStep2,
+        // only due to a live Update. Without the fix, the reader closes during the handshake and this test fails.
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore());
         TestServer server = relay.Server;
 
         await using YClient writer = await YClient.ConnectAsync(server, "doc");                 // ReadWrite (default)
         await using YClient reader = await YClient.ConnectAsync(server, "doc", access: "ro");   // ReadOnly
 
-        // El lector sobrevive el handshake (su SyncStep2 se ignora, no lo cierra) y recibe el update del escritor.
+        // The reader survives the handshake (its SyncStep2 is ignored, does not close it) and receives the writer's update.
         await writer.EditAsync(0, "shared");
         Assert.True(await WaitUntilAsync(() => reader.Text() == "shared", TimeSpan.FromSeconds(5)),
             $"el lector ReadOnly no recibió el update: text='{reader.Text()}' close={reader.CloseStatus}");
-        Assert.Null(reader.CloseStatus); // sigue conectado tras recibir updates
+        Assert.Null(reader.CloseStatus); // still connected after receiving updates
 
-        // Pero si el lector intenta escribir (Update en vivo), se cierra con 1008.
+        // But if the reader tries to write (live Update), it closes with 1008.
         await reader.EditAsync(0, "nope");
         Assert.True(await WaitUntilAsync(
             () => reader.CloseStatus == WebSocketCloseStatus.PolicyViolation, TimeSpan.FromSeconds(5)),
@@ -412,20 +412,20 @@ public sealed class RelayTests
         await using YClient observer = await YClient.ConnectAsync(server, "doc");
         YClient presence = await YClient.ConnectAsync(server, "doc");
 
-        // Liveness: una edición converge en observer → ambas conexiones están unidas al hub antes de difundir
-        // awareness (evita la carrera "observer aún no está en el hub" al hacer el broadcast).
+        // Liveness: one edit converges on observer → both connections are joined to the hub before broadcasting
+        // awareness (avoids the "observer not yet in the hub" race when broadcasting).
         await presence.EditAsync(0, "x");
         Assert.True(await WaitUntilAsync(() => observer.Text() == "x", TimeSpan.FromSeconds(5)));
 
         const uint clientId = 4242;
         await presence.SendAwarenessAsync(AwarenessUpdate(clientId, 1, "{\"user\":\"A\"}"));
 
-        // El observador ve el estado de awareness del par.
+        // The observer sees the peer's awareness state.
         Assert.True(await WaitUntilAsync(
             () => observer.AwarenessReceived.Any(p => AwarenessHasClient(p, clientId, requireNull: false)),
             TimeSpan.FromSeconds(5)));
 
-        // Al desconectar el par, el observador recibe la RETIRADA (estado "null" para su clientID).
+        // When the peer disconnects, the observer receives the WITHDRAWAL ("null" state for its clientID).
         await presence.DisposeAsync();
         Assert.True(await WaitUntilAsync(
             () => observer.AwarenessReceived.Any(p => AwarenessHasClient(p, clientId, requireNull: true)),
@@ -435,25 +435,25 @@ public sealed class RelayTests
     [Fact]
     public async Task Awareness_with_zero_clock_for_new_client_does_not_crash()
     {
-        // Regresión de F2 (auditoría CHARTER-05): un awareness con clock 0 para un clientID nuevo no debe
-        // lanzar KeyNotFoundException en TrackClients (que faultearía la conexión). Se prueba por SUPERVIVENCIA
-        // (una edición posterior al awareness aún se relaya), evitando la carrera de "observer aún no está en
-        // el hub" con una barrera de liveness previa.
+        // F2 regression (CHARTER-05 audit): an awareness with clock 0 for a new clientID must not
+        // throw KeyNotFoundException in TrackClients (which would fault the connection). It is tested by SURVIVAL
+        // (an edit after the awareness is still relayed), avoiding the "observer not yet in the
+        // hub" race with a prior liveness barrier.
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore());
         TestServer server = relay.Server;
         await using YClient observer = await YClient.ConnectAsync(server, "doc");
         await using YClient presence = await YClient.ConnectAsync(server, "doc");
 
-        // Liveness: una edición de presence converge en observer → ambas conexiones vivas y unidas al hub.
+        // Liveness: an edit from presence converges on observer → both connections alive and joined to the hub.
         await presence.EditAsync(0, "live");
         Assert.True(await WaitUntilAsync(() => observer.Text() == "live", TimeSpan.FromSeconds(5)),
             $"no se estableció liveness: observer='{observer.Text()}'");
 
-        // Awareness con clock 0 para un clientID nuevo (común en el primer awareness de un cliente Yjs).
+        // Awareness with clock 0 for a new clientID (common in a Yjs client's first awareness).
         await presence.SendAwarenessAsync(AwarenessUpdate(777, 0, "{\"user\":\"Z\"}"));
 
-        // La conexión de presence SIGUE viva tras el awareness clock-0: una edición posterior aún se relaya
-        // (sin el fix, TrackClients habría lanzado y faulteado la conexión → esta edición nunca llegaría).
+        // The presence connection is STILL alive after the clock-0 awareness: a later edit is still relayed
+        // (without the fix, TrackClients would have thrown and faulted the connection → this edit would never arrive).
         await presence.EditAsync(4, " more");
         Assert.True(await WaitUntilAsync(() => observer.Text() == "live more", TimeSpan.FromSeconds(5)),
             $"presence dejó de relayar tras el awareness clock-0 (¿crasheó?): observer='{observer.Text()}' close={presence.CloseStatus}");
@@ -463,7 +463,7 @@ public sealed class RelayTests
     [Fact]
     public async Task State_survives_a_server_restart()
     {
-        var store = new InMemoryDocumentStore(); // el store durable sobrevive al "reinicio" del proceso
+        var store = new InMemoryDocumentStore(); // the durable store survives the process "restart"
 
         await using (RelayHost r1 = await StartRelayAsync(WeftAccess.ReadWrite, store))
         {
@@ -472,7 +472,7 @@ public sealed class RelayTests
             await c1.EditAsync(0, "durable");
             await using YClient c2 = await YClient.ConnectAsync(s1, "doc");
             Assert.True(await WaitUntilAsync(() => c2.Text() == "durable", TimeSpan.FromSeconds(5)));
-        } // r1.DisposeAsync consolida el snapshot en el store (WeftServer.DisposeAsync)
+        } // r1.DisposeAsync consolidates the snapshot into the store (WeftServer.DisposeAsync)
 
         await using RelayHost r2 = await StartRelayAsync(WeftAccess.ReadWrite, store);
         TestServer s2 = r2.Server;
@@ -486,20 +486,20 @@ public sealed class RelayTests
     {
         var blobs = new InMemoryBlobStore();
 
-        // Publicación local del mismo contenido.
+        // Local publish of the same content.
         using ICrdtDoc local = YrsEngine.Instance.CreateDoc();
         local.InsertText(Field, 0, "content-addressed parity");
         byte[] localState = local.ExportState();
         var versionStore = new VersionStore(YrsEngine.Instance, blobs);
         VersionId localId = await versionStore.PublishAsync(local);
 
-        // El servidor recibe exactamente el mismo estado y publica.
+        // The server receives exactly the same state and publishes.
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, new InMemoryDocumentStore(), blobs);
         TestServer server = relay.Server;
         await using YClient c = await YClient.ConnectAsync(server, "doc");
         await c.SendUpdateAsync(localState);
 
-        // Esperar a que el servidor aplique el estado (un 2.º cliente converge → el actor ya lo procesó).
+        // Wait for the server to apply the state (a 2nd client converges → the actor already processed it).
         await using YClient probe = await YClient.ConnectAsync(server, "doc");
         Assert.True(await WaitUntilAsync(
             () => probe.Text() == "content-addressed parity", TimeSpan.FromSeconds(5)));
@@ -510,7 +510,7 @@ public sealed class RelayTests
         Assert.Equal(localId, serverId);
     }
 
-    // awarenessPayload = el payload interno de un mensaje Awareness (lo que el cliente guarda en Dispatch).
+    // awarenessPayload = the inner payload of an Awareness message (what the client stores in Dispatch).
     private static bool AwarenessHasClient(byte[] awarenessPayload, uint clientId, bool requireNull)
     {
         try
@@ -534,13 +534,13 @@ public sealed class RelayTests
         return false;
     }
 
-    // ---------- Durabilidad del relay (FU-010, CHARTER-14) ----------
+    // ---------- Relay durability (FU-010, CHARTER-14) ----------
 
     /// <summary>
-    /// Store de control para los tests de durabilidad. Cada conexión dispara un append en el handshake
-    /// (SyncStep2), así que fallar/bloquear por número de llamada es frágil; en su lugar se «arma» el
-    /// próximo append cuando el test lo decide (tras conectar los clientes), para que solo la edición de
-    /// interés falle o se bloquee.
+    /// Control store for the durability tests. Each connection triggers an append in the handshake
+    /// (SyncStep2), so failing/blocking by call number is fragile; instead the next append is "armed"
+    /// when the test decides (after connecting the clients), so that only the edit of
+    /// interest fails or blocks.
     /// </summary>
     private sealed class ControllableAppendStore(IDocumentStore inner) : IDocumentStore
     {
@@ -550,10 +550,10 @@ public sealed class RelayTests
 
         public int AppendCount => Volatile.Read(ref _appends);
 
-        /// <summary>El PRÓXIMO append lanzará una vez.</summary>
+        /// <summary>The NEXT append will throw once.</summary>
         public void ArmFailure() => Interlocked.Exchange(ref _failNext, 1);
 
-        /// <summary>Los appends a partir de ahora se bloquean hasta <see cref="Release"/>.</summary>
+        /// <summary>Appends from now on block until <see cref="Release"/>.</summary>
         public void ArmGate() => _gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Release() => _gate?.TrySetResult();
@@ -583,7 +583,7 @@ public sealed class RelayTests
             => inner.SaveSnapshotAsync(docId, state, ct);
     }
 
-    // Espera a que los appends del handshake de las conexiones se asienten (dejen de crecer) antes de armar.
+    // Waits for the connections' handshake appends to settle (stop growing) before arming.
     private static async Task SettleAsync(ControllableAppendStore store)
     {
         int last = -1;
@@ -604,11 +604,11 @@ public sealed class RelayTests
         await using YClient b = await YClient.ConnectAsync(server, "doc");
 
         await SettleAsync(store);
-        store.ArmFailure(); // el próximo append (la edición de a) falla
+        store.ArmFailure(); // the next append (a's edit) fails
         await a.EditAsync(0, "no debe verse");
 
-        // El par b NUNCA recibe el delta (persist-before-broadcast: el broadcast no ocurrió), y la conexión
-        // emisora se cierra con 1011 InternalError.
+        // Peer b NEVER receives the delta (persist-before-broadcast: the broadcast did not happen), and the
+        // sending connection closes with 1011 InternalError.
         bool aClosed = await WaitUntilAsync(
             () => a.CloseStatus == WebSocketCloseStatus.InternalServerError, TimeSpan.FromSeconds(5));
         Assert.True(aClosed, $"a.CloseStatus={a.CloseStatus}");
@@ -622,8 +622,8 @@ public sealed class RelayTests
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, store);
         TestServer server = relay.Server;
 
-        // El primer cliente edita; su append falla → la edición queda en el doc vivo del servidor pero no
-        // se difundió, y su conexión se cerró.
+        // The first client edits; its append fails → the edit stays in the server's live doc but was not
+        // broadcast, and its connection closed.
         await using (YClient a = await YClient.ConnectAsync(server, "doc"))
         {
             await SettleAsync(store);
@@ -632,7 +632,7 @@ public sealed class RelayTests
             await WaitUntilAsync(() => a.CloseStatus is not null, TimeSpan.FromSeconds(5));
         }
 
-        // Un cliente que reconecta recibe el estado vivo del servidor (autoritativo) vía el handshake.
+        // A reconnecting client receives the server's live (authoritative) state via the handshake.
         await using YClient c = await YClient.ConnectAsync(server, "doc");
         bool resynced = await WaitUntilAsync(() => c.Text() == "vivo", TimeSpan.FromSeconds(5));
         Assert.True(resynced, $"c='{c.Text()}'");
@@ -641,8 +641,8 @@ public sealed class RelayTests
     [Fact]
     public async Task BroadcastThenPersist_difunde_antes_de_que_el_append_confirme()
     {
-        // El modo heredado difunde SIN esperar al append: con el append bloqueado, el par recibe la edición
-        // antes de liberar la persistencia.
+        // The legacy mode broadcasts WITHOUT waiting for the append: with the append blocked, the peer receives the edit
+        // before releasing persistence.
         var store = new ControllableAppendStore(new InMemoryDocumentStore());
         await using RelayHost relay = await StartRelayAsync(
             WeftAccess.ReadWrite, store, durability: DurabilityMode.BroadcastThenPersist);
@@ -651,7 +651,7 @@ public sealed class RelayTests
         await using YClient b = await YClient.ConnectAsync(server, "doc");
 
         await SettleAsync(store);
-        store.ArmGate(); // el próximo append (la edición) se bloquea
+        store.ArmGate(); // the next append (the edit) blocks
         await a.EditAsync(0, "rápido");
 
         bool sawBeforePersist = await WaitUntilAsync(() => b.Text() == "rápido", TimeSpan.FromSeconds(5));
@@ -663,7 +663,7 @@ public sealed class RelayTests
     [Fact]
     public async Task PersistThenBroadcast_no_difunde_hasta_que_el_append_confirme()
     {
-        // Testigo de orden del default: con el append bloqueado, el par NO ve la edición hasta liberarlo.
+        // Ordering witness for the default: with the append blocked, the peer does NOT see the edit until it is released.
         var store = new ControllableAppendStore(new InMemoryDocumentStore());
         await using RelayHost relay = await StartRelayAsync(WeftAccess.ReadWrite, store);
         TestServer server = relay.Server;
@@ -674,11 +674,11 @@ public sealed class RelayTests
         store.ArmGate();
         await a.EditAsync(0, "durable");
 
-        // Mientras el append está bloqueado, el par no debe ver nada.
+        // While the append is blocked, the peer must not see anything.
         bool leakedEarly = await WaitUntilAsync(() => b.Text() == "durable", TimeSpan.FromMilliseconds(400));
         Assert.False(leakedEarly, "persist-before-broadcast NO debe difundir antes de que el append confirme");
 
-        // Al liberar el append, converge.
+        // On releasing the append, it converges.
         store.Release();
         bool converged = await WaitUntilAsync(() => b.Text() == "durable", TimeSpan.FromSeconds(5));
         Assert.True(converged, $"b='{b.Text()}'");

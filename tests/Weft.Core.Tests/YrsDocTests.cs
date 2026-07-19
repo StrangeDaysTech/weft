@@ -4,8 +4,8 @@ using Weft.Yrs;
 namespace Weft.Core.Tests;
 
 /// <summary>
-/// Unit tests del binding yrs (T018): round-trip byte-idéntico, mapeo de errores tipificados,
-/// semántica de dispose y buffers vacíos.
+/// Unit tests for the yrs binding (T018): byte-identical round-trip, typed error mapping,
+/// dispose semantics and empty buffers.
 /// </summary>
 public sealed class YrsDocTests
 {
@@ -31,7 +31,7 @@ public sealed class YrsDocTests
     {
         using ICrdtDoc doc = Engine.CreateDoc();
         doc.InsertText("body", 0, "Hola mundo");
-        doc.DeleteText("body", 4, 6); // borra " mundo"
+        doc.DeleteText("body", 4, 6); // deletes " mundo"
         Assert.Equal("Hola", doc.GetText("body"));
     }
 
@@ -43,7 +43,7 @@ public sealed class YrsDocTests
         byte[] blob = doc.ExportState();
 
         using ICrdtDoc reloaded = Engine.LoadDoc(blob);
-        Assert.Equal(blob, reloaded.ExportState());      // byte-idéntico (P-III)
+        Assert.Equal(blob, reloaded.ExportState());      // byte-identical (P-III)
         Assert.Equal("contenido áéí", reloaded.GetText("body"));
     }
 
@@ -86,7 +86,7 @@ public sealed class YrsDocTests
     public void Out_of_range_index_throws_argument_out_of_range()
     {
         using ICrdtDoc doc = Engine.CreateDoc();
-        // Índice válido para C# (>= 0) pero fuera de rango en el motor → OUT_OF_BOUNDS.
+        // Index valid for C# (>= 0) but out of range in the engine → OUT_OF_BOUNDS.
         Assert.Throws<ArgumentOutOfRangeException>(() => doc.InsertText("body", 5, "x"));
     }
 

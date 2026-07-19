@@ -1,6 +1,6 @@
 namespace Weft.Loro.Interop;
 
-/// <summary>Traduce un código de estado del shim Loro a la excepción idiomática (mismo mapeo que Weft.Yrs).</summary>
+/// <summary>Translates a status code from the Loro shim into the idiomatic exception (same mapping as Weft.Yrs).</summary>
 internal static class FfiStatus
 {
     internal static void ThrowIfError(int rc)

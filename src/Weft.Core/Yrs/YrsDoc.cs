@@ -4,9 +4,9 @@ using System.Text;
 namespace Weft.Yrs;
 
 /// <summary>
-/// Documento CRDT respaldado por yrs. Envoltorio gestionado sobre <see cref="DocHandle"/> que
-/// esconde punteros, longitudes y liberación manual. NO es thread-safe (constitución P-V): el dueño
-/// serializa el acceso; el <c>DocumentBroker</c> (M1) lo garantiza para acceso compartido.
+/// CRDT document backed by yrs. Managed wrapper over <see cref="DocHandle"/> that
+/// hides pointers, lengths and manual freeing. NOT thread-safe (constitution P-V): the owner
+/// serializes access; the <c>DocumentBroker</c> (M1) guarantees it for shared access.
 /// </summary>
 internal sealed class YrsDoc : ICrdtDoc
 {
@@ -23,9 +23,9 @@ internal sealed class YrsDoc : ICrdtDoc
     }
 
     /// <summary>
-    /// Crea un doc con un <paramref name="clientId"/> FIJO (siembra determinista para paridad
-    /// cross-implementación con Yjs; FU-012). Debe caber en 53 bits (encoding de yrs 0.26+);
-    /// un valor mayor lanza vía <c>WEFT_ERR_OUT_OF_BOUNDS</c>.
+    /// Creates a doc with a FIXED <paramref name="clientId"/> (deterministic seeding for
+    /// cross-implementation parity with Yjs; FU-012). Must fit in 53 bits (yrs 0.26+ encoding);
+    /// a larger value throws via <c>WEFT_ERR_OUT_OF_BOUNDS</c>.
     /// </summary>
     internal static YrsDoc Create(ulong clientId)
     {
@@ -112,9 +112,9 @@ internal sealed class YrsDoc : ICrdtDoc
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
 
     /// <summary>
-    /// Copia un buffer cuya memoria pertenece a Rust a un <c>byte[]</c> gestionado y lo devuelve a
-    /// Rust con <c>weft_buf_free</c>. Punto exacto del contrato de ownership (P-I): el GC jamás
-    /// toca esa memoria.
+    /// Copies a buffer whose memory belongs to Rust into a managed <c>byte[]</c> and returns it to
+    /// Rust with <c>weft_buf_free</c>. The exact point of the ownership contract (P-I): the GC never
+    /// touches that memory.
     /// </summary>
     private static byte[] TakeOwnedBuffer(nint ptr, nuint len)
     {

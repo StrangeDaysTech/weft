@@ -1,9 +1,9 @@
 namespace Weft.Yrs;
 
 /// <summary>
-/// Traduce un código de estado <c>i32</c> del shim a la excepción idiomática correspondiente
-/// (mapeo de <c>contracts/ffi-abi.md</c>). Centralizado para que el mapeo sea verificable
-/// end-to-end (p. ej. la ruta de panic, SC-009).
+/// Translates an <c>i32</c> status code from the shim into the corresponding idiomatic exception
+/// (mapping from <c>contracts/ffi-abi.md</c>). Centralized so the mapping is verifiable
+/// end-to-end (e.g. the panic path, SC-009).
 /// </summary>
 internal static class FfiStatus
 {
@@ -13,7 +13,7 @@ internal static class FfiStatus
         {
             case 0: // WEFT_OK
                 return;
-            case -1: // NULL_ARG — defensa; la capa C# valida antes de cruzar
+            case -1: // NULL_ARG — defense; the C# layer validates before crossing
                 throw new WeftException("Argumento nulo inesperado en la frontera FFI.");
             case -2: // DECODE
                 throw new CorruptUpdateException();

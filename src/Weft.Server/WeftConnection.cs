@@ -7,10 +7,10 @@ using Weft.Server.Protocol;
 namespace Weft.Server;
 
 /// <summary>
-/// Una conexión WebSocket de un cliente a un documento. Corre un <b>send pump</b> (drena una cola de envío
-/// acotada → el socket) y un <b>receive loop</b> (decodifica frames y-sync, aplica el enforcement de
-/// autorización y los límites por conexión, y despacha sync/awareness). Aislada: un fallo de esta conexión no
-/// afecta a los pares (el broadcast del hub aísla cada envío).
+/// A client's WebSocket connection to a document. Runs a <b>send pump</b> (drains a bounded send queue
+/// → the socket) and a <b>receive loop</b> (decodes y-sync frames, applies the authorization enforcement
+/// and the per-connection limits, and dispatches sync/awareness). Isolated: a failure of this connection does not
+/// affect the peers (the hub's broadcast isolates each send).
 /// </summary>
 internal sealed class WeftConnection
 {
@@ -29,22 +29,22 @@ internal sealed class WeftConnection
         _sendQueue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(options.MaxSendQueuePerConnection)
         {
             SingleReader = true,
-            FullMode = BoundedChannelFullMode.Wait, // usamos TryWrite: 'lleno' ⇒ se cierra la conexión (backpressure)
+            FullMode = BoundedChannelFullMode.Wait, // we use TryWrite: 'full' ⇒ the connection is closed (backpressure)
         });
     }
 
-    /// <summary>Nivel de acceso concedido en el handshake.</summary>
+    /// <summary>Access level granted in the handshake.</summary>
     public WeftAccess Access { get; }
 
-    /// <summary>clientIDs de awareness anunciados por esta conexión (para la retirada al cerrar, FR-015).</summary>
+    /// <summary>Awareness clientIDs announced by this connection (for the removal on close, FR-015).</summary>
     public IReadOnlyDictionary<uint, uint> AwarenessClients => _awarenessClients;
 
-    /// <summary>Pide el cierre de la conexión (p. ej. desde <c>DisconnectAllAsync</c>). No bloquea.</summary>
+    /// <summary>Requests the close of the connection (e.g. from <c>DisconnectAllAsync</c>). Non-blocking.</summary>
     public void RequestClose() => _cts.Cancel();
 
     /// <summary>
-    /// Encola un frame para envío. No bloquea (se llama desde el turno del actor durante el broadcast). Si la
-    /// cola está llena (consumidor lento, FU-002 parte b), devuelve <c>false</c> y la conexión se cierra.
+    /// Enqueues a frame for sending. Non-blocking (called from the actor turn during the broadcast). If the
+    /// queue is full (slow consumer, FU-002 part b), returns <c>false</c> and the connection is closed.
     /// </summary>
     public bool TryEnqueue(byte[] frame)
     {
@@ -53,14 +53,14 @@ internal sealed class WeftConnection
             return true;
         }
 
-        // Backpressure: descartar el consumidor lento en vez de crecer memoria; reconectará y re-sincronizará.
+        // Backpressure: drop the slow consumer instead of growing memory; it will reconnect and re-sync.
         _cts.Cancel();
         return false;
     }
 
     /// <summary>
-    /// Corre la conexión hasta que cierra: arranca el send pump, envía el <c>SyncStep1</c> inicial y drena el
-    /// receive loop. Al terminar, completa la cola de envío.
+    /// Runs the connection until it closes: starts the send pump, sends the initial <c>SyncStep1</c> and drains the
+    /// receive loop. On finishing, completes the send queue.
     /// </summary>
     public async Task RunAsync(DocumentHub hub, CancellationToken ct)
     {
@@ -69,19 +69,19 @@ internal sealed class WeftConnection
 
         try
         {
-            // Sync inicial (servidor→cliente): "esto conozco". El cliente responde su SyncStep1, que el receive
-            // loop contesta con SyncStep2 (delta) — sync incremental en ambas direcciones.
+            // Initial sync (server→client): "here's what I know". The client responds with its SyncStep1, which the
+            // receive loop answers with SyncStep2 (delta) — incremental sync in both directions.
             byte[] serverSv = await hub.Session.ExportStateVectorAsync(_cts.Token).ConfigureAwait(false);
             TryEnqueue(SyncProtocol.EncodeSyncStep1(serverSv));
 
             await ReceiveLoopAsync(hub, _cts.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { /* cierre normal */ }
-        catch (WebSocketException) { /* socket cortado por el par: cierre normal */ }
+        catch (OperationCanceledException) { /* normal close */ }
+        catch (WebSocketException) { /* socket cut by the peer: normal close */ }
         finally
         {
             _sendQueue.Writer.TryComplete();
-            try { await pump.ConfigureAwait(false); } catch { /* pump ya en cierre */ }
+            try { await pump.ConfigureAwait(false); } catch { /* pump already closing */ }
         }
     }
 
@@ -97,20 +97,20 @@ internal sealed class WeftConnection
 
             if (type != WebSocketMessageType.Binary)
             {
-                continue; // el protocolo y-sync es binario; se ignora texto/ping
+                continue; // the y-sync protocol is binary; text/ping is ignored
             }
 
             if (!await DispatchAsync(hub, data, ct).ConfigureAwait(false))
             {
-                return; // dispatch pidió cerrar (malformado 1002 / read-only 1008)
+                return; // dispatch requested close (malformed 1002 / read-only 1008)
             }
         }
     }
 
-    // Aplica+persiste+difunde un update; si la PERSISTENCIA falla, cierra esta conexión con 1011. En
-    // persist-before-broadcast el hub ya cerró todas las conexiones del documento (DisconnectAll) para
-    // forzar el re-sync autoritativo; aquí solo se traduce el fallo a un cierre limpio. Cancelación y
-    // socket cortado se dejan propagar (los maneja RunAsync como cierre normal).
+    // Applies+persists+broadcasts an update; if PERSISTENCE fails, closes this connection with 1011. In
+    // persist-before-broadcast the hub already closed all the document's connections (DisconnectAll) to
+    // force the authoritative re-sync; here the failure is only translated into a clean close. Cancellation and
+    // a cut socket are allowed to propagate (RunAsync handles them as a normal close).
     private async Task<bool> ApplyOrCloseAsync(DocumentHub hub, byte[] payload, CancellationToken ct)
     {
         try
@@ -136,7 +136,7 @@ internal sealed class WeftConnection
 
     private async Task<bool> DispatchAsync(DocumentHub hub, byte[] frame, CancellationToken ct)
     {
-        // SyncMessage es un ref struct (span sobre el frame): se extraen tipo+payload a locales ANTES de await.
+        // SyncMessage is a ref struct (span over the frame): type+payload are extracted to locals BEFORE await.
         MessageType type;
         SyncMessageType syncType;
         byte[] payload;
@@ -156,17 +156,17 @@ internal sealed class WeftConnection
         switch (type)
         {
             case MessageType.Sync when syncType == SyncMessageType.Step1:
-                // El cliente anuncia su state vector → responder el delta que le falta.
+                // The client announces its state vector → respond with the delta it is missing.
                 byte[] delta = await hub.Session.ExportUpdateSinceAsync(payload, ct).ConfigureAwait(false);
                 TryEnqueue(SyncProtocol.EncodeSyncStep2(delta));
                 return true;
 
             case MessageType.Sync when syncType == SyncMessageType.Step2:
-                // SyncStep2 = respuesta del handshake al SyncStep1 del servidor (parte del protocolo y-sync, no
-                // una edición deliberada). Una conexión ReadWrite lo aplica (aporta su estado inicial); una
-                // ReadOnly lo IGNORA (no contribuye estado, pero NO se cierra: cerrar aquí rompería el handshake
-                // y-websocket estándar y dejaría ReadOnly inusable con clientes Yjs — el enforcement de escritura
-                // es solo para Update en vivo, FR-019).
+                // SyncStep2 = the handshake's response to the server's SyncStep1 (part of the y-sync protocol, not
+                // a deliberate edit). A ReadWrite connection applies it (contributes its initial state); a
+                // ReadOnly one IGNORES it (contributes no state, but is NOT closed: closing here would break the
+                // standard y-websocket handshake and leave ReadOnly unusable with Yjs clients — the write
+                // enforcement is only for live Update, FR-019).
                 if (Access == WeftAccess.ReadWrite)
                 {
                     return await ApplyOrCloseAsync(hub, payload, ct).ConfigureAwait(false);
@@ -174,7 +174,7 @@ internal sealed class WeftConnection
 
                 return true;
 
-            case MessageType.Sync: // Update (subtipo 2): edición de documento en vivo.
+            case MessageType.Sync: // Update (sub-type 2): live document edit.
                 if (Access != WeftAccess.ReadWrite)
                 {
                     await CloseAsync(WebSocketCloseStatus.PolicyViolation, "read-only connection", ct) // 1008
@@ -186,7 +186,7 @@ internal sealed class WeftConnection
 
             case MessageType.Awareness:
                 AwarenessProtocol.TrackClients(payload, _awarenessClients);
-                hub.Broadcast(SyncProtocol.EncodeAwareness(payload), exclude: this); // efímero, a los pares, sin persistir
+                hub.Broadcast(SyncProtocol.EncodeAwareness(payload), exclude: this); // ephemeral, to the peers, not persisted
                 return true;
 
             default:
@@ -203,7 +203,7 @@ internal sealed class WeftConnection
                 await _ws.SendAsync(frame, WebSocketMessageType.Binary, endOfMessage: true, ct).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException) { /* cierre */ }
+        catch (OperationCanceledException) { /* close */ }
         catch (WebSocketException) { _cts.Cancel(); }
     }
 
@@ -233,7 +233,7 @@ internal sealed class WeftConnection
                 acc.Write(rent.AsSpan(0, r.Count));
                 if (acc.WrittenCount > _options.MaxMessageBytes)
                 {
-                    // Frame sobredimensionado (FU-002 parte a): cerrar antes de acumular más.
+                    // Oversized frame (FU-002 part a): close before accumulating more.
                     await CloseAsync(WebSocketCloseStatus.MessageTooBig, "message too large", ct).ConfigureAwait(false); // 1009
                     return (WebSocketMessageType.Close, null);
                 }
@@ -259,8 +259,8 @@ internal sealed class WeftConnection
                 await _ws.CloseAsync(status, description, ct).ConfigureAwait(false);
             }
         }
-        catch (WebSocketException) { /* ya cerrado */ }
-        catch (OperationCanceledException) { /* apagando */ }
+        catch (WebSocketException) { /* already closed */ }
+        catch (OperationCanceledException) { /* shutting down */ }
         finally
         {
             _cts.Cancel();
