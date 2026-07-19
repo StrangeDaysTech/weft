@@ -28,7 +28,8 @@ Weft is an open-source (Apache-2.0) project by [Strange Days Tech](https://stran
   *major*. See the engine bump protocol in
   [`CONTRIBUTING.md`](./CONTRIBUTING.md#engine-bump-protocol-yrs--loro--research-r16).
 - Packages are published to NuGet.org with symbols + SourceLink from the release pipeline
-  (`.github/workflows/release.yml`), after green cross-compile + *pack-smoke* multi-RID.
+  (`.github/workflows/release.yml`), after green cross-compile + *pack-smoke* multi-RID. The
+  maintainer runbook for cutting a release is [`docs/RELEASING.md`](./docs/RELEASING.md).
 - **Supported RIDs** v1: `linux-x64`, `linux-arm64`, `win-x64`, `osx-arm64`. "Supported" = exercised in
   CI (P-VI).
 
